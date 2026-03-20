@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "uvqF4SXU3jM=",
+  "success": true,
+  "projectFilePath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Core\\OrvixFlow.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.0\\microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\npgsql\\8.0.5\\npgsql.8.0.5.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\pgvector\\0.3.2\\pgvector.0.3.2.nupkg.sha512"
+  ],
+  "logs": []
+}
