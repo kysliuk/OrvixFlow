@@ -15,18 +15,22 @@ public class TenantProvider : ITenantProvider
 
     public Guid GetTenantId()
     {
-        var tenantIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("TenantId")?.Value;
-        
-        // For development/testing, fallback to a header if claim is missing, or throw if required.
+        var user = _httpContextAccessor.HttpContext?.User;
+        var tenantIdClaim = user?.FindFirst("TenantId")?.Value;
+        var roleClaim = user?.FindFirst("Role")?.Value;
+
+        // Check if an Admin is trying to impersonate a different tenant
+        if (Roles.IsAdmin(roleClaim))
+        {
+            var impersonateHeader = _httpContextAccessor.HttpContext?.Request.Headers["X-Impersonate-Tenant"].ToString();
+            if (!string.IsNullOrEmpty(impersonateHeader) && Guid.TryParse(impersonateHeader, out var impersonateGuid))
+            {
+                return impersonateGuid; // Admins assume the target tenant's scope
+            }
+        }
+
         if (string.IsNullOrEmpty(tenantIdClaim))
         {
-            var headerTenant = _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-ID"].ToString();
-            if (!string.IsNullOrEmpty(headerTenant) && Guid.TryParse(headerTenant, out var headerGuid))
-            {
-                return headerGuid;
-            }
-            
-            // If strictly required and missing, normally we'd throw an UnauthorizedAccessException.
             throw new UnauthorizedAccessException("Tenant ID is missing from the current request context.");
         }
 

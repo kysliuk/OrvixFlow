@@ -172,3 +172,12 @@ D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\NSwag.Generation.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\NSwag.Generation.AspNetCore.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\YamlDotNet.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\obj\Debug\net9.0\OrvixFlow.Api.sourcelink.json
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\BCrypt.Net-Next.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.Abstractions.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.Logging.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\Microsoft.IdentityModel.Tokens.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\System.IdentityModel.Tokens.Jwt.dll

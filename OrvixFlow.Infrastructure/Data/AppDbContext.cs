@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
     public DbSet<WorkflowLog> WorkflowLogs => Set<WorkflowLog>();
     public DbSet<AuditTrail> AuditTrails => Set<AuditTrail>();
@@ -33,6 +34,16 @@ public class AppDbContext : DbContext
         {
             modelBuilder.HasPostgresExtension("vector");
         }
+
+        // Tenant → User relationship
+        modelBuilder.Entity<Tenant>()
+            .HasMany(t => t.Users)
+            .WithOne(u => u.Tenant)
+            .HasForeignKey(u => u.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Unique constraint on email
+        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
 
         // Global Query Filters for strict Multi-Tenancy
         modelBuilder.Entity<KnowledgeBase>().HasQueryFilter(k => k.TenantId == _tenantProvider.GetTenantId());

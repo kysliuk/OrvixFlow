@@ -1,12 +1,15 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OrvixFlow.Api.Filters;
 using OrvixFlow.Core.Interfaces;
 
 namespace OrvixFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class AgentController : ControllerBase
 {
     private readonly IAgentService _agentService;
@@ -35,6 +38,7 @@ public class AgentController : ControllerBase
     }
 
     [HttpPost("ingest")]
+    [RequireModule("knowledge-base")]
     public async Task<IActionResult> Ingest([FromBody] AgentRequest request)
     {
         await _ingestionService.IngestTextAsync(request.Prompt);

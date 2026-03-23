@@ -6,7 +6,7 @@ using OrvixFlow.Core.Interfaces;
 namespace OrvixFlow.Api.Controllers;
 
 [ApiController]
-[Route("api/inbox")]
+[Route("api/webhook/inbox")]
 public class InboxGuardianController : ControllerBase
 {
     private readonly IInboxGuardianService _inboxGuardianService;

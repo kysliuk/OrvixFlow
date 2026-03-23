@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentService, AgentService>();
         services.AddScoped<IInboxGuardianService, InboxGuardianService>();
         services.AddScoped<IIngestionService, IngestionService>();
+        services.AddScoped<IAuthService, OrvixFlow.Infrastructure.Auth.AuthService>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();
 
