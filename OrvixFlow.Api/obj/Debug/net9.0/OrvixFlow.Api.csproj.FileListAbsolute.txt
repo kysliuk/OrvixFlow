@@ -171,3 +171,4 @@ D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\NSwag.Core.Yaml.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\NSwag.Generation.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\NSwag.Generation.AspNetCore.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Api\bin\Debug\net9.0\YamlDotNet.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Api\obj\Debug\net9.0\OrvixFlow.Api.sourcelink.json

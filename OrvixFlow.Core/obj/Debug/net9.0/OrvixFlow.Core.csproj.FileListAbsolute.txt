@@ -10,3 +10,4 @@ D:\Antigravity\OrvixFlow\OrvixFlow.Core\obj\Debug\net9.0\OrvixFlow.Core.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Core\obj\Debug\net9.0\refint\OrvixFlow.Core.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Core\obj\Debug\net9.0\OrvixFlow.Core.pdb
 D:\Antigravity\OrvixFlow\OrvixFlow.Core\obj\Debug\net9.0\ref\OrvixFlow.Core.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Core\obj\Debug\net9.0\OrvixFlow.Core.sourcelink.json

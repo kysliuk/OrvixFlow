@@ -40,10 +40,34 @@ public static class DependencyInjection
         {
             var apiKey = aiSection["OpenAI:ApiKey"] ?? throw new System.Exception("AI:OpenAI:ApiKey missing");
             var modelId = aiSection["OpenAI:ModelId"] ?? "gpt-4o";
+            var baseUrl = aiSection["OpenAI:BaseUrl"];
 
-            kernelBuilder
-                .AddOpenAIChatCompletion(modelId, apiKey)
-                .AddOpenAITextEmbeddingGeneration("text-embedding-3-small", apiKey);
+            System.Net.Http.HttpClient? customHttpClient = null;
+            if (!string.IsNullOrEmpty(baseUrl))
+            {
+                customHttpClient = new System.Net.Http.HttpClient();
+                customHttpClient.BaseAddress = new System.Uri(baseUrl);
+            }
+
+            if (customHttpClient != null)
+            {
+                kernelBuilder.AddOpenAIChatCompletion(modelId, apiKey, httpClient: customHttpClient);
+                
+                // Groq does not host embedding models. Fallback to mock generation for testing.
+                if (baseUrl?.Contains("groq", System.StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    kernelBuilder.Services.AddSingleton<Microsoft.SemanticKernel.Embeddings.ITextEmbeddingGenerationService, OrvixFlow.Infrastructure.Ai.Mock.MockTextEmbeddingGenerationService>();
+                }
+                else
+                {
+                    kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", apiKey, httpClient: customHttpClient);
+                }
+            }
+            else
+            {
+                kernelBuilder.AddOpenAIChatCompletion(modelId, apiKey);
+                kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", apiKey);
+            }
         }
             
         services.AddHttpClient("n8n", client =>
@@ -53,6 +77,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IAgentService, AgentService>();
+        services.AddScoped<IInboxGuardianService, InboxGuardianService>();
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();

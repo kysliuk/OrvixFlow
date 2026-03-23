@@ -14,3 +14,4 @@ D:\Antigravity\OrvixFlow\OrvixFlow.Infrastructure\obj\Debug\net9.0\OrvixFlow.Inf
 D:\Antigravity\OrvixFlow\OrvixFlow.Infrastructure\obj\Debug\net9.0\refint\OrvixFlow.Infrastructure.dll
 D:\Antigravity\OrvixFlow\OrvixFlow.Infrastructure\obj\Debug\net9.0\OrvixFlow.Infrastructure.pdb
 D:\Antigravity\OrvixFlow\OrvixFlow.Infrastructure\obj\Debug\net9.0\ref\OrvixFlow.Infrastructure.dll
+D:\Antigravity\OrvixFlow\OrvixFlow.Infrastructure\obj\Debug\net9.0\OrvixFlow.Infrastructure.sourcelink.json
