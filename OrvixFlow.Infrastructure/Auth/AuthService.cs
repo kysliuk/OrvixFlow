@@ -28,7 +28,7 @@ public class AuthService : IAuthService
     public async Task<AuthResult> RegisterAsync(string email, string password, string displayName)
     {
         var normalizedEmail = email.ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == normalizedEmail))
             return new AuthResult(false, Error: "An account with this email already exists.");
 
         var tenant = new Tenant
@@ -61,6 +61,7 @@ public class AuthService : IAuthService
     {
         var normalizedEmail = email.ToLowerInvariant();
         var user = await _db.Users
+            .IgnoreQueryFilters()
             .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.OAuthProvider == "local");
 
@@ -79,6 +80,7 @@ public class AuthService : IAuthService
 
         // Idempotent: return existing user if OAuth account already provisioned
         var existing = await _db.Users
+            .IgnoreQueryFilters()
             .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.OAuthProvider == provider && u.ExternalId == externalId);
 
@@ -92,6 +94,7 @@ public class AuthService : IAuthService
 
         // Check if email already exists under a different provider – link accounts
         var byEmail = await _db.Users
+            .IgnoreQueryFilters()
             .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
 
@@ -206,7 +209,9 @@ public class AuthService : IAuthService
 
     private async Task EnsureOwnerMembershipAsync(Guid userId, Guid companyId)
     {
-        var exists = await _db.UserCompanyMemberships.AnyAsync(m => m.UserId == userId && m.CompanyId == companyId);
+        var exists = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId);
         if (exists)
         {
             return;
@@ -222,7 +227,9 @@ public class AuthService : IAuthService
             JoinedAt = DateTime.UtcNow
         });
 
-        var defaultDepartment = await _db.Departments.FirstOrDefaultAsync(d => d.CompanyId == companyId && d.Code == "general");
+        var defaultDepartment = await _db.Departments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.CompanyId == companyId && d.Code == "general");
         if (defaultDepartment == null)
         {
             defaultDepartment = new Department

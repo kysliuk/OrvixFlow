@@ -73,7 +73,8 @@ public static class DependencyInjection
             
         services.AddHttpClient("n8n", client =>
         {
-            client.BaseAddress = new System.Uri("http://localhost:5678");
+            var n8nUrl = configuration["Automation:N8nBaseUrl"] ?? "http://localhost:5678";
+            client.BaseAddress = new System.Uri(n8nUrl);
             client.DefaultRequestHeaders.Add("X-Automation-Key", configuration.GetValue<string>("AutomationKey"));
         });
 

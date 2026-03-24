@@ -1,4 +1,4 @@
-const apiUrl = "http://localhost:5100";
+const apiUrl = "http://localhost:8080";
 
 async function test() {
   try {
@@ -13,11 +13,18 @@ async function test() {
       })
     });
     
-    const data = await res.json();
-    console.log("OAuth Token generated:", data.token ? "Success" : "Failed");
-    if (!res.ok) {
-       console.log("Error response:", data);
+    const rawText = await res.text();
+    console.log("Raw Response Body:", rawText);
+    
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      console.error("Failed to parse JSON:", rawText);
+      return;
     }
+    
+    console.log("OAuth Token generated:", data.token ? "Success" : "Failed");
     
     console.log("Testing /api/agent/ingest endpoint...");
     const ingest = await fetch(`${apiUrl}/api/agent/ingest`, {

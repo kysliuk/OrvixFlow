@@ -32,7 +32,7 @@ public class TenantProvider : ITenantProvider
 
         if (string.IsNullOrEmpty(tenantIdClaim))
         {
-            throw new UnauthorizedAccessException("Tenant ID is missing from the current request context.");
+            return Guid.Empty;
         }
 
         if (Guid.TryParse(tenantIdClaim, out var tenantGuid))
@@ -40,6 +40,6 @@ public class TenantProvider : ITenantProvider
             return tenantGuid;
         }
 
-        throw new UnauthorizedAccessException("Invalid Tenant ID format in the current request context.");
+        return Guid.Empty;
     }
 }
