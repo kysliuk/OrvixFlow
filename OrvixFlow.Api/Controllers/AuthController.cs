@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using OrvixFlow.Core.Interfaces;
+using System;
 
 namespace OrvixFlow.Api.Controllers;
 
@@ -56,13 +57,33 @@ public class AuthController : ControllerBase
                   ?? user.FindFirst("sub")?.Value,
             email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
             tenantId = user.FindFirst("TenantId")?.Value,
+            activeCompanyId = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value,
             plan = user.FindFirst("Plan")?.Value,
             role = user.FindFirst("Role")?.Value,
             displayName = user.FindFirst("DisplayName")?.Value
         });
+    }
+
+    [HttpPost("switch-company")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> SwitchCompany([FromBody] SwitchCompanyRequest req)
+    {
+        var user = HttpContext.User;
+        var userIdValue = user.FindFirst("sub")?.Value
+            ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdValue, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid user context." });
+        }
+
+        var result = await _authService.SwitchCompanyAsync(userId, req.CompanyId);
+        return result.IsSuccess
+            ? Ok(new { token = result.Token, profile = result.Profile })
+            : Unauthorized(new { error = result.Error });
     }
 }
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
 public record OAuthProvisionRequest(string Email, string DisplayName, string Provider, string ExternalId);
+public record SwitchCompanyRequest(Guid CompanyId);

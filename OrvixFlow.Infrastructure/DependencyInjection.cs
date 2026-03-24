@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
+using OrvixFlow.Infrastructure.Auth;
 using OrvixFlow.Infrastructure.Data;
 
 namespace OrvixFlow.Infrastructure;
@@ -80,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IInboxGuardianService, InboxGuardianService>();
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<IAuthService, OrvixFlow.Infrastructure.Auth.AuthService>();
+        services.AddScoped<IAccessResolver, AccessResolver>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();
 

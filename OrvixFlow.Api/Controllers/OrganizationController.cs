@@ -1,0 +1,144 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Infrastructure.Data;
+
+namespace OrvixFlow.Api.Controllers;
+
+[ApiController]
+[Route("api/org")]
+[Authorize]
+public class OrganizationController : ControllerBase
+{
+    private readonly AppDbContext _db;
+
+    public OrganizationController(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    [HttpGet("companies")]
+    public async Task<IActionResult> GetCompanies()
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        var companies = await _db.UserCompanyMemberships
+            .Where(m => m.UserId == userId.Value && m.Status == "Active")
+            .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new
+            {
+                companyId = c.Id,
+                companyName = c.Name,
+                role = m.CompanyRole,
+                plan = c.Plan
+            })
+            .ToListAsync();
+
+        return Ok(companies);
+    }
+
+    [HttpGet("departments")]
+    public async Task<IActionResult> GetDepartments()
+    {
+        var userId = ParseGuid("sub");
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (userId == null || companyId == null) return Unauthorized();
+
+        var departments = await _db.UserDepartmentMemberships
+            .Where(m => m.UserId == userId.Value && m.CompanyId == companyId.Value && m.Status == "Active")
+            .Join(_db.Departments, m => m.DepartmentId, d => d.Id, (m, d) => new
+            {
+                departmentId = d.Id,
+                name = d.Name,
+                code = d.Code,
+                role = m.DepartmentRole
+            })
+            .ToListAsync();
+
+        return Ok(departments);
+    }
+
+    [HttpPost("invite")]
+    public async Task<IActionResult> Invite([FromBody] InviteUserRequest req)
+    {
+        var inviterRole = User.FindFirst("Role")?.Value;
+        if (!Roles.IsAdmin(inviterRole))
+        {
+            return Forbid();
+        }
+
+        var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == req.CompanyId);
+        if (company == null)
+        {
+            return NotFound(new { error = "Company not found." });
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant());
+        if (user == null)
+        {
+            user = new Core.Entities.User
+            {
+                Email = req.Email.ToLowerInvariant(),
+                DisplayName = req.DisplayName,
+                OAuthProvider = "invited",
+                Role = req.CompanyRole,
+                TenantId = req.CompanyId
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        var existing = await _db.UserCompanyMemberships
+            .AnyAsync(m => m.UserId == user.Id && m.CompanyId == req.CompanyId);
+        if (!existing)
+        {
+            _db.UserCompanyMemberships.Add(new Core.Entities.UserCompanyMembership
+            {
+                UserId = user.Id,
+                CompanyId = req.CompanyId,
+                CompanyRole = req.CompanyRole,
+                Status = "Invited",
+                InvitedAt = DateTime.UtcNow,
+                InvitedByUserId = ParseGuid("sub")
+            });
+        }
+
+        foreach (var departmentId in req.DepartmentIds.Distinct())
+        {
+            var depExists = await _db.UserDepartmentMemberships.AnyAsync(m =>
+                m.UserId == user.Id && m.CompanyId == req.CompanyId && m.DepartmentId == departmentId);
+            if (!depExists)
+            {
+                _db.UserDepartmentMemberships.Add(new Core.Entities.UserDepartmentMembership
+                {
+                    UserId = user.Id,
+                    CompanyId = req.CompanyId,
+                    DepartmentId = departmentId,
+                    DepartmentRole = req.DepartmentRole,
+                    Status = "Invited"
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { invitedUserId = user.Id });
+    }
+
+    private Guid? ParseGuid(string claimType)
+    {
+        var value = User.FindFirst(claimType)?.Value;
+        return Guid.TryParse(value, out var parsed) ? parsed : null;
+    }
+}
+
+public record InviteUserRequest(
+    Guid CompanyId,
+    string Email,
+    string DisplayName,
+    string CompanyRole,
+    string DepartmentRole,
+    Guid[] DepartmentIds
+);

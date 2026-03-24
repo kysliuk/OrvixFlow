@@ -2,10 +2,22 @@
 
 import { useSession } from "next-auth/react";
 import { CheckCircle2, Zap, Rocket, Building2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function BillingPage() {
   const { data: session } = useSession();
   const currentPlan = session?.user?.plan || "Free";
+  const [usageSummary, setUsageSummary] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!session?.apiToken) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/billing/summary`, {
+      headers: { Authorization: `Bearer ${session.apiToken}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setUsageSummary(Array.isArray(data) ? data : []))
+      .catch(() => setUsageSummary([]));
+  }, [session]);
 
   const plans = [
     {
@@ -103,6 +115,22 @@ export default function BillingPage() {
             </div>
           )
         })}
+      </div>
+
+      <div className="bg-surface border border-white/10 rounded-xl p-5">
+        <h2 className="text-lg font-semibold mb-3">Metered Usage (Last 30 days)</h2>
+        {usageSummary.length === 0 ? (
+          <p className="text-sm text-muted">No usage records yet or billing visibility is restricted for your role.</p>
+        ) : (
+          <div className="space-y-2">
+            {usageSummary.map((item, idx) => (
+              <div key={`${item.moduleKey}-${item.metricType}-${idx}`} className="flex items-center justify-between text-sm border border-white/5 rounded-lg p-3">
+                <span>{item.moduleKey} / {item.metricType}</span>
+                <span className="font-medium">{item.quantity}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       
     </div>

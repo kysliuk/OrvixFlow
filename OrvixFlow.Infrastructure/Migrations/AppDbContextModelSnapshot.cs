@@ -49,6 +49,73 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.ToTable("AuditTrails");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.BillingSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CurrentPlan")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeCustomerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeSubscriptionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("BillingSubscriptions");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Departments");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBase", b =>
                 {
                     b.Property<Guid>("Id")
@@ -72,6 +139,227 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("KnowledgeBases");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ModuleDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ModuleDefinitionId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CompanyId", "ModuleDefinitionId", "DepartmentId", "UserId", "Scope");
+
+                    b.ToTable("ModuleAssignments");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOperational")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("ModuleDefinitions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(135),
+                            DisplayName = "Doc-Intel",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "doc-intel",
+                            Tier = "Utility",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6617),
+                            DisplayName = "Finance-Flow",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "finance-flow",
+                            Tier = "Utility",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6632),
+                            DisplayName = "Inbox-Guardian",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "inbox-guardian",
+                            Tier = "Utility",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6662),
+                            DisplayName = "Lead-Qualifier",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "lead-qualifier",
+                            Tier = "Industry",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6670),
+                            DisplayName = "Legal-Scribe",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "legal-scribe",
+                            Tier = "Industry",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6790),
+                            DisplayName = "Data-Guardian",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "data-guardian",
+                            Tier = "Industry",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6797),
+                            DisplayName = "SOP-Generator",
+                            IsActive = true,
+                            IsOperational = false,
+                            Key = "sop-generator",
+                            Tier = "Industry",
+                            Visibility = "UserFacing"
+                        },
+                        new
+                        {
+                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6803),
+                            DisplayName = "Metered-Billing",
+                            IsActive = true,
+                            IsOperational = true,
+                            Key = "metered-billing",
+                            Tier = "Shadow",
+                            Visibility = "Restricted"
+                        },
+                        new
+                        {
+                            Id = new Guid("99999999-9999-9999-9999-999999999999"),
+                            CreatedAt = new DateTime(2026, 3, 24, 7, 36, 34, 574, DateTimeKind.Utc).AddTicks(6808),
+                            DisplayName = "Audit-Log",
+                            IsActive = true,
+                            IsOperational = true,
+                            Key = "audit-log",
+                            Tier = "Shadow",
+                            Visibility = "Restricted"
+                        });
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModulePermissionGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CanConfigure")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManageIntegrations")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanManagePrompts")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanTest")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanUse")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanViewLogs")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ModuleAssignmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleAssignmentId");
+
+                    b.ToTable("ModulePermissionGrants");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.Tenant", b =>
@@ -102,6 +390,42 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Tenants");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UsageEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MetricType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ModuleKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "MetricType", "OccurredAt");
+
+                    b.ToTable("UsageEvents");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.User", b =>
@@ -148,6 +472,88 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UserCompanyMembership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CompanyRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("InvitedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("InvitedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("UserId", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("UserCompanyMemberships");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UserDepartmentMembership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DepartmentRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("UserCompanyMembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("UserCompanyMembershipId");
+
+                    b.HasIndex("UserId", "CompanyId", "DepartmentId")
+                        .IsUnique();
+
+                    b.ToTable("UserDepartmentMemberships");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.WorkflowLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -175,6 +581,61 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.ToTable("WorkflowLogs");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.Department", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
+                        .WithMany("Departments")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
+                        .WithMany("ModuleAssignments")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.Department", "Department")
+                        .WithMany("ModuleAssignments")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("OrvixFlow.Core.Entities.ModuleDefinition", "ModuleDefinition")
+                        .WithMany("Assignments")
+                        .HasForeignKey("ModuleDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.User", "User")
+                        .WithMany("ModuleAssignments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("ModuleDefinition");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModulePermissionGrant", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.ModuleAssignment", "ModuleAssignment")
+                        .WithMany("PermissionGrants")
+                        .HasForeignKey("ModuleAssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ModuleAssignment");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.User", b =>
                 {
                     b.HasOne("OrvixFlow.Core.Entities.Tenant", "Tenant")
@@ -186,9 +647,98 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UserCompanyMembership", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
+                        .WithMany("UserMemberships")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.User", "User")
+                        .WithMany("CompanyMemberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UserDepartmentMembership", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
+                        .WithMany("UserDepartmentMemberships")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.Department", "Department")
+                        .WithMany("UserMemberships")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.UserCompanyMembership", null)
+                        .WithMany("DepartmentMemberships")
+                        .HasForeignKey("UserCompanyMembershipId");
+
+                    b.HasOne("OrvixFlow.Core.Entities.User", "User")
+                        .WithMany("DepartmentMemberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.Department", b =>
+                {
+                    b.Navigation("ModuleAssignments");
+
+                    b.Navigation("UserMemberships");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>
+                {
+                    b.Navigation("PermissionGrants");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleDefinition", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.Tenant", b =>
                 {
+                    b.Navigation("Departments");
+
+                    b.Navigation("ModuleAssignments");
+
+                    b.Navigation("UserDepartmentMemberships");
+
+                    b.Navigation("UserMemberships");
+
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.User", b =>
+                {
+                    b.Navigation("CompanyMemberships");
+
+                    b.Navigation("DepartmentMemberships");
+
+                    b.Navigation("ModuleAssignments");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.UserCompanyMembership", b =>
+                {
+                    b.Navigation("DepartmentMemberships");
                 });
 #pragma warning restore 612, 618
         }

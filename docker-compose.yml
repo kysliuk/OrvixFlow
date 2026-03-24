@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   orvix-db:
     image: ankane/pgvector:latest
@@ -31,6 +29,44 @@ services:
     restart: unless-stopped
     depends_on:
       - orvix-db
+  orvix-api:
+    build:
+      context: .
+      dockerfile: OrvixFlow.Api/Dockerfile
+    container_name: orvix_api
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=orvix-db;Database=orvixflow;Username=orvix_admin;Password=orvix_password_dev
+      Frontend__BaseUrl: http://localhost:3000
+      AutomationKey: super-secret-n8n-dev-key
+      Jwt__Secret: dev-super-secret-jwt-key-32-chars-minimum-length-required-here!
+      Jwt__Issuer: orvixflow
+      Jwt__Audience: orvixflow-web
+      AI__Provider: Mock
+    depends_on:
+      - orvix-db
+      - n8n
+    restart: unless-stopped
+
+  orvix-web:
+    build:
+      context: ./orvixflow-web
+      dockerfile: Dockerfile
+    container_name: orvix_web
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: dev-nextauth-secret-change-me
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      INTERNAL_API_URL: http://orvix-api:8080
+    depends_on:
+      - orvix-api
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -49,9 +50,11 @@ public class AuthService : IAuthService
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
+        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
 
-        var token = MintJwt(user, tenant);
-        return new AuthResult(true, Token: token, Profile: BuildProfile(user, tenant));
+        var token = await MintJwtAsync(user, tenant.Id);
+        var profile = await BuildProfileAsync(user, tenant.Id);
+        return new AuthResult(true, Token: token, Profile: profile);
     }
 
     public async Task<AuthResult> LoginAsync(string email, string password)
@@ -64,8 +67,10 @@ public class AuthService : IAuthService
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             return new AuthResult(false, Error: "Invalid email or password.");
 
-        var token = MintJwt(user, user.Tenant!);
-        return new AuthResult(true, Token: token, Profile: BuildProfile(user, user.Tenant!));
+        var activeCompanyId = user.TenantId;
+        var token = await MintJwtAsync(user, activeCompanyId);
+        var profile = await BuildProfileAsync(user, activeCompanyId);
+        return new AuthResult(true, Token: token, Profile: profile);
     }
 
     public async Task<AuthResult> ProvisionOAuthUserAsync(string email, string displayName, string provider, string externalId)
@@ -79,8 +84,10 @@ public class AuthService : IAuthService
 
         if (existing != null)
         {
-            var existingToken = MintJwt(existing, existing.Tenant!);
-            return new AuthResult(true, Token: existingToken, Profile: BuildProfile(existing, existing.Tenant!));
+            await EnsureOwnerMembershipAsync(existing.Id, existing.TenantId);
+            var existingToken = await MintJwtAsync(existing, existing.TenantId);
+            var existingProfile = await BuildProfileAsync(existing, existing.TenantId);
+            return new AuthResult(true, Token: existingToken, Profile: existingProfile);
         }
 
         // Check if email already exists under a different provider – link accounts
@@ -94,8 +101,10 @@ public class AuthService : IAuthService
             byEmail.OAuthProvider = provider;
             byEmail.ExternalId = externalId;
             await _db.SaveChangesAsync();
-            var linkedToken = MintJwt(byEmail, byEmail.Tenant!);
-            return new AuthResult(true, Token: linkedToken, Profile: BuildProfile(byEmail, byEmail.Tenant!));
+            await EnsureOwnerMembershipAsync(byEmail.Id, byEmail.TenantId);
+            var linkedToken = await MintJwtAsync(byEmail, byEmail.TenantId);
+            var linkedProfile = await BuildProfileAsync(byEmail, byEmail.TenantId);
+            return new AuthResult(true, Token: linkedToken, Profile: linkedProfile);
         }
 
         // Brand new user — auto-provision tenant
@@ -113,24 +122,53 @@ public class AuthService : IAuthService
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
+        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
 
-        var token = MintJwt(user, tenant);
-        return new AuthResult(true, Token: token, Profile: BuildProfile(user, tenant));
+        var token = await MintJwtAsync(user, tenant.Id);
+        var profile = await BuildProfileAsync(user, tenant.Id);
+        return new AuthResult(true, Token: token, Profile: profile);
     }
 
-    private string MintJwt(User user, Tenant tenant)
+    public async Task<AuthResult> SwitchCompanyAsync(Guid userId, Guid companyId)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            return new AuthResult(false, Error: "User not found.");
+        }
+
+        var membership = await _db.UserCompanyMemberships
+            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active");
+        if (!membership)
+        {
+            return new AuthResult(false, Error: "You do not belong to this company.");
+        }
+
+        var token = await MintJwtAsync(user, companyId);
+        var profile = await BuildProfileAsync(user, companyId);
+        return new AuthResult(true, Token: token, Profile: profile);
+    }
+
+    private async Task<string> MintJwtAsync(User user, Guid activeCompanyId)
     {
         var secret = _config["Jwt:Secret"] ?? throw new Exception("Jwt:Secret is not configured.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
+        var companyRole = await _db.UserCompanyMemberships
+            .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
+            .Select(m => m.CompanyRole)
+            .FirstOrDefaultAsync() ?? user.Role;
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            new("TenantId", user.TenantId.ToString()),
-            new("Plan", tenant.Plan),
-            new("Role", user.Role),
+            // Keep TenantId for compatibility while introducing ActiveCompanyId.
+            new("TenantId", activeCompanyId.ToString()),
+            new("ActiveCompanyId", activeCompanyId.ToString()),
+            new("Plan", company.Plan),
+            new("Role", companyRole),
             new("DisplayName", user.DisplayName)
         };
 
@@ -145,6 +183,73 @@ public class AuthService : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static UserProfile BuildProfile(User user, Tenant tenant) =>
-        new(user.Id, user.TenantId, user.Email, user.DisplayName, user.Role, tenant.Plan);
+    private async Task<UserProfile> BuildProfileAsync(User user, Guid activeCompanyId)
+    {
+        var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
+        var memberships = await _db.UserCompanyMemberships
+            .Where(m => m.UserId == user.Id && m.Status == "Active")
+            .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new CompanyMembershipSummary(c.Id, c.Name, m.CompanyRole))
+            .ToListAsync();
+        var activeRole = memberships.FirstOrDefault(m => m.CompanyId == activeCompanyId)?.Role ?? user.Role;
+
+        return new UserProfile(
+            user.Id,
+            activeCompanyId,
+            activeCompanyId,
+            user.Email,
+            user.DisplayName,
+            activeRole,
+            company.Plan,
+            memberships
+        );
+    }
+
+    private async Task EnsureOwnerMembershipAsync(Guid userId, Guid companyId)
+    {
+        var exists = await _db.UserCompanyMemberships.AnyAsync(m => m.UserId == userId && m.CompanyId == companyId);
+        if (exists)
+        {
+            return;
+        }
+
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = companyId,
+            CompanyRole = "Owner",
+            Status = "Active",
+            InvitedAt = DateTime.UtcNow,
+            JoinedAt = DateTime.UtcNow
+        });
+
+        var defaultDepartment = await _db.Departments.FirstOrDefaultAsync(d => d.CompanyId == companyId && d.Code == "general");
+        if (defaultDepartment == null)
+        {
+            defaultDepartment = new Department
+            {
+                CompanyId = companyId,
+                Name = "General",
+                Code = "general",
+                IsActive = true
+            };
+            _db.Departments.Add(defaultDepartment);
+            await _db.SaveChangesAsync();
+        }
+
+        var departmentMembershipExists = await _db.UserDepartmentMemberships
+            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId && m.DepartmentId == defaultDepartment.Id);
+        if (!departmentMembershipExists)
+        {
+            _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+            {
+                UserId = userId,
+                CompanyId = companyId,
+                DepartmentId = defaultDepartment.Id,
+                DepartmentRole = "Manager",
+                Status = "Active"
+            });
+        }
+
+        await _db.SaveChangesAsync();
+    }
 }

@@ -1,4 +1,4 @@
-import NextAuth, { type DefaultSession } from "next-auth"
+import { type DefaultSession } from "next-auth"
 
 declare module "next-auth" {
   /**
@@ -8,15 +8,19 @@ declare module "next-auth" {
     apiToken: string
     user: {
       tenantId: string
+      activeCompanyId: string
       plan: string
       role: string
+      companies?: { companyId: string; companyName: string; role: string }[]
     } & DefaultSession["user"]
   }
 
   interface User {
     apiToken?: string
     tenantId?: string
+    activeCompanyId?: string
     plan?: string
     role?: string
+    companies?: { companyId: string; companyName: string; role: string }[]
   }
 }

@@ -1,6 +1,7 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using OrvixFlow.Core.Interfaces;
 
 namespace OrvixFlow.Api.Filters;
 
@@ -24,18 +25,40 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
             return;
         }
 
-        var planClaim = user.FindFirst("Plan")?.Value ?? "Free";
         var roleClaim = user.FindFirst("Role")?.Value;
+        var userIdClaim = user.FindFirst("sub")?.Value;
+        var companyIdClaim = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value;
 
         // God mode: admins bypass all subscription gates
         if (Roles.IsAdmin(roleClaim)) return;
 
-        if (!HasAccessToModule(planClaim, _requiredModule))
+        if (!Guid.TryParse(userIdClaim, out var userId) || !Guid.TryParse(companyIdClaim, out var companyId))
+        {
+            context.Result = new UnauthorizedResult();
+            return;
+        }
+
+        var resolver = context.HttpContext.RequestServices.GetService(typeof(IAccessResolver)) as IAccessResolver;
+        if (resolver == null)
+        {
+            context.Result = new StatusCodeResult(500);
+            return;
+        }
+
+        var permissions = resolver.GetEffectivePermissionsAsync(userId, companyId, _requiredModule).GetAwaiter().GetResult();
+        if (!permissions.CanView)
+        {
+            // Hidden by default: do not reveal module existence.
+            context.Result = new NotFoundResult();
+            return;
+        }
+
+        if (!permissions.CanUse)
         {
             context.Result = new ObjectResult(new 
             { 
-                error = "Subscription Upgrade Required", 
-                message = $"The '{_requiredModule}' module requires a higher subscription tier."
+                error = "Access Denied",
+                message = $"The '{_requiredModule}' module is not executable in your current scope."
             })
             {
                 StatusCode = 403
@@ -44,28 +67,4 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
         }
     }
 
-    private bool HasAccessToModule(string plan, string moduleKey)
-    {
-        // Simple hierarchy for MVP: plan values represent access levels
-        int planLevel = plan switch
-        {
-            "Free" => 0,
-            "Starter" => 1,
-            "Pro" => 2,
-            "Enterprise" => 3,
-            _ => 0
-        };
-
-        // Define which level is required for which module
-        int requiredLevel = moduleKey.ToLower() switch
-        {
-            "knowledge-base" => 0,   // Included in Free
-            "inbox-guardian" => 1,   // Requires Starter+
-            "n8n-automations" => 2,  // Requires Pro+
-            "custom-models" => 3,    // Requires Enterprise
-            _ => 3 // Default strict
-        };
-
-        return planLevel >= requiredLevel;
-    }
 }
