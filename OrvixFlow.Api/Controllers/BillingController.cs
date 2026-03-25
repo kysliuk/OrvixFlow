@@ -49,6 +49,40 @@ public class BillingController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("usage")]
+    public async Task<IActionResult> GetUsage()
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null) return Unauthorized();
+
+        var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == companyId);
+        if (company == null) return NotFound(new { error = "Company not found." });
+
+        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        
+        var used = await _db.UsageEvents
+            .Where(e => e.CompanyId == companyId.Value && e.OccurredAt >= startOfMonth)
+            .SumAsync(e => (decimal?)e.Quantity) ?? 0m;
+
+        int limit = company.Plan?.ToLowerInvariant() switch
+        {
+            "free" => 50000,
+            "pro" => 1000000,
+            "enterprise" => 10000000,
+            _ => 10000
+        };
+
+        var renewalDate = startOfMonth.AddMonths(1);
+
+        return Ok(new
+        {
+            used = used,
+            limit = limit,
+            plan = company.Plan ?? "Free",
+            renewalDate = renewalDate
+        });
+    }
+
     [HttpGet("summary")]
     public async Task<IActionResult> Summary([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
     {

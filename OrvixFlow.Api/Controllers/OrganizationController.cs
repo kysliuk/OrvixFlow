@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Infrastructure.Data;
+using OrvixFlow.Core.Authorization;
 
 namespace OrvixFlow.Api.Controllers;
 
@@ -64,7 +65,7 @@ public class OrganizationController : ControllerBase
     [HttpPost("departments")]
     public async Task<IActionResult> CreateDepartment([FromBody] CreateDepartmentDto dto)
     {
-        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
         if (!role.IsCompanyAdminOrAbove()) return Forbid();
 
         var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
@@ -74,7 +75,7 @@ public class OrganizationController : ControllerBase
         {
             Name = dto.Name,
             Code = dto.Code,
-            TenantId = companyId.Value
+            CompanyId = companyId.Value
         };
 
         _db.Departments.Add(department);
@@ -86,13 +87,13 @@ public class OrganizationController : ControllerBase
     [HttpPut("departments/{id}")]
     public async Task<IActionResult> UpdateDepartment(Guid id, [FromBody] CreateDepartmentDto dto)
     {
-        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
         if (!role.IsCompanyAdminOrAbove()) return Forbid();
 
         var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
         if (companyId == null) return Unauthorized();
 
-        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == companyId.Value);
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId.Value);
         if (department == null) return NotFound(new { error = "Department not found." });
 
         department.Name = dto.Name;
@@ -105,13 +106,13 @@ public class OrganizationController : ControllerBase
     [HttpDelete("departments/{id}")]
     public async Task<IActionResult> DeleteDepartment(Guid id)
     {
-        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
         if (!role.IsCompanyAdminOrAbove()) return Forbid();
 
         var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
         if (companyId == null) return Unauthorized();
 
-        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == companyId.Value);
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId.Value);
         if (department == null) return NotFound(new { error = "Department not found." });
 
         _db.Departments.Remove(department);

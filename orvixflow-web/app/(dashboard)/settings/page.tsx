@@ -1,9 +1,11 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { User, Shield, Key, Building, BellRing, Users } from "lucide-react";
+import { User, Shield, Key, Building, BellRing, Users, Network } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TeamTab } from "../../../components/settings/TeamTab";
+import { DepartmentsTab } from "../../../components/settings/DepartmentsTab";
+import { AuditLogTab } from "../../../components/settings/AuditLogTab";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -44,6 +46,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "organization", label: "Organization", icon: Building },
+    { id: "departments", label: "Departments", icon: Network },
     { id: "security", label: "Security", icon: Shield },
     { id: "api-keys", label: "API Keys", icon: Key },
     { id: "team", label: "Team & Roles", icon: Users },
@@ -200,9 +203,11 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "team" && <TeamTab />}
+          {activeTab === "departments" && <DepartmentsTab />}
+          {activeTab === "security" && <AuditLogTab />}
 
           {/* Placeholder for other tabs using skeletons */}
-          {activeTab !== "profile" && activeTab !== "api-keys" && activeTab !== "organization" && activeTab !== "team" && (
+          {activeTab !== "profile" && activeTab !== "api-keys" && activeTab !== "organization" && activeTab !== "team" && activeTab !== "departments" && activeTab !== "security" && (
             <div className="animate-in fade-in duration-300">
               <div className="h-6 w-48 bg-white/5 rounded animate-pulse mb-6" />
               <div className="flex flex-col gap-4">
