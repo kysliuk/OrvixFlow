@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "nDWMipvbJJg=",
+  "dgSpecHash": "cGFImqt0Rf4=",
   "success": true,
-  "projectFilePath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
+  "projectFilePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\dkysl\\.nuget\\packages\\anyof\\0.5.0.1\\anyof.0.5.0.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\azure.ai.openai\\2.8.0-beta.1\\azure.ai.openai.2.8.0-beta.1.nupkg.sha512",
@@ -10,6 +10,7 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\castle.core\\5.1.1\\castle.core.5.1.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\coverlet.collector\\6.0.2\\coverlet.collector.6.0.2.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\dapper\\2.0.123\\dapper.2.0.123.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\fare\\2.2.1\\fare.2.2.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\fluentassertions\\8.9.0\\fluentassertions.8.9.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\graphql\\8.5.0\\graphql.8.5.0.nupkg.sha512",
@@ -25,6 +26,10 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\handlebars.net.helpers.xeger\\2.5.2\\handlebars.net.helpers.xeger.2.5.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\handlebars.net.helpers.xpath\\2.5.2\\handlebars.net.helpers.xpath.2.5.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\handlebars.net.helpers.xslt\\2.5.2\\handlebars.net.helpers.xslt.2.5.2.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.aspnetcore\\1.8.23\\hangfire.aspnetcore.1.8.23.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.core\\1.8.23\\hangfire.core.1.8.23.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.netcore\\1.8.23\\hangfire.netcore.1.8.23.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.postgresql\\1.9.2\\hangfire.postgresql.1.9.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\humanizer\\2.14.1\\humanizer.2.14.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\humanizer.core.af\\2.14.1\\humanizer.core.af.2.14.1.nupkg.sha512",
@@ -93,6 +98,7 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.codeanalysis.common\\4.8.0\\microsoft.codeanalysis.common.4.8.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.codeanalysis.csharp\\4.8.0\\microsoft.codeanalysis.csharp.4.8.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.codecoverage\\17.12.0\\microsoft.codecoverage.17.12.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.csharp\\4.7.0\\microsoft.csharp.4.7.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore\\9.0.0\\microsoft.entityframeworkcore.9.0.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\9.0.0\\microsoft.entityframeworkcore.abstractions.9.0.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\9.0.0\\microsoft.entityframeworkcore.analyzers.9.0.0.nupkg.sha512",
@@ -231,7 +237,23 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\xunit.extensibility.core\\2.9.2\\xunit.extensibility.core.2.9.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\xunit.extensibility.execution\\2.9.2\\xunit.extensibility.execution.2.9.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\xunit.runner.visualstudio\\2.8.2\\xunit.runner.visualstudio.2.8.2.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512"
+    "C:\\Users\\dkysl\\.nuget\\packages\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.12\\microsoft.netcore.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.12\\microsoft.windowsdesktop.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.12\\microsoft.aspnetcore.app.ref.9.0.12.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1603",
+      "level": "Warning",
+      "message": "OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.",
+      "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
+      "warningLevel": 1,
+      "filePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
+      "libraryId": "Hangfire.PostgreSql",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    }
+  ]
 }

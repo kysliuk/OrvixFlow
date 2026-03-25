@@ -19,6 +19,10 @@ public class AppDbContext : DbContext
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
     public DbSet<WorkflowLog> WorkflowLogs => Set<WorkflowLog>();
     public DbSet<AuditTrail> AuditTrails => Set<AuditTrail>();
+    
+    public DbSet<InboxEvent> InboxEvents => Set<InboxEvent>();
+    public DbSet<WorkflowPolicy> WorkflowPolicies => Set<WorkflowPolicy>();
+    public DbSet<ActionRequest> ActionRequests => Set<ActionRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -49,5 +53,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<KnowledgeBase>().HasQueryFilter(k => k.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<WorkflowLog>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<AuditTrail>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
+        
+        modelBuilder.Entity<InboxEvent>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<WorkflowPolicy>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<ActionRequest>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
     }
 }

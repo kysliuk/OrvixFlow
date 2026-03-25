@@ -1,14 +1,18 @@
 {
   "version": 2,
-  "dgSpecHash": "aCi9me9iTzU=",
+  "dgSpecHash": "KDpfeMB+Ad4=",
   "success": true,
-  "projectFilePath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj",
+  "projectFilePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\dkysl\\.nuget\\packages\\azure.ai.openai\\2.8.0-beta.1\\azure.ai.openai.2.8.0-beta.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\azure.core\\1.50.0\\azure.core.1.50.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\dapper\\2.0.123\\dapper.2.0.123.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.core\\1.8.23\\hangfire.core.1.8.23.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\hangfire.postgresql\\1.9.2\\hangfire.postgresql.1.9.2.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\8.0.0\\microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.bcl.hashcode\\1.1.1\\microsoft.bcl.hashcode.1.1.1.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.csharp\\4.7.0\\microsoft.csharp.4.7.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore\\9.0.0\\microsoft.entityframeworkcore.9.0.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\9.0.0\\microsoft.entityframeworkcore.abstractions.9.0.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\9.0.0\\microsoft.entityframeworkcore.analyzers.9.0.0.nupkg.sha512",
@@ -41,6 +45,7 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.semantickernel.connectors.azureopenai\\1.73.0\\microsoft.semantickernel.connectors.azureopenai.1.73.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.semantickernel.connectors.openai\\1.73.0\\microsoft.semantickernel.connectors.openai.1.73.0.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.semantickernel.core\\1.73.0\\microsoft.semantickernel.core.1.73.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\newtonsoft.json\\11.0.1\\newtonsoft.json.11.0.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\npgsql\\9.0.1\\npgsql.9.0.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\9.0.1\\npgsql.entityframeworkcore.postgresql.9.0.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\openai\\2.8.0\\openai.2.8.0.nupkg.sha512",
@@ -56,7 +61,23 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\system.numerics.tensors\\10.0.3\\system.numerics.tensors.10.0.3.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\system.text.encodings.web\\10.0.3\\system.text.encodings.web.10.0.3.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\system.text.json\\10.0.3\\system.text.json.10.0.3.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\system.threading.channels\\10.0.3\\system.threading.channels.10.0.3.nupkg.sha512"
+    "C:\\Users\\dkysl\\.nuget\\packages\\system.threading.channels\\10.0.3\\system.threading.channels.10.0.3.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.12\\microsoft.netcore.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.12\\microsoft.windowsdesktop.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.12\\microsoft.aspnetcore.app.ref.9.0.12.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1603",
+      "level": "Warning",
+      "message": "OrvixFlow.Infrastructure depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.",
+      "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj",
+      "warningLevel": 1,
+      "filePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj",
+      "libraryId": "Hangfire.PostgreSql",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    }
+  ]
 }

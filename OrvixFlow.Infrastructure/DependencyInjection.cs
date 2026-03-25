@@ -1,3 +1,4 @@
+using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,6 +6,7 @@ using Microsoft.SemanticKernel;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
 using OrvixFlow.Infrastructure.Data;
+using OrvixFlow.Infrastructure.Services;
 
 namespace OrvixFlow.Infrastructure;
 
@@ -12,13 +14,17 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // Data
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
                                ?? "Host=localhost;Database=orvixflow;Username=postgres;Password=postgres";
+        
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString, o => o.UseVector()));
 
-        // AI
+        services.AddSingleton<Hangfire.PostgreSql.PostgreSqlStorage>(_ => 
+            new Hangfire.PostgreSql.PostgreSqlStorage(connectionString));
+
+        services.AddScoped<ScopedTenantProviderFactory>();
+
         services.AddOrvixSemanticKernel(configuration);
 
         return services;

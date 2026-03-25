@@ -15,6 +15,7 @@ public class Tenant
     public string SubscriptionStatus { get; set; } = "Trialing";
 
     public string ApiKeyHash { get; set; } = string.Empty;
+    public string? WebhookSecret { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation
