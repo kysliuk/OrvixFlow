@@ -2,7 +2,7 @@ const apiUrl = "http://localhost:5100";
 
 async function test() {
   try {
-    console.log("Provisioning OAuth user...");
+    console.info("Provisioning OAuth user...");
     const res = await fetch(`${apiUrl}/api/auth/oauth-provision`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -14,19 +14,18 @@ async function test() {
     });
     
     const data = await res.json();
-    console.log("OAuth Token generated:", data.token ? "Success" : "Failed");
+    console.info("OAuth Token generated:", data.token ? "Success" : "Failed");
     if (!res.ok) {
-       console.log("Error response:", data);
+       console.error("Error response:", data);
     }
     
-    console.log("Testing /api/agent/ingest endpoint...");
+    console.info("Testing /api/agent/ingest endpoint...");
     const ingest = await fetch(`${apiUrl}/api/agent/ingest`, {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + data.token },
       body: JSON.stringify({ prompt: "hello" })
     });
     
-    console.log("Ingest Status:", ingest.status);
-    console.log("Ingest Response:", await ingest.text());
+    console.info("Ingest Status:", ingest.status);
 
   } catch (err) {
     console.error("Test script error:", err);
