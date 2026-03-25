@@ -63,18 +63,56 @@ export default function SettingsPage() {
   const hasOrg = orgStatus?.hasOrganization === true;
 
   const handleSwitchCompany = async (companyId: string) => {
-    if (!apiToken) return;
-    const res = await fetch(`${apiUrl}/api/auth/switch-company`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiToken}` },
-      body: JSON.stringify({ companyId }),
+    console.log("[DEBUG][CompanySwitch] Initiating switch-company request.", { 
+      targetCompanyId: companyId, 
+      hasToken: !!apiToken,
+      userId: (session as any)?.user?.id || (session as any)?.user?.userId
     });
-    if (res.ok) {
-      const data = await res.json();
-      await update(data); // Silent token swap via Next-Auth
+
+    if (!apiToken) {
+      console.error("[DEBUG][CompanySwitch] Aborted: Missing API token in active session.");
+      alert("Company switch failed (Not authenticated).");
       return;
     }
-    alert("Company switch failed.");
+
+    try {
+      const startTime = Date.now();
+      const res = await fetch(`${apiUrl}/api/auth/switch-company`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiToken}` },
+        body: JSON.stringify({ companyId }),
+      });
+      console.log(`[DEBUG][CompanySwitch] Received HTTP ${res.status} in ${Date.now() - startTime}ms.`);
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log("[DEBUG][CompanySwitch] Decoding success payload.", { 
+          hasNewToken: !!data.token, 
+          profileTenant: data.profile?.tenantId 
+        });
+        await update(data); // Silent token swap via Next-Auth
+        console.log("[DEBUG][CompanySwitch] Session updated successfully natively.");
+        return;
+      }
+      
+      // Parse detailed 401/403 errors from backend JSON
+      let errorData: any;
+      try {
+        errorData = await res.json();
+      } catch {
+        errorData = { error: "Could not parse JSON error body." };
+      }
+      console.error("[DEBUG][CompanySwitch] Request rejected.", errorData);
+      
+      if (res.status === 401 || res.status === 403) {
+        alert(`Company Access Denied: ${errorData.error || "You do not have active rights."}`);
+      } else {
+        alert(`Company switch failed: ${errorData.error || res.statusText}`);
+      }
+    } catch (err: any) {
+      console.error("[DEBUG][CompanySwitch] Catastrophic network error.", err.message);
+      alert("Network err during switch.");
+    }
   };
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
@@ -93,10 +131,13 @@ export default function SettingsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        // Immediately trigger a token refresh/switch to surface the new org access
-        await handleSwitchCompany(data.companyId);
+        await update(data); // Silent token swap via Next-Auth
         setShowCreateOrgModal(false);
         setNewOrgName("");
+      } else if (res.status === 409) {
+        setCreateOrgError("An organization with this name already exists.");
+      } else if (res.status === 401) {
+        setCreateOrgError("Your session is invalid or expired. Please refresh and log in again.");
       } else {
         setCreateOrgError("Failed to create organization. Check your network or try again.");
       }

@@ -10,8 +10,13 @@ namespace OrvixFlow.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly Microsoft.Extensions.Logging.ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService) => _authService = authService;
+    public AuthController(IAuthService authService, Microsoft.Extensions.Logging.ILogger<AuthController> logger)
+    {
+        _authService = authService;
+        _logger = logger;
+    }
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
@@ -68,18 +73,32 @@ public class AuthController : ControllerBase
     [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<IActionResult> SwitchCompany([FromBody] SwitchCompanyRequest req)
     {
+        _logger.LogInformation("[DEBUG][CompanySwitch] Request received for target CompanyId: {CompanyId}", req.CompanyId);
+
         var user = HttpContext.User;
         var userIdValue = user.FindFirst("sub")?.Value
             ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        _logger.LogInformation("[DEBUG][CompanySwitch] Extracted UserId value from token: {UserIdValue}", userIdValue ?? "NULL");
+
         if (!Guid.TryParse(userIdValue, out var userId))
         {
+            _logger.LogWarning("[DEBUG][CompanySwitch] Rejected: Invalid or missing user context mapped from JWT claims.");
             return Unauthorized(new { error = "Invalid user context." });
         }
 
         var result = await _authService.SwitchCompanyAsync(userId, req.CompanyId);
-        return result.IsSuccess
-            ? Ok(new { token = result.Token, profile = result.Profile })
-            : Unauthorized(new { error = result.Error });
+        
+        if (result.IsSuccess)
+        {
+            _logger.LogInformation("[DEBUG][CompanySwitch] Success. Issuing new JWT for CompanyId: {CompanyId}", req.CompanyId);
+            return Ok(new { token = result.Token, profile = result.Profile });
+        }
+        else
+        {
+            _logger.LogWarning("[DEBUG][CompanySwitch] Rejected by AuthService. Reason: {Error}", result.Error);
+            return Unauthorized(new { error = result.Error });
+        }
     }
 }
 

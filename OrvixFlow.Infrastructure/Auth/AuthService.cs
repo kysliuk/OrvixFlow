@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Entities;
@@ -19,11 +20,13 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly Microsoft.Extensions.Logging.ILogger<AuthService> _logger;
 
-    public AuthService(AppDbContext db, IConfiguration config)
+    public AuthService(AppDbContext db, IConfiguration config, Microsoft.Extensions.Logging.ILogger<AuthService> logger)
     {
         _db = db;
         _config = config;
+        _logger = logger;
     }
 
     public async Task<AuthResult> RegisterAsync(string email, string password, string displayName)
@@ -135,18 +138,32 @@ public class AuthService : IAuthService
 
     public async Task<AuthResult> SwitchCompanyAsync(Guid userId, Guid companyId)
     {
+        _logger.LogInformation("[DEBUG][CompanySwitch][AuthService] Evaluating switch request for UserId: {UserId}, TargetCompanyId: {CompanyId}", userId, companyId);
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
         {
+            _logger.LogWarning("[DEBUG][CompanySwitch][AuthService] Rejected: User object not found in DB.");
             return new AuthResult(false, Error: "User not found.");
         }
 
+        _logger.LogInformation("[DEBUG][CompanySwitch][AuthService] Querying UserCompanyMemberships for Active status...");
         var membership = await _db.UserCompanyMemberships
-            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active");
-        if (!membership)
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId);
+            
+        if (membership == null)
         {
+            _logger.LogWarning("[DEBUG][CompanySwitch][AuthService] Rejected: No membership record exists for UserId {UserId} in CompanyId {CompanyId}.", userId, companyId);
             return new AuthResult(false, Error: "You do not belong to this company.");
         }
+        
+        if (membership.Status != "Active")
+        {
+            _logger.LogWarning("[DEBUG][CompanySwitch][AuthService] Rejected: Membership exists but status is '{Status}', expected 'Active'.", membership.Status);
+            return new AuthResult(false, Error: "You do not belong to this company.");
+        }
+
+        _logger.LogInformation("[DEBUG][CompanySwitch][AuthService] Membership validated successfully with role: {Role}. Minting new JWT.", membership.CompanyRole);
 
         var token = await MintJwtAsync(user, companyId);
         var profile = await BuildProfileAsync(user, companyId);

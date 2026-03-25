@@ -73,8 +73,15 @@ public class OrganizationController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationDto dto)
     {
+        var claimsDump = string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}"));
+        Console.WriteLine($"[DEBUG] Claims: {claimsDump}");
+
         var userId = ParseGuid("sub");
-        if (userId == null) return Unauthorized();
+        if (userId == null) 
+        {
+            Console.WriteLine("[DEBUG] ParseGuid failed to find valid sub or NameIdentifier");
+            return Unauthorized();
+        }
 
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Organization name is required." });
