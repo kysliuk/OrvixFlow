@@ -1,17 +1,15 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { User, Shield, Key, Building, BellRing } from "lucide-react";
+import { User, Shield, Key, Building, BellRing, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { TeamTab } from "../../../components/settings/TeamTab";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("profile");
   const [companies, setCompanies] = useState<Array<{ companyId: string; companyName: string; role: string; plan: string }>>([]);
   const [departments, setDepartments] = useState<Array<{ departmentId: string; name: string; code: string; role: string }>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteResult, setInviteResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session?.apiToken) return;
@@ -37,30 +35,10 @@ export default function SettingsPage() {
       body: JSON.stringify({ companyId }),
     });
     if (res.ok) {
-      setInviteResult("Company switch token issued. Re-login to refresh full session claims.");
+      alert("Company switch token issued. Re-login to refresh full session claims.");
       return;
     }
-    setInviteResult("Company switch failed.");
-  };
-
-  const handleInvite = async () => {
-    if (!session?.apiToken || companies.length === 0) return;
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/org/invite`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.apiToken}`,
-      },
-      body: JSON.stringify({
-        companyId: companies[0].companyId,
-        email: inviteEmail,
-        displayName: inviteName || inviteEmail,
-        companyRole: "Operator",
-        departmentRole: "Member",
-        departmentIds: departments.slice(0, 1).map((d) => d.departmentId),
-      }),
-    });
-    setInviteResult(res.ok ? "Invitation created with explicit role + department scope." : "Invitation failed.");
+    alert("Company switch failed.");
   };
 
   const tabs = [
@@ -68,6 +46,7 @@ export default function SettingsPage() {
     { id: "organization", label: "Organization", icon: Building },
     { id: "security", label: "Security", icon: Shield },
     { id: "api-keys", label: "API Keys", icon: Key },
+    { id: "team", label: "Team & Roles", icon: Users },
     { id: "notifications", label: "Notifications", icon: BellRing },
   ];
 
@@ -142,8 +121,8 @@ export default function SettingsPage() {
 
                 <div className="flex flex-col gap-1.5 pt-4">
                   <label className="text-xs font-medium text-muted">Global Role</label>
-                  <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-white w-fit">
-                    {session?.user?.role || "Owner"}
+                  <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-white w-fit font-semibold">
+                    {(session?.user as any)?.role || "Operator"}
                   </div>
                 </div>
 
@@ -217,23 +196,13 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </div>
-
-              <div className="border-t border-white/10 pt-6">
-                <h3 className="text-sm font-medium mb-2">Invite User (Role Assigned Upfront)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="Email" className="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm" />
-                  <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Display name" className="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <button onClick={handleInvite} className="mt-3 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-sm">
-                  Send Invite
-                </button>
-                {inviteResult && <p className="mt-2 text-xs text-muted">{inviteResult}</p>}
-              </div>
             </div>
           )}
 
+          {activeTab === "team" && <TeamTab />}
+
           {/* Placeholder for other tabs using skeletons */}
-          {activeTab !== "profile" && activeTab !== "api-keys" && activeTab !== "organization" && (
+          {activeTab !== "profile" && activeTab !== "api-keys" && activeTab !== "organization" && activeTab !== "team" && (
             <div className="animate-in fade-in duration-300">
               <div className="h-6 w-48 bg-white/5 rounded animate-pulse mb-6" />
               <div className="flex flex-col gap-4">

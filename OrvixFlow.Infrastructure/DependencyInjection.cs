@@ -19,6 +19,9 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString, o => o.UseVector()));
 
+        // Auth / Scope
+        services.AddScoped<OrvixFlow.Core.Interfaces.IScopeContext, OrvixFlow.Infrastructure.Auth.ScopeContext>();
+
         // AI
         services.AddOrvixSemanticKernel(configuration);
 
@@ -85,6 +88,10 @@ public static class DependencyInjection
         services.AddScoped<IAccessResolver, AccessResolver>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();
+
+        // Shadow modules
+        services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
+        services.AddScoped<IUsageService, OrvixFlow.Infrastructure.Shadow.UsageService>();
 
         return services;
     }

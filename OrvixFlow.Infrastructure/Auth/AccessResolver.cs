@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 
@@ -11,23 +12,27 @@ namespace OrvixFlow.Infrastructure.Auth;
 public class AccessResolver : IAccessResolver
 {
     private readonly AppDbContext _db;
+    private readonly IScopeContext _scope;
 
-    public AccessResolver(AppDbContext db)
+    public AccessResolver(AppDbContext db, IScopeContext scope)
     {
         _db = db;
+        _scope = scope;
     }
 
     public async Task<ModulePermissionResult> GetEffectivePermissionsAsync(Guid userId, Guid companyId, string moduleKey)
     {
-        var userRole = await _db.UserCompanyMemberships
+        // Resolve company role and parse at boundary
+        var userRoleString = await _db.UserCompanyMemberships
             .Where(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active")
             .Select(m => m.CompanyRole)
             .FirstOrDefaultAsync();
 
-        if (IsCompanyAdmin(userRole))
-        {
-            return new ModulePermissionResult(true, true, true, true, true, true, true, true);
-        }
+        var role = UserRoleExtensions.ParseRole(userRoleString);
+
+        // Company-admins and platform roles have full access to all modules
+        if (role.IsCompanyAdminOrAbove())
+            return FullAccess();
 
         var moduleId = await _db.ModuleDefinitions
             .Where(m => m.Key == moduleKey && m.IsActive)
@@ -35,15 +40,21 @@ public class AccessResolver : IAccessResolver
             .FirstOrDefaultAsync();
 
         if (moduleId == Guid.Empty)
-        {
             return Empty();
+
+        // Scope: use IScopeContext to get allowed department IDs for this user
+        List<Guid> departmentIds;
+        if (_scope.HasCompanyWideAccess)
+        {
+            // Should not reach here (caught above), but kept for safety
+            return FullAccess();
+        }
+        else
+        {
+            departmentIds = _scope.AllowedDepartmentIds.ToList();
         }
 
-        var departmentIds = await _db.UserDepartmentMemberships
-            .Where(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active")
-            .Select(m => m.DepartmentId)
-            .ToListAsync();
-
+        // Fetch grants for company-wide, department-scoped, or user-scoped assignments
         var grants = await _db.ModulePermissionGrants
             .Where(g =>
                 g.ModuleAssignment != null &&
@@ -58,10 +69,9 @@ public class AccessResolver : IAccessResolver
             .ToListAsync();
 
         if (grants.Count == 0)
-        {
             return Empty();
-        }
 
+        // Union of grants (most permissive wins)
         return new ModulePermissionResult(
             grants.Any(g => g.CanView),
             grants.Any(g => g.CanUse),
@@ -76,27 +86,25 @@ public class AccessResolver : IAccessResolver
 
     public async Task<IReadOnlyList<string>> GetVisibleModulesAsync(Guid userId, Guid companyId)
     {
-        var moduleKeys = await _db.ModuleDefinitions.Where(m => m.IsActive).Select(m => m.Key).ToListAsync();
+        var moduleKeys = await _db.ModuleDefinitions
+            .Where(m => m.IsActive)
+            .Select(m => m.Key)
+            .ToListAsync();
+
         var visible = new List<string>();
         foreach (var key in moduleKeys)
         {
             var result = await GetEffectivePermissionsAsync(userId, companyId, key);
             if (result.CanView)
-            {
                 visible.Add(key);
-            }
         }
 
         return visible;
     }
 
-    private static bool IsCompanyAdmin(string? role)
-    {
-        return role == "Owner" || role == "CompanyAdmin" || role == "Admin" || role == "SuperAdmin";
-    }
+    private static ModulePermissionResult FullAccess() =>
+        new(true, true, true, true, true, true, true, true);
 
-    private static ModulePermissionResult Empty()
-    {
-        return new ModulePermissionResult(false, false, false, false, false, false, false, false);
-    }
+    private static ModulePermissionResult Empty() =>
+        new(false, false, false, false, false, false, false, false);
 }

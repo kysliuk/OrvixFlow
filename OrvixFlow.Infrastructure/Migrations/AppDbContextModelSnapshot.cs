@@ -116,6 +116,55 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.Invitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InvitedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "Email");
+
+                    b.ToTable("Invitations");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBase", b =>
                 {
                     b.Property<Guid>("Id")
@@ -224,7 +273,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 469, DateTimeKind.Utc).AddTicks(8772),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(3498),
                             DisplayName = "Doc-Intel",
                             IsActive = true,
                             IsOperational = false,
@@ -235,7 +284,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9514),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9697),
                             DisplayName = "Finance-Flow",
                             IsActive = true,
                             IsOperational = false,
@@ -246,7 +295,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9566),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9712),
                             DisplayName = "Inbox-Guardian",
                             IsActive = true,
                             IsOperational = false,
@@ -257,7 +306,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9576),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9717),
                             DisplayName = "Lead-Qualifier",
                             IsActive = true,
                             IsOperational = false,
@@ -268,7 +317,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9584),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9723),
                             DisplayName = "Legal-Scribe",
                             IsActive = true,
                             IsOperational = false,
@@ -279,7 +328,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9593),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9728),
                             DisplayName = "Data-Guardian",
                             IsActive = true,
                             IsOperational = false,
@@ -290,7 +339,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9601),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9758),
                             DisplayName = "SOP-Generator",
                             IsActive = true,
                             IsOperational = false,
@@ -301,7 +350,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("88888888-8888-8888-8888-888888888888"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9609),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9763),
                             DisplayName = "Metered-Billing",
                             IsActive = true,
                             IsOperational = true,
@@ -312,7 +361,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-999999999999"),
-                            CreatedAt = new DateTime(2026, 3, 24, 9, 34, 8, 470, DateTimeKind.Utc).AddTicks(9619),
+                            CreatedAt = new DateTime(2026, 3, 24, 12, 8, 28, 992, DateTimeKind.Utc).AddTicks(9769),
                             DisplayName = "Audit-Log",
                             IsActive = true,
                             IsOperational = true,
@@ -590,6 +639,24 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.Invitation", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OrvixFlow.Core.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>

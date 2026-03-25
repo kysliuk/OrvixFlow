@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 
@@ -59,8 +60,9 @@ public class ModulesController : ControllerBase
     [HttpPost("assign")]
     public async Task<IActionResult> Assign([FromBody] AssignModuleRequest req)
     {
-        var role = User.FindFirst("Role")?.Value;
-        if (!Roles.IsAdmin(role))
+        var roleString = User.FindFirst("Role")?.Value;
+        var role = UserRoleExtensions.ParseRole(roleString);
+        if (!role.IsCompanyAdminOrAbove())
         {
             return Forbid();
         }

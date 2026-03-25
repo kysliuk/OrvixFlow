@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<KnowledgeBase> KnowledgeBases => Set<KnowledgeBase>();
     public DbSet<WorkflowLog> WorkflowLogs => Set<WorkflowLog>();
     public DbSet<AuditTrail> AuditTrails => Set<AuditTrail>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -150,5 +151,23 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ModulePermissionGrant>().HasQueryFilter(g => g.ModuleAssignment != null && g.ModuleAssignment.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<UsageEvent>().HasQueryFilter(e => e.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<BillingSubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
+
+        // Invitation
+        modelBuilder.Entity<Invitation>()
+            .HasIndex(i => i.Token).IsUnique();
+        modelBuilder.Entity<Invitation>()
+            .HasIndex(i => new { i.CompanyId, i.Email });
+        modelBuilder.Entity<Invitation>()
+            .HasOne(i => i.Company)
+            .WithMany()
+            .HasForeignKey(i => i.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Invitation>()
+            .HasOne(i => i.Department)
+            .WithMany()
+            .HasForeignKey(i => i.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Invitation>()
+            .HasQueryFilter(i => i.CompanyId == _tenantProvider.GetTenantId());
     }
 }

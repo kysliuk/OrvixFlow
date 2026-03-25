@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -46,7 +47,7 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = "local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Role = "Owner"
+            Role = UserRole.CompanyOwner.ToClaimValue()
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -121,7 +122,7 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = provider,
             ExternalId = externalId,
-            Role = "Owner"
+            Role = UserRole.CompanyOwner.ToClaimValue()
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -158,20 +159,21 @@ public class AuthService : IAuthService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
-        var companyRole = await _db.UserCompanyMemberships
+        // Parse role at boundary; emit canonical string into JWT claim
+        var roleString = await _db.UserCompanyMemberships
             .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
             .Select(m => m.CompanyRole)
             .FirstOrDefaultAsync() ?? user.Role;
+        var parsedRole = UserRoleExtensions.ParseRole(roleString);
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            // Keep TenantId for compatibility while introducing ActiveCompanyId.
             new("TenantId", activeCompanyId.ToString()),
             new("ActiveCompanyId", activeCompanyId.ToString()),
             new("Plan", company.Plan),
-            new("Role", companyRole),
+            new("Role", parsedRole.ToClaimValue()),
             new("DisplayName", user.DisplayName)
         };
 
@@ -221,7 +223,7 @@ public class AuthService : IAuthService
         {
             UserId = userId,
             CompanyId = companyId,
-            CompanyRole = "Owner",
+            CompanyRole = UserRole.CompanyOwner.ToClaimValue(),
             Status = "Active",
             InvitedAt = DateTime.UtcNow,
             JoinedAt = DateTime.UtcNow
@@ -258,5 +260,136 @@ public class AuthService : IAuthService
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    // ── Invitation ────────────────────────────────────────────────────────────
+
+    public async Task<InviteResult> InviteUserAsync(InviteRequest request)
+    {
+        // Validate role is canonical
+        var role = UserRoleExtensions.ParseRole(request.AssignedRole);
+        if (!UserRoleExtensions.AllRoles.Contains(role))
+            return new InviteResult(false, Error: $"Invalid role: {request.AssignedRole}");
+
+        // Revoke any existing pending invite for this email+company
+        var existing = await _db.Invitations
+            .IgnoreQueryFilters()
+            .Where(i => i.Email == request.Email.ToLowerInvariant()
+                        && i.CompanyId == request.CompanyId
+                        && i.Status == "Pending")
+            .ToListAsync();
+        foreach (var old in existing)
+            old.Status = "Revoked";
+
+        var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+                           .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var invitation = new Invitation
+        {
+            Email          = request.Email.ToLowerInvariant(),
+            CompanyId      = request.CompanyId,
+            AssignedRole   = role.ToClaimValue(),
+            DepartmentId   = request.DepartmentId,
+            Token          = token,
+            Status         = "Pending",
+            InvitedByUserId = request.InvitedByUserId,
+            ExpiresAt      = DateTime.UtcNow.AddDays(7),
+        };
+        _db.Invitations.Add(invitation);
+        await _db.SaveChangesAsync();
+
+        return new InviteResult(true, Token: token);
+    }
+
+    public async Task<AuthResult> AcceptInvitationAsync(string token, string? displayName, string? password)
+    {
+        var invitation = await _db.Invitations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Token == token && i.Status == "Pending");
+
+        if (invitation == null)
+            return new AuthResult(false, Error: "Invitation not found or already used.");
+
+        if (invitation.ExpiresAt < DateTime.UtcNow)
+        {
+            invitation.Status = "Expired";
+            await _db.SaveChangesAsync();
+            return new AuthResult(false, Error: "Invitation has expired. Please request a new one.");
+        }
+
+        var normalizedEmail = invitation.Email;
+
+        // Find or create the user
+        var user = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+
+        if (user == null)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                return new AuthResult(false, Error: "displayName is required for new accounts.");
+
+            user = new User
+            {
+                Email        = normalizedEmail,
+                DisplayName  = displayName,
+                OAuthProvider = "local",
+                PasswordHash = string.IsNullOrWhiteSpace(password)
+                               ? null
+                               : BCrypt.Net.BCrypt.HashPassword(password),
+                Role         = invitation.AssignedRole,
+                // Assign a TenantId - use the invited company as primary tenant
+                TenantId     = invitation.CompanyId,
+            };
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+        }
+
+        // Apply company membership with pre-assigned role
+        var membershipExists = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .AnyAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId);
+
+        if (!membershipExists)
+        {
+            _db.UserCompanyMemberships.Add(new UserCompanyMembership
+            {
+                UserId        = user.Id,
+                CompanyId     = invitation.CompanyId,
+                CompanyRole   = invitation.AssignedRole,
+                Status        = "Active",
+                InvitedAt     = invitation.CreatedAt,
+                JoinedAt      = DateTime.UtcNow,
+                InvitedByUserId = invitation.InvitedByUserId,
+            });
+        }
+
+        // Apply department membership if specified
+        if (invitation.DepartmentId.HasValue)
+        {
+            var deptExists = await _db.UserDepartmentMemberships
+                .IgnoreQueryFilters()
+                .AnyAsync(m => m.UserId == user.Id
+                               && m.CompanyId == invitation.CompanyId
+                               && m.DepartmentId == invitation.DepartmentId.Value);
+            if (!deptExists)
+            {
+                _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+                {
+                    UserId       = user.Id,
+                    CompanyId    = invitation.CompanyId,
+                    DepartmentId = invitation.DepartmentId.Value,
+                    DepartmentRole = invitation.AssignedRole,
+                    Status       = "Active",
+                });
+            }
+        }
+
+        invitation.Status = "Accepted";
+        await _db.SaveChangesAsync();
+
+        var jwtToken = await MintJwtAsync(user, invitation.CompanyId);
+        var profile  = await BuildProfileAsync(user, invitation.CompanyId);
+        return new AuthResult(true, Token: jwtToken, Profile: profile);
     }
 }

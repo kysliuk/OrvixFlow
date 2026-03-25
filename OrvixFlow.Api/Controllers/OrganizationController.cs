@@ -61,6 +61,65 @@ public class OrganizationController : ControllerBase
         return Ok(departments);
     }
 
+    [HttpPost("departments")]
+    public async Task<IActionResult> CreateDepartment([FromBody] CreateDepartmentDto dto)
+    {
+        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!role.IsCompanyAdminOrAbove()) return Forbid();
+
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null) return Unauthorized();
+
+        var department = new Core.Entities.Department
+        {
+            Name = dto.Name,
+            Code = dto.Code,
+            TenantId = companyId.Value
+        };
+
+        _db.Departments.Add(department);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { departmentId = department.Id, name = department.Name, code = department.Code });
+    }
+
+    [HttpPut("departments/{id}")]
+    public async Task<IActionResult> UpdateDepartment(Guid id, [FromBody] CreateDepartmentDto dto)
+    {
+        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!role.IsCompanyAdminOrAbove()) return Forbid();
+
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null) return Unauthorized();
+
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == companyId.Value);
+        if (department == null) return NotFound(new { error = "Department not found." });
+
+        department.Name = dto.Name;
+        department.Code = dto.Code;
+        
+        await _db.SaveChangesAsync();
+        return Ok(new { departmentId = department.Id, name = department.Name, code = department.Code });
+    }
+
+    [HttpDelete("departments/{id}")]
+    public async Task<IActionResult> DeleteDepartment(Guid id)
+    {
+        var role = OrvixFlow.Core.Authorization.UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!role.IsCompanyAdminOrAbove()) return Forbid();
+
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null) return Unauthorized();
+
+        var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id && d.TenantId == companyId.Value);
+        if (department == null) return NotFound(new { error = "Department not found." });
+
+        _db.Departments.Remove(department);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Department deleted successfully." });
+    }
+
     [HttpPost("invite")]
     public async Task<IActionResult> Invite([FromBody] InviteUserRequest req)
     {
@@ -142,3 +201,5 @@ public record InviteUserRequest(
     string DepartmentRole,
     Guid[] DepartmentIds
 );
+
+public record CreateDepartmentDto(string Name, string Code);

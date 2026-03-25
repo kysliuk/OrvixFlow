@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Infrastructure.Data;
 
 namespace OrvixFlow.Api.Controllers;
@@ -20,7 +21,11 @@ public class AdminController : ControllerBase
         _db = db;
     }
 
-    private bool IsAdmin() => Roles.IsAdmin(HttpContext.User.FindFirst("Role")?.Value);
+    // Parse at JWT boundary; use typed enum for checks
+    private UserRole CurrentUserRole() =>
+        UserRoleExtensions.ParseRole(HttpContext.User.FindFirst("Role")?.Value);
+
+    private bool IsAdmin() => CurrentUserRole().IsCompanyAdminOrAbove();
 
     [HttpGet("metrics")]
     public async Task<IActionResult> GetGlobalMetrics()
