@@ -51,7 +51,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
+      if (trigger === "update" && session) {
+        if (session.token) token.apiToken = session.token;
+        if (session.profile) {
+          token.tenantId = session.profile.tenantId;
+          token.activeCompanyId = session.profile.activeCompanyId;
+          token.plan = session.profile.plan;
+          token.role = session.profile.role;
+          token.companies = session.profile.companies ?? [];
+        }
+        return token;
+      }
+
       // `account` and `user` are only defined on the very first sign in!
       if (account && user) {
         if (account.type === "oauth" || account.type === "oidc" || account.provider !== "credentials") {

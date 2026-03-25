@@ -35,9 +35,18 @@ public class AgentServiceTests
         var kernel = builder.Build();
 
         var mockFactory = new Mock<System.Net.Http.IHttpClientFactory>();
+        var mockAudit = new Mock<IAuditService>();
+        var mockUsage = new Mock<IUsageService>();
+        var mockScope = new Mock<IScopeContext>();
+        mockScope.Setup(s => s.CompanyId).Returns(Guid.NewGuid());
+        mockScope.Setup(s => s.HasCompanyWideAccess).Returns(true);
+        mockScope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid>().AsReadOnly());
         var agentService = new AgentService(kernel, 
             new OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin(null!, null!),
-            new OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin(mockFactory.Object));
+            new OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin(mockFactory.Object),
+            mockAudit.Object,
+            mockUsage.Object,
+            mockScope.Object);
 
         // Act
         var response = await agentService.ProcessInternalAsync("Hello AI", mockTenantId);
@@ -65,10 +74,19 @@ public class AgentServiceTests
         builder.Services.AddSingleton<IChatCompletionService>(mockChatCompletion.Object);
         var kernel = builder.Build();
 
-        var mockFactory = new Mock<System.Net.Http.IHttpClientFactory>();
+        var mockFactory2 = new Mock<System.Net.Http.IHttpClientFactory>();
+        var mockAudit2 = new Mock<IAuditService>();
+        var mockUsage2 = new Mock<IUsageService>();
+        var mockScope2 = new Mock<IScopeContext>();
+        mockScope2.Setup(s => s.CompanyId).Returns(Guid.NewGuid());
+        mockScope2.Setup(s => s.HasCompanyWideAccess).Returns(true);
+        mockScope2.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid>().AsReadOnly());
         var agentService = new AgentService(kernel, 
             new OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin(null!, null!),
-            new OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin(mockFactory.Object));
+            new OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin(mockFactory2.Object),
+            mockAudit2.Object,
+            mockUsage2.Object,
+            mockScope2.Object);
 
         // Act
         var response = await agentService.ProcessInternalAsync("Hello AI", mockTenantId);

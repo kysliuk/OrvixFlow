@@ -67,12 +67,13 @@ export function DepartmentsTab() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const url = isEditing 
-        ? `${apiUrl}/api/org/departments/${isEditing}` 
-        : `${apiUrl}/api/org/departments`;
+      const isCreate = isEditing === "new";
+      const url = isCreate 
+        ? `${apiUrl}/api/org/departments` 
+        : `${apiUrl}/api/org/departments/${isEditing}`;
       
       const res = await fetch(url, {
-        method: isEditing ? "PUT" : "POST",
+        method: isCreate ? "POST" : "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${(session as any).apiToken}`,
@@ -82,7 +83,7 @@ export function DepartmentsTab() {
 
       const data = await res.json();
       if (res.ok) {
-        setFormMessage({ text: `Department ${isEditing ? "updated" : "created"} successfully!`, isError: false });
+        setFormMessage({ text: `Department ${isCreate ? "created" : "updated"} successfully!`, isError: false });
         resetForm();
         fetchDepartments();
       } else {

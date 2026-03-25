@@ -41,7 +41,77 @@ public class OrganizationController : ControllerBase
         return Ok(companies);
     }
 
+    /// <summary>
+    /// Returns whether the current user belongs to at least one active organisation.
+    /// The frontend uses this to conditionally enable Departments, Team and Security tabs.
+    /// </summary>
+    [HttpGet("status")]
+    public async Task<IActionResult> GetOrgStatus()
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        var membership = await _db.UserCompanyMemberships
+            .Where(m => m.UserId == userId.Value && m.Status == "Active")
+            .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new
+            {
+                companyId = c.Id,
+                companyName = c.Name,
+                role = m.CompanyRole
+            })
+            .FirstOrDefaultAsync();
+
+        return Ok(new
+        {
+            hasOrganization = membership != null,
+            activeCompanyId = membership?.companyId,
+            companyName = membership?.companyName,
+            role = membership?.role
+        });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationDto dto)
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Organization name is required." });
+
+        if (await _db.Tenants.AnyAsync(t => t.Name.ToLower() == dto.Name.ToLower()))
+            return Conflict(new { error = "An organization with this name already exists." });
+
+        var tenant = new Core.Entities.Tenant
+        {
+            Name = dto.Name,
+            Plan = "Trialing",
+            SubscriptionStatus = "Trialing" // Default to trialing for freshly created orgs
+        };
+        _db.Tenants.Add(tenant);
+        await _db.SaveChangesAsync(); // generate tenant Id
+
+        var membership = new Core.Entities.UserCompanyMembership
+        {
+            UserId = userId.Value,
+            CompanyId = tenant.Id,
+            CompanyRole = OrvixFlow.Core.Authorization.UserRole.CompanyOwner.ToClaimValue(),
+            Status = "Active"
+        };
+        _db.UserCompanyMemberships.Add(membership);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            companyId = tenant.Id,
+            companyName = tenant.Name,
+            role = membership.CompanyRole,
+            plan = tenant.Plan
+        });
+    }
+
     [HttpGet("departments")]
+
     public async Task<IActionResult> GetDepartments()
     {
         var userId = ParseGuid("sub");
@@ -190,10 +260,16 @@ public class OrganizationController : ControllerBase
     private Guid? ParseGuid(string claimType)
     {
         var value = User.FindFirst(claimType)?.Value;
+        if (string.IsNullOrEmpty(value) && claimType == "sub")
+        {
+            value = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        }
         return Guid.TryParse(value, out var parsed) ? parsed : null;
     }
 }
 
+public record AcceptInviteRequest(string Token);
+public record CreateOrganizationDto(string Name);
 public record InviteUserRequest(
     Guid CompanyId,
     string Email,

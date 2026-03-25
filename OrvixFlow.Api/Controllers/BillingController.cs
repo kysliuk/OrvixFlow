@@ -67,9 +67,11 @@ public class BillingController : ControllerBase
         int limit = company.Plan?.ToLowerInvariant() switch
         {
             "free" => 50000,
+            "trialing" => 50000,
+            "starter" => 1000000,
             "pro" => 1000000,
             "enterprise" => 10000000,
-            _ => 10000
+            _ => 50000
         };
 
         var renewalDate = startOfMonth.AddMonths(1);

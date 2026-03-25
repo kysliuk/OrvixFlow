@@ -80,7 +80,11 @@ public class AccessResolverTests
             );
             await db.SaveChangesAsync();
 
-            var resolver = new AccessResolver(db);
+            var mockScope = new Mock<IScopeContext>();
+            mockScope.Setup(s => s.CompanyId).Returns(companyId);
+            mockScope.Setup(s => s.HasCompanyWideAccess).Returns(true);
+            mockScope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid>().AsReadOnly());
+            var resolver = new AccessResolver(db, mockScope.Object);
             var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
             permissions.CanView.Should().BeTrue();
             permissions.CanUse.Should().BeTrue();

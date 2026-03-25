@@ -3779,7 +3779,10 @@
         },
         "runtime": {
           "bin/placeholder/OrvixFlow.Infrastructure.dll": {}
-        }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       }
     }
   },

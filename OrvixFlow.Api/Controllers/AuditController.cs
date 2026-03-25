@@ -24,6 +24,7 @@ public class AuditController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAuditLogs([FromQuery] int limit = 100)
     {
+        limit = Math.Min(Math.Max(limit, 1), 500); // Hard cap: 1–500
         var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
         if (!role.IsCompanyAdminOrAbove()) return Forbid();
 

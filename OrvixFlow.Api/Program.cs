@@ -1,4 +1,5 @@
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -16,6 +17,9 @@ builder.Services.AddCors(o => o.AddPolicy("Frontend", p =>
      .AllowAnyHeader()
      .AllowAnyMethod()
      .AllowCredentials()));
+
+// Disable automatic JWT claims mapping to URI Schemas
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 // JWT Bearer
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new Exception("Jwt:Secret missing");
