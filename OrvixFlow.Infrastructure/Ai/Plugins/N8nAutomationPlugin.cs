@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 
@@ -21,6 +22,12 @@ public class N8nAutomationPlugin
         [Description("The unique path name of the n8n webhook to trigger (e.g. 'draft-reply', 'escalate-to-human')")] string webhookPath,
         [Description("The text message, summary, or formulated response to send to the workflow")] string messageData)
     {
+        // Security: Prevent SSRF and Path Traversal by validating the webhook path
+        if (string.IsNullOrWhiteSpace(webhookPath) || !Regex.IsMatch(webhookPath, "^[a-zA-Z0-9_-]+$"))
+        {
+            return "Error: Invalid webhook path. Only alphanumeric characters, underscores, and hyphens are allowed.";
+        }
+
         try
         {
             var payloadInfo = new { data = messageData };
