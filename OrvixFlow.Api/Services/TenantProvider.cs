@@ -29,16 +29,18 @@ public class TenantProvider : ITenantProvider
             }
         }
 
-        if (string.IsNullOrEmpty(tenantIdClaim))
-        {
-            throw new UnauthorizedAccessException("Tenant ID is missing from the current request context.");
-        }
-
-        if (Guid.TryParse(tenantIdClaim, out var tenantGuid))
+        if (!string.IsNullOrEmpty(tenantIdClaim) && Guid.TryParse(tenantIdClaim, out var tenantGuid))
         {
             return tenantGuid;
         }
 
-        throw new UnauthorizedAccessException("Invalid Tenant ID format in the current request context.");
+        // Fallback to header if no claim
+        var tenantHeader = _httpContextAccessor.HttpContext?.Request.Headers["X-Tenant-ID"].ToString();
+        if (!string.IsNullOrEmpty(tenantHeader) && Guid.TryParse(tenantHeader, out var headerGuid))
+        {
+            return headerGuid;
+        }
+
+        throw new UnauthorizedAccessException("Tenant ID is missing from the current request context.");
     }
 }

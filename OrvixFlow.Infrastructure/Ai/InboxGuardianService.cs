@@ -10,14 +10,21 @@ namespace OrvixFlow.Infrastructure.Ai;
 public class InboxGuardianService : IInboxGuardianService
 {
     private readonly Kernel _kernel;
+    private readonly IIntentClassifierService _classifier;
+    private readonly IHybridVectorSearchService _vectorSearch;
+    private readonly IDraftGeneratorService _draftGenerator;
 
     public InboxGuardianService(
         Kernel kernel,
-        OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin searchPlugin,
+        IIntentClassifierService classifier,
+        IHybridVectorSearchService vectorSearch,
+        IDraftGeneratorService draftGenerator,
         OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin)
     {
         _kernel = kernel;
-        _kernel.Plugins.AddFromObject(searchPlugin);
+        _classifier = classifier;
+        _vectorSearch = vectorSearch;
+        _draftGenerator = draftGenerator;
         _kernel.Plugins.AddFromObject(automationPlugin);
     }
 
@@ -25,37 +32,41 @@ public class InboxGuardianService : IInboxGuardianService
     {
         try
         {
-            var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>();
-            
-            var executionSettings = new PromptExecutionSettings
+            var senderDomain = message.SenderEmail.Contains('@') 
+                ? message.SenderEmail.Split('@')[1] 
+                : null;
+
+            var classification = await _classifier.ClassifyEmailAsync(
+                message.SenderEmail,
+                message.Subject,
+                message.Body,
+                senderDomain);
+
+            var searchQuery = $"{message.Subject} {message.Body}";
+            var knowledgeContext = await _vectorSearch.SearchAsync(searchQuery, maxResults: 5);
+
+            var draftResponse = await _draftGenerator.GenerateDraftAsync(
+                message.SenderEmail,
+                message.Subject,
+                message.Body,
+                classification,
+                knowledgeContext);
+
+            var metadata = new System.Collections.Generic.Dictionary<string, object?>
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                ExtensionData = new System.Collections.Generic.Dictionary<string, object>
-                {
-                    { "Temperature", 0.1 }
-                }
+                ["category"] = classification.Category,
+                ["confidenceScore"] = classification.ConfidenceScore,
+                ["requiresHumanReview"] = classification.RequiresHumanReview,
+                ["reasonForReview"] = classification.ReasonForReview,
+                ["knowledgeBaseResults"] = knowledgeContext.Count,
+                ["hasContext"] = knowledgeContext.Count > 0
             };
-
-            var systemPrompt = @"You are the 'Inbox Guardian', an automated customer support triage agent for OrvixFlow. 
-You are processing an incoming message or email from a customer.
-Your goals:
-1. Understand the customer's question or issue.
-2. Use the 'KnowledgeBaseSearchPlugin' to search for the specific factual answer in the company database.
-3. If you find a confident answer, formulate a polite and professional reply, then USE the 'N8nAutomationPlugin' to trigger the 'draft-reply' webhook, passing the drafted reply as the messageData.
-4. If you CANNOT find the answer or it requires human intervention, USE the 'N8nAutomationPlugin' to trigger the 'escalate-to-human' webhook, passing your explanation as the messageData.
-If any webhook returns a 404 Not Found error, do NOT attempt to retry. The webhooks simply haven't been created yet. Just output a natural language summary to the user!";
-
-            var chatHistory = new ChatHistory(systemPrompt);
-            var userMessage = $"From: {message.SenderEmail}\nSubject: {message.Subject}\nBody: {message.Body}";
-            chatHistory.AddUserMessage(userMessage);
-
-            var result = await chatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, _kernel);
 
             return new AgentResponse
             {
                 IsSuccess = true,
-                Message = result.Content ?? "Processed successfully.",
-                Metadata = result.Metadata
+                Message = draftResponse,
+                Metadata = metadata
             };
         }
         catch (Exception ex)

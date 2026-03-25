@@ -18,10 +18,18 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return BadRequest(new { error = "Email and password are required." });
 
-        var result = await _authService.RegisterAsync(req.Email, req.Password, req.DisplayName);
-        return result.IsSuccess
-            ? Ok(new { token = result.Token, profile = result.Profile })
-            : Conflict(new { error = result.Error });
+        try
+        {
+            var result = await _authService.RegisterAsync(req.Email, req.Password, req.DisplayName);
+            return result.IsSuccess
+                ? Ok(new { token = result.Token, profile = result.Profile })
+                : Conflict(new { error = result.Error });
+        }
+        catch (System.Exception ex)
+        {
+            System.Console.WriteLine($"REGISTRATION ERROR: {ex}");
+            return StatusCode(500, new { error = "An unexpected error occurred during the registration process.", details = ex.ToString() });
+        }
     }
 
     [HttpPost("login")]

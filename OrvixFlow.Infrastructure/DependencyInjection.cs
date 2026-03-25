@@ -89,6 +89,13 @@ public static class DependencyInjection
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();
 
+        services.AddScoped<IIntentClassifierService, IntentClassifierService>();
+        services.AddScoped<IDraftGeneratorService, DraftGeneratorService>();
+        services.AddScoped<IHybridVectorSearchService, HybridVectorSearchService>();
+        services.AddScoped<IInboxEventRepository, InboxEventRepository>();
+        services.AddScoped<IPolicyGateService, PolicyGateService>();
+        services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+
         return services;
     }
 }

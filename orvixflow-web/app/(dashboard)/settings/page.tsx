@@ -130,8 +130,47 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {activeTab === "organization" && (
+            <div className="animate-in fade-in duration-300">
+              <h2 className="text-lg font-semibold mb-6">Organization Details</h2>
+              <div className="flex flex-col gap-6">
+                <div className="bg-background border border-white/5 rounded-lg p-5">
+                  <h3 className="text-sm font-medium mb-4 text-white">Tenant Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-muted">Tenant ID</label>
+                      <input 
+                        type="text" 
+                        defaultValue={(session?.user as any)?.tenantId || ""}
+                        disabled
+                        className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-muted font-mono cursor-not-allowed"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-muted">Base Plan</label>
+                      <input 
+                        type="text" 
+                        defaultValue={(session?.user as any)?.plan || "Trialing"}
+                        disabled
+                        className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-muted font-mono cursor-not-allowed uppercase"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-background border border-white/5 rounded-lg p-5">
+                  <h3 className="text-sm font-medium mb-1 text-white">Danger Zone</h3>
+                  <p className="text-xs text-muted mb-4">Irreversible, destructive actions related to this tenant workspace.</p>
+                  <button className="px-4 py-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 text-danger text-sm font-medium rounded-lg transition-colors">
+                    Delete Organization
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Placeholder for other tabs using skeletons */}
-          {activeTab !== "profile" && activeTab !== "api-keys" && (
+          {activeTab !== "profile" && activeTab !== "api-keys" && activeTab !== "organization" && (
             <div className="animate-in fade-in duration-300">
               <div className="h-6 w-48 bg-white/5 rounded animate-pulse mb-6" />
               <div className="flex flex-col gap-4">

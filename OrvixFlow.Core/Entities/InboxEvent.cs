@@ -15,6 +15,8 @@ public class InboxEvent
     public string Subject { get; set; } = string.Empty;
     public string BodyText { get; set; } = string.Empty;
     
+    public string? WebhookCallbackPath { get; set; }
+    
     public DateTime ReceivedAtUtc { get; set; }
     public string Status { get; set; } = "Ingested"; // Ingested, Processing, Action_Required, Auto_Approved, Human_Approved, Human_Rejected, Completed, Failed
 }

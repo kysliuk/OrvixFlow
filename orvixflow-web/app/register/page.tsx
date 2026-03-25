@@ -25,8 +25,22 @@ export default function RegisterPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Registration failed");
+        let errorMsg = "Registration failed";
+        try {
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await res.json();
+            errorMsg = data.error || errorMsg;
+          } else {
+            const text = await res.text();
+            console.error("Registration server error (non-JSON):", text);
+            errorMsg = "An unexpected server error occurred. Please try again later.";
+          }
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+          errorMsg = "An unexpected server error occurred. Please try again later.";
+        }
+        throw new Error(errorMsg);
       }
 
       const signInRes = await signIn("credentials", {

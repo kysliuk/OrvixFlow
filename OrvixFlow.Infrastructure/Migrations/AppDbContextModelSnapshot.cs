@@ -24,6 +24,53 @@ namespace OrvixFlow.Infrastructure.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ActionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ConfidenceScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DraftResponse")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EvaluatedCategory")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InboxEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PolicyReason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("RowVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InboxEventId");
+
+                    b.ToTable("ActionRequests");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.AuditTrail", b =>
                 {
                     b.Property<Guid>("Id")
@@ -34,7 +81,23 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("DecisionDetails")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NewState")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PreviousState")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -49,11 +112,61 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.ToTable("AuditTrails");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.InboxEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SenderEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SenderName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ThreadId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WebhookCallbackPath")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InboxEvents");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBase", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Vector>("EmbeddingVector")
                         .HasColumnType("vector");
@@ -176,6 +289,45 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("WorkflowLogs");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.WorkflowPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AutoExecute")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("ConfidenceThreshold")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ExcludedKeywords")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WorkflowPolicies");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.ActionRequest", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.InboxEvent", "InboxEvent")
+                        .WithMany()
+                        .HasForeignKey("InboxEventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InboxEvent");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.User", b =>

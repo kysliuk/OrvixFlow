@@ -13,7 +13,12 @@ public class ActionRequest
     public string EvaluatedCategory { get; set; } = string.Empty;
     public decimal ConfidenceScore { get; set; }
     public string DraftResponse { get; set; } = string.Empty;
+    public string PolicyReason { get; set; } = string.Empty;
     
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAtUtc { get; set; }
-    public string Status { get; set; } = "Pending"; // Pending, Approved, Rejected
+    
+    public string Status { get; set; } = "Pending";
+    
+    public uint RowVersion { get; set; }
 }

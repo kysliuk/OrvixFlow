@@ -56,6 +56,7 @@ builder.Services.AddOpenApiDocument(config =>
         new NSwag.Generation.Processors.Security.AspNetCoreOperationSecurityScopeProcessor("TenantId"));
 });
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>(); 
 builder.Services.AddInfrastructure(builder.Configuration);
 
