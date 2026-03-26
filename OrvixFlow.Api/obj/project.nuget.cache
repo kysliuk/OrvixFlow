@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "HOnyvgOY+C4=",
+  "dgSpecHash": "EAtWyvww4To=",
   "success": true,
-  "projectFilePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
+  "projectFilePath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\dkysl\\.nuget\\packages\\azure.ai.openai\\2.8.0-beta.1\\azure.ai.openai.2.8.0-beta.1.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\azure.core\\1.50.0\\azure.core.1.50.0.nupkg.sha512",
@@ -104,20 +104,16 @@
     "C:\\Users\\dkysl\\.nuget\\packages\\system.text.encodings.web\\10.0.3\\system.text.encodings.web.10.0.3.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\system.text.json\\10.0.3\\system.text.json.10.0.3.nupkg.sha512",
     "C:\\Users\\dkysl\\.nuget\\packages\\system.threading.channels\\10.0.3\\system.threading.channels.10.0.3.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.12\\microsoft.netcore.app.ref.9.0.12.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.12\\microsoft.windowsdesktop.app.ref.9.0.12.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.12\\microsoft.aspnetcore.app.ref.9.0.12.nupkg.sha512",
-    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.12\\microsoft.netcore.app.host.win-x64.9.0.12.nupkg.sha512"
+    "C:\\Users\\dkysl\\.nuget\\packages\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512"
   ],
   "logs": [
     {
       "code": "NU1603",
       "level": "Warning",
       "message": "OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.",
-      "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
+      "projectPath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
       "warningLevel": 1,
-      "filePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
+      "filePath": "D:\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj",
       "libraryId": "Hangfire.PostgreSql",
       "targetGraphs": [
         "net9.0"

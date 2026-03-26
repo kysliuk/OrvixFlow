@@ -2,6 +2,7 @@
 import { auth } from "@/auth";
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+  const apiBaseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
   // Get the session on the server
   const session = await auth();
   
@@ -13,7 +14,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     headers.set("Authorization", `Bearer ${session.apiToken}`);
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+  const res = await fetch(`${apiBaseUrl}${endpoint}`, {
     ...options,
     headers,
   });

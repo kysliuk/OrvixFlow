@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 
 namespace OrvixFlow.Core.Entities;
 
 public class User
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    // Legacy single-company link kept for compatibility paths.
     public Guid TenantId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
@@ -25,4 +27,7 @@ public class User
 
     // Navigation
     public Tenant? Tenant { get; set; }
+    public ICollection<UserCompanyMembership> CompanyMemberships { get; set; } = new List<UserCompanyMembership>();
+    public ICollection<UserDepartmentMembership> DepartmentMemberships { get; set; } = new List<UserDepartmentMembership>();
+    public ICollection<ModuleAssignment> ModuleAssignments { get; set; } = new List<ModuleAssignment>();
 }

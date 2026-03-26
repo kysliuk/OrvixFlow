@@ -152,7 +152,7 @@ export default function PendingActionsPage() {
   };
 
   return (
-    <ModuleGate requiredPlan="Starter" fallbackMessage="Inbox Guardian is only available on the Starter plan or higher.">
+    <ModuleGate moduleKey="inbox.auto" fallbackMessage="Inbox Guardian is only available on the Starter plan or higher.">
       <div className="flex justify-between items-end mb-6">
         <div>
           <h1 className="text-2xl font-semibold mb-1">Pending Approvals</h1>

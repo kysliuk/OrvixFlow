@@ -16,7 +16,8 @@ public class TenantProvider : ITenantProvider
     public Guid GetTenantId()
     {
         var user = _httpContextAccessor.HttpContext?.User;
-        var tenantIdClaim = user?.FindFirst("TenantId")?.Value;
+        var tenantIdClaim = user?.FindFirst("ActiveCompanyId")?.Value
+            ?? user?.FindFirst("TenantId")?.Value;
         var roleClaim = user?.FindFirst("Role")?.Value;
 
         // Check if an Admin is trying to impersonate a different tenant
@@ -41,6 +42,6 @@ public class TenantProvider : ITenantProvider
             return headerGuid;
         }
 
-        throw new UnauthorizedAccessException("Tenant ID is missing from the current request context.");
+        return Guid.Empty;
     }
 }

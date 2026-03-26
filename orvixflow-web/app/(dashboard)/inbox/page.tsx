@@ -163,7 +163,7 @@ export default function InboxGuardianPage() {
   });
 
   return (
-    <ModuleGate requiredPlan="Starter" fallbackMessage="Inbox Guardian is only available on the Starter plan or higher.">
+    <ModuleGate moduleKey="inbox-guardian" fallbackMessage="Inbox Guardian is available but you cannot execute it in this scope.">
       <div className="flex justify-between items-end mb-6">
         <div>
           <h1 className="text-2xl font-semibold mb-1">Inbox Guardian</h1>

@@ -38,3 +38,25 @@ every change as simple as possible. Inpact minimal code.
 Laziness**: Find root
 causes. No temporary fixes. Senior developer standards.
 Minimal Impact; Changes should only touch what's necessary. Avoid introducing bugs.
+
+### L2 — Workflow Orchestration
+**Rule**: Always enter Plan Mode for non-trivial tasks (3+ steps). If something goes sideways, STOP and re-plan — do not push through. Use `subagents` to keep the main context clean, and always verify before marking "done". 
+**Design Principle**: Demand elegance. Pause and ask, "Is there a more elegant way?" Do not settle for hacky fixes. Fix bugs autonomously when reported.
+
+### L3 — Task Management
+**Rule**: Maintain simplicity first with minimal impact. Track progress meticulously in `task.md`. Explain changes at each step, and document results in `walkthrough.md`.
+
+
+---
+
+## Lessons Learned
+
+### L1 — Domain Constants: Use Enums, Not Hardcoded String Constants
+**Mistake**: Created `Roles.cs` as `public static class Roles` with `public const string SuperAdmin = "SuperAdmin"` etc.
+**Why it's wrong**:
+- String constants scatter magic values — anything can pass a `string` role claim without validation.
+- Enums give compile-time safety: invalid roles are impossible.
+- Enums serialize cleanly and can be extended without risk of typo divergence.
+
+**Rule**: Any domain concept repeated 3+ times (roles, statuses, scopes) → make it an `enum` in `OrvixFlow.Core`.
+Store only the serialized string form in the DB/JWT; parse back to the enum immediately on the boundary.

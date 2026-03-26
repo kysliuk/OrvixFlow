@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
+using OrvixFlow.Infrastructure.Auth;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Infrastructure.Services;
 
@@ -25,6 +26,10 @@ public static class DependencyInjection
 
         services.AddScoped<ScopedTenantProviderFactory>();
 
+        // Auth / Scope
+        services.AddScoped<OrvixFlow.Core.Interfaces.IScopeContext, OrvixFlow.Infrastructure.Auth.ScopeContext>();
+
+        // AI
         services.AddOrvixSemanticKernel(configuration);
 
         return services;
@@ -78,7 +83,8 @@ public static class DependencyInjection
             
         services.AddHttpClient("n8n", client =>
         {
-            client.BaseAddress = new System.Uri("http://localhost:5678");
+            var n8nUrl = configuration["Automation:N8nBaseUrl"] ?? "http://localhost:5678";
+            client.BaseAddress = new System.Uri(n8nUrl);
             client.DefaultRequestHeaders.Add("X-Automation-Key", configuration.GetValue<string>("AutomationKey"));
         });
 
@@ -86,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<IInboxGuardianService, InboxGuardianService>();
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<IAuthService, OrvixFlow.Infrastructure.Auth.AuthService>();
+        services.AddScoped<IAccessResolver, AccessResolver>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin>();
         services.AddScoped<OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin>();
 
@@ -95,6 +102,10 @@ public static class DependencyInjection
         services.AddScoped<IInboxEventRepository, InboxEventRepository>();
         services.AddScoped<IPolicyGateService, PolicyGateService>();
         services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+
+        // Shadow modules
+        services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
+        services.AddScoped<IUsageService, OrvixFlow.Infrastructure.Shadow.UsageService>();
 
         return services;
     }

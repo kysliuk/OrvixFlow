@@ -20,4 +20,8 @@ public class Tenant
 
     // Navigation
     public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<Department> Departments { get; set; } = new List<Department>();
+    public ICollection<UserCompanyMembership> UserMemberships { get; set; } = new List<UserCompanyMembership>();
+    public ICollection<UserDepartmentMembership> UserDepartmentMemberships { get; set; } = new List<UserDepartmentMembership>();
+    public ICollection<ModuleAssignment> ModuleAssignments { get; set; } = new List<ModuleAssignment>();
 }

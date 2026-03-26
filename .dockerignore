@@ -1,0 +1,12 @@
+.git
+.gitignore
+**/bin
+**/obj
+**/node_modules
+**/.next
+**/.cursor
+**/agent-transcripts
+**/*.user
+**/*.suo
+**/*.swp
+**/*.tmp

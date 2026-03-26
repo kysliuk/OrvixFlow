@@ -35,16 +35,24 @@ public class TenantProviderTests
     }
     
     [Fact]
-    public void Should_Resolve_Tenant_From_Header_When_Claims_Missing()
+    public void Should_Prefer_ActiveCompanyId_Claim_When_Present()
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        
-        var mockHttpContext = new DefaultHttpContext();
-        mockHttpContext.Request.Headers["X-Tenant-ID"] = tenantId.ToString();
+        var activeCompanyId = Guid.NewGuid();
+        var claims = new[]
+        {
+            new Claim("TenantId", tenantId.ToString()),
+            new Claim("ActiveCompanyId", activeCompanyId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        var mockHttpContext = new Mock<HttpContext>();
+        mockHttpContext.Setup(c => c.User).Returns(claimsPrincipal);
 
         var mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
-        mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(mockHttpContext);
+        mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(mockHttpContext.Object);
 
         var provider = new TenantProvider(mockHttpContextAccessor.Object);
 
@@ -52,6 +60,6 @@ public class TenantProviderTests
         var result = provider.GetTenantId();
 
         // Assert
-        result.Should().Be(tenantId);
+        result.Should().Be(activeCompanyId);
     }
 }

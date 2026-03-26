@@ -1,8 +1,8 @@
-const apiUrl = "http://localhost:5100";
+const apiUrl = "http://localhost:8080";
 
 async function test() {
   try {
-    console.info("Provisioning OAuth user...");
+    console.log("Provisioning OAuth user...");
     const res = await fetch(`${apiUrl}/api/auth/oauth-provision`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -13,19 +13,27 @@ async function test() {
       })
     });
     
-    const data = await res.json();
-    console.info("OAuth Token generated:", data.token ? "Success" : "Failed");
-    if (!res.ok) {
-       console.error("Error response:", data);
+    const rawText = await res.text();
+    console.log("Raw Response Body:", rawText);
+    
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      console.error("Failed to parse JSON:", rawText);
+      return;
     }
     
-    console.info("Testing /api/agent/ingest endpoint...");
+    console.log("OAuth Token generated:", data.token ? "Success" : "Failed");
+    
+    console.log("Testing /api/agent/ingest endpoint...");
     const ingest = await fetch(`${apiUrl}/api/agent/ingest`, {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + data.token },
       body: JSON.stringify({ prompt: "hello" })
     });
     
-    console.info("Ingest Status:", ingest.status);
+    console.log("Ingest Status:", ingest.status);
+    console.log("Ingest Response:", await ingest.text());
 
   } catch (err) {
     console.error("Test script error:", err);

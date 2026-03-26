@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { 
   Home, 
   Inbox, 
@@ -20,13 +21,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session } = useSession();
   const pathname = usePathname();
 
-  const links = [
-    { name: "Dashboard", href: "/", icon: Home },
-    { name: "Inbox Guardian", href: "/inbox", icon: Inbox },
-    { name: "Knowledge Base", href: "/knowledge", icon: Database },
-    { name: "Settings", href: "/settings", icon: Settings },
-    { name: "Billing", href: "/billing", icon: CreditCard },
+  const [visibleModules, setVisibleModules] = useState<string[]>([]);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
+
+  useEffect(() => {
+    if ((session as any)?.apiToken) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/modules/visible`, {
+        headers: { "Authorization": `Bearer ${(session as any).apiToken}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        setVisibleModules(data.modules || []);
+        setModulesLoaded(true);
+      })
+      .catch(err => {
+        console.error("Failed to load visible modules", err);
+        setModulesLoaded(true);
+      });
+    }
+  }, [session]);
+
+  const allLinks = [
+    { name: "Dashboard", href: "/", icon: Home, moduleKey: null },
+    { name: "Inbox Guardian", href: "/inbox", icon: Inbox, moduleKey: "inbox-guardian" },
+    { name: "Knowledge Base", href: "/knowledge", icon: Database, moduleKey: "doc-intel" },
+    { name: "Settings", href: "/settings", icon: Settings, moduleKey: null },
+    { name: "Billing", href: "/billing", icon: CreditCard, moduleKey: null },
   ];
+
+  const links = allLinks.filter(link => 
+    !link.moduleKey || visibleModules.includes(link.moduleKey)
+  );
 
   const getBreadcrumb = () => {
     if (pathname === "/") return "Overview";
@@ -49,24 +74,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         
         <div className="flex-1 py-6 px-3 flex flex-col gap-1 overflow-y-auto">
           <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-3">Main Navigation</div>
-          {links.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href;
-            return (
-              <Link 
-                key={link.href} 
-                href={link.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive 
-                    ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_var(--accent-primary)]" 
-                    : "text-muted hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "text-muted"}`} />
-                {link.name}
-              </Link>
-            );
-          })}
+          {!modulesLoaded ? (
+            <div className="px-3 py-2 text-sm text-muted animate-pulse">Loading modules...</div>
+          ) : (
+            links.map((link) => {
+              const Icon = link.icon;
+              const isActive = pathname === link.href;
+              return (
+                <Link 
+                  key={link.href} 
+                  href={link.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive 
+                      ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_var(--accent-primary)]" 
+                      : "text-muted hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "text-muted"}`} />
+                  {link.name}
+                </Link>
+              );
+            })
+          )}
         </div>
 
         <div className="p-4 border-t border-white/5 bg-surface-hover/30">

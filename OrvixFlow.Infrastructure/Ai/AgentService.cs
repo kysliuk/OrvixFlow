@@ -10,14 +10,23 @@ namespace OrvixFlow.Infrastructure.Ai;
 public class AgentService : IAgentService
 {
     private readonly Kernel _kernel;
-    
-    // We can inject Kernel because it's configured as Transient/Scoped in DI
+    private readonly IAuditService _audit;
+    private readonly IUsageService _usage;
+    private readonly IScopeContext _scope;
+
     public AgentService(
-        Kernel kernel, 
+        Kernel kernel,
         OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin searchPlugin,
-        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin)
+        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin,
+        IAuditService audit,
+        IUsageService usage,
+        IScopeContext scope)
     {
         _kernel = kernel;
+        _audit  = audit;
+        _usage  = usage;
+        _scope  = scope;
+
         _kernel.Plugins.AddFromObject(searchPlugin);
         _kernel.Plugins.AddFromObject(automationPlugin);
     }
@@ -35,26 +44,51 @@ public class AgentService : IAgentService
                 },
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
             };
-            
+
             var result = await chatCompletionService.GetChatMessageContentAsync(
-                prompt, 
-                executionSettings, 
-                _kernel);
+                prompt, executionSettings, _kernel);
+
+            var content = result.Content ?? string.Empty;
+
+            // ── Shadow module side-effects (fire-and-forget style, but awaited) ──
+
+            // Approximate token count from prompt + response length (real usage
+            // would come from result.Metadata["Usage"] for OpenAI-compatible APIs).
+            var estimatedTokens = EstimateTokens(prompt, content);
+
+            await _usage.RecordTokensAsync(
+                companyId:    _scope.CompanyId,
+                moduleKey:    "agent",
+                tokenCount:   estimatedTokens,
+                userId:       _scope.UserId == Guid.Empty ? null : _scope.UserId);
+
+            await _audit.RecordAsync(
+                tenantId:        tenantId,
+                action:          "agent.process",
+                decisionDetails: $"prompt_length={prompt.Length} response_length={content.Length}",
+                userId:          _scope.UserId == Guid.Empty ? null : _scope.UserId);
 
             return new AgentResponse
             {
                 IsSuccess = true,
-                Message = result.Content ?? string.Empty,
-                Metadata = result.Metadata
+                Message   = content,
+                Metadata  = result.Metadata
             };
         }
         catch (Exception ex)
         {
             return new AgentResponse
             {
-                IsSuccess = false,
+                IsSuccess    = false,
                 ErrorMessage = ex.Message
             };
         }
     }
+
+    /// <summary>
+    /// Rough approximation: ~4 characters per token (standard heuristic).
+    /// Replace with provider metadata when available.
+    /// </summary>
+    private static int EstimateTokens(string prompt, string response) =>
+        (prompt.Length + response.Length) / 4;
 }

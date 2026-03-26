@@ -16,7 +16,8 @@ public class AuthControllerTests
     public AuthControllerTests()
     {
         _authServiceMock = new Mock<IAuthService>();
-        _controller = new AuthController(_authServiceMock.Object);
+        var loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<AuthController>>();
+        _controller = new AuthController(_authServiceMock.Object, loggerMock.Object);
     }
 
     [Fact]
@@ -24,7 +25,7 @@ public class AuthControllerTests
     {
         // Arrange
         _authServiceMock.Setup(x => x.RegisterAsync("test@example.com", "password", "Test User"))
-            .ReturnsAsync(new AuthResult(true, "token123", new UserProfile(System.Guid.NewGuid(), System.Guid.NewGuid(), "test@example.com", "Test User", "Owner", "Trialing")));
+            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), System.Guid.NewGuid(), System.Guid.NewGuid(), "test@example.com", "Test User", "Owner", "Trialing", new System.Collections.Generic.List<CompanyMembershipSummary>())));
 
         var req = new RegisterRequest("test@example.com", "password", "Test User");
 
