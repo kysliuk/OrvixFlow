@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 
@@ -16,12 +17,26 @@ public class BillingController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IEntitlementResolver _entitlementResolver;
+    private readonly ICompanySubscriptionService _subscriptionService;
+    private readonly IPlanService _planService;
 
-    public BillingController(AppDbContext db, IEntitlementResolver entitlementResolver)
+    public BillingController(
+        AppDbContext db, 
+        IEntitlementResolver entitlementResolver,
+        ICompanySubscriptionService subscriptionService,
+        IPlanService planService)
     {
         _db = db;
         _entitlementResolver = entitlementResolver;
+        _subscriptionService = subscriptionService;
+        _planService = planService;
     }
+
+    private UserRole CurrentUserRole() =>
+        UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+
+    private bool IsCompanyAdminOrAbove() =>
+        CurrentUserRole().IsCompanyAdminOrAbove();
 
     [HttpPost("usage")]
     public async Task<IActionResult> TrackUsage([FromBody] TrackUsageRequest req)
@@ -165,6 +180,17 @@ public class BillingController : ControllerBase
         var kbCount = await _db.KnowledgeBases
             .CountAsync(k => k.TenantId == companyId.Value);
 
+        var billingHistory = subscription?.PlanTemplate != null ? new[]
+        {
+            new {
+                id = "inv_" + Guid.NewGuid().ToString("N")[..8],
+                amount = subscription.PlanTemplate.MonthlyPriceCents,
+                date = subscription.CurrentPeriodStart.ToString("o"),
+                description = $"{subscription.PlanTemplate.Name} Plan - {subscription.BillingInterval}",
+                status = "Paid"
+            }
+        } : Array.Empty<object>();
+
         return Ok(new
         {
             plan = subscription?.PlanTemplate != null ? new
@@ -175,6 +201,8 @@ public class BillingController : ControllerBase
             } : null,
             status = subscription?.Status ?? "Active",
             currentPeriodEnd = subscription?.CurrentPeriodEnd != default ? subscription.CurrentPeriodEnd.ToString("o") : null,
+            pendingPlanId = subscription?.PendingPlanId,
+            pendingChangeAt = subscription?.PendingChangeAt?.ToString("o"),
             entitlements = new
             {
                 maxSeats = entitlements.MaxSeats,
@@ -186,8 +214,159 @@ public class BillingController : ControllerBase
                 maxKnowledgeBases = entitlements.MaxKnowledgeBases,
                 usedKnowledgeBases = kbCount
             },
-            billingHistory = Array.Empty<object>()
+            billingHistory = billingHistory
         });
+    }
+
+    [HttpGet("plans")]
+    public async Task<IActionResult> GetAvailablePlans()
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        var subscription = await _subscriptionService.GetSubscriptionAsync(companyId.Value);
+        var currentPlanId = subscription?.PlanTemplateId;
+        var currentPlanName = subscription?.PlanTemplate?.Name ?? "Free";
+
+        var plans = await _planService.GetActivePlansAsync();
+        var planDtos = plans.Select(p => new
+        {
+            id = p.Id,
+            name = p.Name,
+            slug = p.Slug,
+            description = p.Description,
+            monthlyPriceCents = p.MonthlyPriceCents,
+            yearlyPriceCents = p.YearlyPriceCents,
+            billingInterval = p.BillingInterval,
+            maxSeats = p.MaxSeats,
+            isFree = p.IsFree,
+            isUpgrade = currentPlanId != null && p.MonthlyPriceCents > (subscription?.PlanTemplate?.MonthlyPriceCents ?? 0),
+            isDowngrade = currentPlanId != null && p.MonthlyPriceCents < (subscription?.PlanTemplate?.MonthlyPriceCents ?? 0),
+            isCurrentPlan = p.Id == currentPlanId,
+            entitlements = new
+            {
+                maxMonthlyTokens = p.Entitlements?.MaxMonthlyTokens ?? 50000,
+                maxApiRequestsPerDay = p.Entitlements?.MaxApiRequestsPerDay ?? 500,
+                maxStorageMb = p.Entitlements?.MaxStorageMb ?? 100,
+                maxKnowledgeBases = p.Entitlements?.MaxKnowledgeBases ?? 1
+            }
+        }).ToList();
+
+        return Ok(new
+        {
+            currentPlanId = currentPlanId,
+            currentPlanName = currentPlanName,
+            plans = planDtos
+        });
+    }
+
+    [HttpPost("change-plan")]
+    public async Task<IActionResult> ChangePlan([FromBody] ChangePlanRequest req)
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        if (!IsCompanyAdminOrAbove())
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var subscription = await _subscriptionService.ChangePlanAsync(
+                companyId.Value, 
+                req.PlanTemplateId, 
+                req.Immediate);
+
+            var pendingChangeAt = subscription.PendingChangeAt?.ToString("o");
+
+            return Ok(new
+            {
+                success = true,
+                message = req.Immediate 
+                    ? $"Plan changed successfully to {subscription.PlanTemplate?.Name}"
+                    : $"Plan change scheduled for {pendingChangeAt}. You will be charged on your next billing cycle.",
+                pendingChangeAt = pendingChangeAt
+            });
+        }
+        catch (SeatLimitExceededException ex)
+        {
+            return BadRequest(new
+            {
+                error = "SEAT_LIMIT_EXCEEDED",
+                message = $"Cannot change to this plan: {ex.CurrentSeats} seats exceed the plan limit of {ex.MaxSeats}"
+            });
+        }
+        catch (PlanNotFoundException)
+        {
+            return NotFound(new { error = "Plan not found" });
+        }
+        catch (PlanNotActiveException)
+        {
+            return BadRequest(new { error = "Plan is not available" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("proration")]
+    public async Task<IActionResult> CalculateProration([FromQuery] Guid newPlanId)
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        var currentSubscription = await _subscriptionService.GetSubscriptionAsync(companyId.Value);
+        var newPlan = await _planService.GetPlanByIdAsync(newPlanId);
+
+        if (newPlan == null)
+        {
+            return NotFound(new { error = "Plan not found" });
+        }
+
+        var currentPrice = currentSubscription?.PlanTemplate?.MonthlyPriceCents ?? 0;
+        var newPrice = newPlan.MonthlyPriceCents;
+        var daysRemaining = 0;
+
+        if (currentSubscription?.CurrentPeriodEnd != default)
+        {
+            daysRemaining = (int)(currentSubscription.CurrentPeriodEnd - DateTime.UtcNow).TotalDays;
+        }
+
+        var prorationAmount = Math.Max(0, newPrice - currentPrice);
+
+        return Ok(new
+        {
+            currentPrice = currentPrice,
+            newPrice = newPrice,
+            prorationAmount = prorationAmount,
+            daysRemaining = daysRemaining,
+            message = "Proration will be calculated when Stripe is integrated"
+        });
+    }
+
+    [HttpGet("limits/{limitType}")]
+    public async Task<IActionResult> CheckLimit(string limitType, [FromQuery] int amount = 1)
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null) return Unauthorized();
+
+        var result = await _entitlementResolver.CheckLimitAsync(companyId.Value, limitType, amount);
+        if (!result.Allowed)
+        {
+            return StatusCode(402, result);
+        }
+        return Ok(result);
     }
 
     private Guid? ParseGuid(string claimType)
@@ -199,3 +378,5 @@ public class BillingController : ControllerBase
 
 public record TrackUsageRequest(string ModuleKey, string MetricType, decimal Quantity, Guid? DepartmentId);
 public record StripeWebhookRequest(Guid CompanyId, string StripeCustomerId, string StripeSubscriptionId, string Plan, string Status);
+public record ChangePlanRequest(Guid PlanTemplateId, bool Immediate = true);
+public record ChangePlanResponse(bool Success, string Message, string? PendingChangeAt);

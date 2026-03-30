@@ -17,6 +17,7 @@ public interface IEntitlementResolver
     Task<bool> IsWithinApiLimitAsync(Guid companyId);
     Task<bool> IsWithinStorageLimitAsync(Guid companyId, int mbToConsume);
     Task<bool> IsWithinKnowledgeBaseLimitAsync(Guid companyId);
+    Task<LimitCheckResult> CheckLimitAsync(Guid companyId, string limitType, int amount = 1);
 }
 
 public class CompanyEntitlements
@@ -36,4 +37,13 @@ public class CompanyEntitlements
     public bool CanAddApiRequests => MaxApiRequestsPerDay > ApiRequestsUsedToday;
     public bool CanAddStorage(int mb) => MaxStorageMb >= (StorageUsedMb + mb);
     public bool CanAddKnowledgeBase => MaxKnowledgeBases > KnowledgeBasesCount;
+}
+
+public class LimitCheckResult
+{
+    public bool Allowed { get; set; }
+    public string? ExceededLimit { get; set; }
+    public int CurrentUsage { get; set; }
+    public int Limit { get; set; }
+    public string? UpgradeUrl { get; set; }
 }

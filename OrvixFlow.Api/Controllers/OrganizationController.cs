@@ -121,12 +121,29 @@ public class OrganizationController : ControllerBase
     }
 
     [HttpGet("departments")]
-
     public async Task<IActionResult> GetDepartments()
     {
         var userId = ParseGuid("sub");
         var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
         if (userId == null || companyId == null) return Unauthorized();
+
+        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+
+        // Admins see all company departments; regular users see only their assigned ones
+        if (role.IsCompanyAdminOrAbove())
+        {
+            var allDepts = await _db.Departments
+                .Where(d => d.CompanyId == companyId.Value)
+                .Select(d => new
+                {
+                    departmentId = d.Id,
+                    name = d.Name,
+                    code = d.Code,
+                    role = "Admin"
+                })
+                .ToListAsync();
+            return Ok(allDepts);
+        }
 
         var departments = await _db.UserDepartmentMemberships
             .Where(m => m.UserId == userId.Value && m.CompanyId == companyId.Value && m.Status == "Active")

@@ -88,16 +88,21 @@ public class EntitlementResolver : IEntitlementResolver
             })
             .ToListAsync();
 
-        var tokenUsage = usageSummary.FirstOrDefault(u => u.MetricType == "tokens");
+        var tokenUsage = usageSummary.FirstOrDefault(u => u.MetricType == "ai-tokens");
         entitlements.TokensUsedThisPeriod = (int)(tokenUsage?.Total ?? 0);
+
+        var storageUsage = usageSummary.FirstOrDefault(u => u.MetricType == "storage-mb");
+        entitlements.StorageUsedMb = (int)(storageUsage?.Total ?? 0);
+
+        var kbUsage = usageSummary.FirstOrDefault(u => u.MetricType == "knowledge-bases");
+        var kbCountFromDb = await _dbContext.KnowledgeBases
+            .Where(k => k.TenantId == companyId)
+            .CountAsync();
+        entitlements.KnowledgeBasesCount = Math.Max((int)(kbUsage?.Total ?? 0), kbCountFromDb);
 
         entitlements.ApiRequestsUsedToday = (int)await _dbContext.UsageEvents
             .Where(e => e.CompanyId == companyId && e.OccurredAt >= today)
             .SumAsync(e => e.Quantity);
-
-        entitlements.KnowledgeBasesCount = await _dbContext.KnowledgeBases
-            .Where(k => k.TenantId == companyId)
-            .CountAsync();
 
         return entitlements;
     }
@@ -136,5 +141,56 @@ public class EntitlementResolver : IEntitlementResolver
     {
         var entitlements = await GetEntitlementsAsync(companyId);
         return entitlements.CanAddKnowledgeBase;
+    }
+
+    public async Task<LimitCheckResult> CheckLimitAsync(Guid companyId, string limitType, int amount = 1)
+    {
+        var entitlements = await GetEntitlementsAsync(companyId);
+        
+        var result = new LimitCheckResult { Allowed = true };
+
+        switch (limitType.ToLowerInvariant())
+        {
+            case "tokens":
+            case "ai-tokens":
+                result.Limit = entitlements.MaxMonthlyTokens;
+                result.CurrentUsage = entitlements.TokensUsedThisPeriod;
+                result.ExceededLimit = "AI Tokens";
+                result.Allowed = entitlements.CanAddTokens(amount);
+                break;
+                
+            case "storage":
+            case "storage-mb":
+                result.Limit = entitlements.MaxStorageMb;
+                result.CurrentUsage = entitlements.StorageUsedMb;
+                result.ExceededLimit = "Storage";
+                result.Allowed = entitlements.CanAddStorage(amount);
+                break;
+                
+            case "knowledge-bases":
+            case "kb":
+                result.Limit = entitlements.MaxKnowledgeBases;
+                result.CurrentUsage = entitlements.KnowledgeBasesCount;
+                result.ExceededLimit = "Knowledge Bases";
+                result.Allowed = entitlements.CanAddKnowledgeBase;
+                break;
+                
+            case "api-requests":
+                result.Limit = entitlements.MaxApiRequestsPerDay;
+                result.CurrentUsage = entitlements.ApiRequestsUsedToday;
+                result.ExceededLimit = "API Requests";
+                result.Allowed = entitlements.CanAddApiRequests;
+                break;
+                
+            case "seats":
+                result.Limit = entitlements.MaxSeats ?? int.MaxValue;
+                result.CurrentUsage = 0;
+                result.ExceededLimit = "Seats";
+                result.Allowed = true;
+                break;
+        }
+
+        result.UpgradeUrl = "/billing";
+        return result;
     }
 }

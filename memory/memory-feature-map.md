@@ -78,7 +78,7 @@
 - `OrvixFlow.Core/Entities/ModuleAssignment.cs`
 - `OrvixFlow.Core/Entities/Department.cs`
 
-## Billing & Plans (Admin Panel Phase 1)
+## Billing & Plans (Admin Panel)
 
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
@@ -92,6 +92,33 @@
 | Seat Limit Enforcement | InviteController | EntitlementResolver | - |
 | Audit Logging (Plan Changes) | - | CompanySubscriptionService | AuditTrail |
 | Module Access Control | RequireModuleAttribute | EntitlementResolver | - |
+| Limit Check Methods | - | EntitlementResolver | - |
+| Change Plan | BillingController | CompanySubscriptionService | CompanySubscription |
+| Module Gate UI | module-gate.tsx | - | - |
+
+### Limit Check Methods (Agent 1)
+- `IsWithinTokenLimitAsync()` - Check if can consume tokens
+- `IsWithinApiLimitAsync()` - Check if can make API request
+- `IsWithinStorageLimitAsync()` - Check if can add storage
+- `IsWithinKnowledgeBaseLimitAsync()` - Check if can create KB
+- `CheckLimitAsync()` - Get detailed limit info with UpgradeUrl
+
+### Billing API Endpoints (Phase 2)
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/billing/subscription` | GET | Get current subscription with entitlements |
+| `/api/billing/plans` | GET | Get available plans for upgrade |
+| `/api/billing/change-plan` | POST | Change subscription plan |
+| `/api/billing/proration` | GET | Calculate proration (placeholder) |
+| `/api/billing/usage` | GET | Get current usage |
+| `/api/billing/summary` | GET | Get usage summary (admin) |
+
+### Usage Tracking Metrics
+- **ai-tokens**: AI token consumption (AgentService, InboxGuardianService)
+- **storage-mb**: Knowledge base storage (IngestionService)
+- **knowledge-bases**: KB count (IngestionService)
+- **inbox-messages**: Processed messages (InboxGuardianService)
+- **n8n-nodes**: Workflow executions
 
 **Files:**
 - `OrvixFlow.Api/Controllers/PlansController.cs`

@@ -39,9 +39,27 @@ public sealed class UsageService : IUsageService
 
         var tokens = events.FirstOrDefault(e => e.MetricType == "ai-tokens")?.Total ?? 0;
         var nodes  = events.FirstOrDefault(e => e.MetricType == "n8n-nodes")?.Total ?? 0;
+        var storage = events.FirstOrDefault(e => e.MetricType == "storage-mb")?.Total ?? 0;
+        var kbCount = events.FirstOrDefault(e => e.MetricType == "knowledge-bases")?.Total ?? 0;
+        var inbox   = events.FirstOrDefault(e => e.MetricType == "inbox-messages")?.Total ?? 0;
 
-        return new UsageSummary(tokens, nodes);
+        return new UsageSummary(tokens, nodes, storage, kbCount, inbox);
     }
+
+    public Task RecordStorageAsync(
+        Guid companyId, string moduleKey, int megabytes,
+        Guid? userId = null, Guid? departmentId = null)
+        => WriteEventAsync(companyId, moduleKey, "storage-mb", megabytes, userId, departmentId);
+
+    public Task RecordKnowledgeBaseAsync(
+        Guid companyId, string moduleKey, int count,
+        Guid? userId = null, Guid? departmentId = null)
+        => WriteEventAsync(companyId, moduleKey, "knowledge-bases", count, userId, departmentId);
+
+    public Task RecordInboxMessageAsync(
+        Guid companyId, string moduleKey, int messageCount,
+        Guid? userId = null, Guid? departmentId = null)
+        => WriteEventAsync(companyId, moduleKey, "inbox-messages", messageCount, userId, departmentId);
 
     private async Task WriteEventAsync(
         Guid companyId, string moduleKey, string metricType,

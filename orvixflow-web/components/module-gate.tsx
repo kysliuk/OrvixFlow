@@ -9,14 +9,36 @@ interface ModuleGateProps {
   moduleKey: string;
   children: React.ReactNode;
   fallbackMessage?: string;
+  requiredLimits?: { type: string; amount?: number }[];
 }
 
-export function ModuleGate({ moduleKey, children, fallbackMessage }: ModuleGateProps) {
+interface PermissionData {
+  canView: boolean;
+  canUse: boolean;
+}
+
+interface LimitData {
+  allowed: boolean;
+  exceededLimit?: string;
+  currentUsage?: number;
+  limit?: number;
+  upgradeUrl?: string;
+}
+
+const MODULE_LIMIT_TYPES: Record<string, string> = {
+  "agent": "ai-tokens",
+  "inbox-guardian": "inbox-messages",
+  "knowledge-base": "knowledge-bases",
+};
+
+export function ModuleGate({ moduleKey, children, fallbackMessage, requiredLimits }: ModuleGateProps) {
   const { data: session, status } = useSession();
-  const [permissions, setPermissions] = useState<{ canView: boolean; canUse: boolean } | null>(null);
+  const [permissions, setPermissions] = useState<PermissionData | null>(null);
+  const [limitStatus, setLimitStatus] = useState<LimitData | null>(null);
 
   useEffect(() => {
     if (!session?.apiToken) return;
+
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/modules/${moduleKey}/permissions`, {
       headers: { Authorization: `Bearer ${session.apiToken}` },
     })
@@ -36,9 +58,62 @@ export function ModuleGate({ moduleKey, children, fallbackMessage }: ModuleGateP
       .catch(() => setPermissions({ canView: false, canUse: false }));
   }, [moduleKey, session?.apiToken]);
 
+  useEffect(() => {
+    if (!session?.apiToken || !permissions?.canView) return;
+
+    const limitTypes = requiredLimits || [{ type: MODULE_LIMIT_TYPES[moduleKey] || "ai-tokens" }];
+    const activeLimit = limitTypes.find(l => l.type);
+
+    if (!activeLimit) {
+      setLimitStatus({ allowed: true });
+      return;
+    }
+
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/billing/limits/${activeLimit.type}?amount=${activeLimit.amount || 1}`,
+      { headers: { Authorization: `Bearer ${session.apiToken}` } }
+    )
+      .then(async (res) => {
+        if (res.status === 402) {
+          const data = await res.json();
+          setLimitStatus({ allowed: false, ...data });
+          return;
+        }
+        if (!res.ok) throw new Error("Failed limit check");
+        return res.json();
+      })
+      .then((data) => {
+        if (data) setLimitStatus(data);
+      })
+      .catch(() => setLimitStatus({ allowed: true }));
+  }, [moduleKey, session?.apiToken, permissions?.canView, requiredLimits]);
+
   if (status === "loading" || permissions == null) return null;
 
   if (!permissions.canView) return null;
+
+  if (limitStatus !== null && !limitStatus.allowed) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] bg-surface/50 border-2 border-dashed border-danger/30 rounded-2xl">
+        <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center mb-6">
+          <Lock className="w-8 h-8 text-danger" />
+        </div>
+        <h2 className="text-2xl font-semibold mb-2 text-white">Limit Exceeded</h2>
+        <p className="text-muted max-w-md mx-auto mb-2">
+          You've reached your {limitStatus.exceededLimit} limit.
+        </p>
+        <p className="text-sm text-muted mb-6">
+          {limitStatus.currentUsage} / {limitStatus.limit} used
+        </p>
+        <Link 
+          href={limitStatus.upgradeUrl || "/billing"} 
+          className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg shadow-[0_4px_12px_var(--accent-glow)] transition-all active:scale-[0.98]"
+        >
+          Upgrade to Continue
+        </Link>
+      </div>
+    );
+  }
 
   if (permissions.canUse) return <>{children}</>;
 

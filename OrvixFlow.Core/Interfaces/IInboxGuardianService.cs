@@ -13,5 +13,5 @@ public class InboxMessage
 
 public interface IInboxGuardianService
 {
-    Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId);
+    Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, Guid? userId = null, Guid? departmentId = null);
 }

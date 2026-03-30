@@ -362,17 +362,17 @@ AuditLogs (Id, ActorId FK, ActorType [User/System], CompanyId FK,
 
 **Goal**: Functional admin panel with plan management and company assignment
 
-- [ ] `PlanTemplates` CRUD (create, edit, archive, list)
-- [ ] `ModuleDefinitions` CRUD
-- [ ] `PlanModuleInclusion` — associate modules with plans
-- [ ] `PlanEntitlements` — store limits per plan
-- [ ] `CompanySubscriptions` — assign plan to company (Super Admin only)
-- [ ] Entitlement resolution service — single source of truth for "what can this company do"
-- [ ] Module access check middleware (replace current [ModuleGate](file:///d:/Antigravity/OrvixFlow/orvixflow-web/components/module-gate.tsx#14-63) hardcoded approach)
-- [ ] Super Admin: Company detail page (plan, status, members)
-- [ ] Company Admin: Plan & Billing page (read-only view of current plan + usage)
-- [ ] Seat limit enforcement on user invite
-- [ ] AuditLog writes for plan assignments + member changes
+- [x] `PlanTemplates` CRUD (create, edit, archive, list)
+- [x] `ModuleDefinitions` CRUD
+- [x] `PlanModuleInclusion` — associate modules with plans
+- [x] `PlanEntitlements` — store limits per plan
+- [x] `CompanySubscriptions` — assign plan to company (Super Admin only)
+- [x] Entitlement resolution service — single source of truth for "what can this company do"
+- [x] Module access check middleware (replace current [ModuleGate](file:///d:/Antigravity/OrvixFlow/orvixflow-web/components/module-gate.tsx#14-63) hardcoded approach)
+- [x] Super Admin: Company detail page (plan, status, members)
+- [x] Company Admin: Plan & Billing page (read-only view of current plan + usage)
+- [x] Seat limit enforcement on user invite
+- [x] AuditLog writes for plan assignments + member changes
 
 > **Skip in Phase 1**: entitlement overrides, module overrides, billing history, payment integration
 
@@ -384,14 +384,15 @@ AuditLogs (Id, ActorId FK, ActorType [User/System], CompanyId FK,
 
 - [ ] `CompanyEntitlementOverrides` — per-company limit customization
 - [ ] `CompanyModuleOverrides` — add/remove modules per company outside plan
-- [ ] Upgrade/downgrade flow (in-app by Company Owner)
-- [ ] Proration calculation
-- [ ] Stripe / payment provider integration
-- [ ] BillingHistory table + display
+- [x] Upgrade/downgrade flow (in-app by Company Owner)
+- [x] Proration calculation (placeholder - Stripe integration pending)
+- [x] BillingHistory table + display
+- [x] Usage tracking writes (`UsageRecords`) with monthly reset
+- [x] Usage meters in admin + company dashboards
 - [ ] Trial expiration flow (warn at 7d, 3d, 0d)
 - [ ] Dunning flow (payment failure → PastDue → Suspended after X days)
-- [ ] Usage tracking writes (`UsageRecords`) with monthly reset
-- [ ] Usage meters in admin + company dashboards
+
+> **Skip in Phase 2**: Stripe integration (moved to Phase 3)
 
 ---
 
@@ -407,6 +408,7 @@ AuditLogs (Id, ActorId FK, ActorType [User/System], CompanyId FK,
 - [ ] API-level rate limiting tied to plan entitlements (per-minute burst)
 - [ ] Revenue dashboard for Super Admin (MRR, churn, expansion)
 - [ ] GDPR/data export at company level
+- [ ] Stripe / payment provider integration
 - [ ] External webhook events (plan changed, trial expired, limit exceeded)
 
 ---

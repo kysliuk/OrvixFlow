@@ -13,22 +13,25 @@ public class InboxGuardianService : IInboxGuardianService
     private readonly IIntentClassifierService _classifier;
     private readonly IHybridVectorSearchService _vectorSearch;
     private readonly IDraftGeneratorService _draftGenerator;
+    private readonly IUsageService _usageService;
 
     public InboxGuardianService(
         Kernel kernel,
         IIntentClassifierService classifier,
         IHybridVectorSearchService vectorSearch,
         IDraftGeneratorService draftGenerator,
-        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin)
+        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin,
+        IUsageService usageService)
     {
         _kernel = kernel;
         _classifier = classifier;
         _vectorSearch = vectorSearch;
         _draftGenerator = draftGenerator;
+        _usageService = usageService;
         _kernel.Plugins.AddFromObject(automationPlugin);
     }
 
-    public async Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId)
+    public async Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, Guid? userId = null, Guid? departmentId = null)
     {
         try
         {
@@ -62,6 +65,9 @@ public class InboxGuardianService : IInboxGuardianService
                 ["hasContext"] = knowledgeContext.Count > 0
             };
 
+            // Track usage
+            await _usageService.RecordInboxMessageAsync(tenantId, "inbox-guardian", 1, userId, departmentId);
+
             return new AgentResponse
             {
                 IsSuccess = true,
@@ -73,7 +79,7 @@ public class InboxGuardianService : IInboxGuardianService
         {
             return new AgentResponse
             {
-                IsSuccess = false,
+                IsSuccess    = false,
                 ErrorMessage = ex.Message
             };
         }

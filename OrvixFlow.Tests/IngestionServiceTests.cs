@@ -22,6 +22,7 @@ public class IngestionServiceTests
         // Arrange
         var mockEmbeddingService = new Mock<ITextEmbeddingGenerationService>();
         var mockTenantProvider = new Mock<ITenantProvider>();
+        var mockUsageService = new Mock<IUsageService>();
         var tenantId = Guid.NewGuid();
         
         mockTenantProvider.Setup(p => p.GetTenantId()).Returns(tenantId);
@@ -40,7 +41,7 @@ public class IngestionServiceTests
             
         // Use separate context instance to simulate fresh DB context
         using var dbContext = new AppDbContext(options, mockTenantProvider.Object);
-        var ingestionService = new IngestionService(dbContext, mockEmbeddingService.Object, mockTenantProvider.Object);
+        var ingestionService = new IngestionService(dbContext, mockEmbeddingService.Object, mockTenantProvider.Object, mockUsageService.Object);
         
         var testContent = "This is a dummy test content for ingestion.";
         

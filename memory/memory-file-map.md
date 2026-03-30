@@ -52,6 +52,8 @@
 | IPlanService | `OrvixFlow.Core/Interfaces/IPlanService.cs` |
 | IEntitlementResolver | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 | ICompanySubscriptionService | `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` |
+| CompanyEntitlements | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
+| LimitCheckResult | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 
 ## Controllers
 
@@ -116,6 +118,8 @@
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Settings Tabs | `orvixflow-web/components/settings/*.tsx` |
 | Settings Billing | `orvixflow-web/app/(dashboard)/settings/billing/page.tsx` |
+| Billing/Upgrade Page | `orvixflow-web/app/(dashboard)/billing/page.tsx` |
+| Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Admin Plans Page | `orvixflow-web/app/admin/plans/page.tsx` |
 | Admin Company Detail | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 
@@ -126,6 +130,7 @@
 | AppDbContext | `OrvixFlow.Infrastructure/Data/AppDbContext.cs` |
 | InboxEventRepository | `OrvixFlow.Infrastructure/Data/InboxEventRepository.cs` |
 | Migrations | `OrvixFlow.Infrastructure/Migrations/*.cs` |
+| AddPlanSystem Migration | `OrvixFlow.Infrastructure/Migrations/AddPlanSystem.cs` |
 
 ## Configuration
 
