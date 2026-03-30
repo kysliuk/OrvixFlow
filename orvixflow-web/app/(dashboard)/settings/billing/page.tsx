@@ -138,11 +138,13 @@ export default function SettingsBillingPage() {
               </span>
             </div>
             <p className="text-sm text-muted mb-4">
-              {billingData?.plan?.price === 0 
-                ? "Free plan" 
-                : billingData?.plan?.price 
-                  ? `$${(billingData.plan.price / 100).toFixed(2)} / ${billingData.plan.interval.toLowerCase()}`
-                  : "Custom pricing"
+              {billingData?.plan?.interval === "Custom"
+                ? "Custom pricing"
+                : billingData?.plan?.price === 0 
+                  ? "Free plan" 
+                  : billingData?.plan?.price 
+                    ? `$${(billingData.plan.price / 100).toFixed(2)} / ${billingData.plan.interval.toLowerCase()}`
+                    : "Custom pricing"
               }
             </p>
             <p className="text-xs text-muted">

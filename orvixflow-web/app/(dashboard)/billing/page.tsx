@@ -157,8 +157,9 @@ export default function BillingPage() {
     }
   };
 
-  const formatPrice = (cents: number) => {
-    if (cents === 0) return "Free";
+  const formatPrice = (cents: number, isFree?: boolean, billingInterval?: string) => {
+    if (billingInterval === "Custom") return "Custom";
+    if (cents === 0 || isFree) return "Free";
     return `$${(cents / 100).toFixed(0)}`;
   };
 
@@ -311,8 +312,11 @@ export default function BillingPage() {
               </div>
 
               <div className="mb-6">
-                <span className="text-3xl font-bold">{formatPrice(plan.monthlyPriceCents)}</span>
-                {!plan.isFree && <span className="text-muted text-sm border-l border-white/10 ml-2 pl-2">per month</span>}
+                <span className="text-3xl font-bold">{formatPrice(plan.monthlyPriceCents, plan.isFree, plan.billingInterval)}</span>
+                {formatPrice(plan.monthlyPriceCents, plan.isFree, plan.billingInterval) !== "Custom" && 
+                 formatPrice(plan.monthlyPriceCents, plan.isFree, plan.billingInterval) !== "Free" && (
+                  <span className="text-muted text-sm border-l border-white/10 ml-2 pl-2">per month</span>
+                )}
               </div>
 
               <ul className="flex flex-col gap-3 flex-1 mb-8">
@@ -335,7 +339,7 @@ export default function BillingPage() {
                       : "bg-surface-hover hover:bg-white/10 border border-white/10 text-white"
                 }`}
               >
-                {isCurrent ? "Current Plan" : plan.monthlyPriceCents === 0 ? "Downgrade" : plan.isUpgrade ? "Upgrade Plan" : "Downgrade"}
+                {isCurrent ? "Current Plan" : plan.billingInterval === "Custom" ? "Contact Sales" : plan.monthlyPriceCents === 0 || plan.isFree ? "Downgrade" : plan.isUpgrade ? "Upgrade Plan" : "Downgrade"}
               </button>
             </div>
           );

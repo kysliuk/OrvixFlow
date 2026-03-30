@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { Plus, Edit, Archive, CreditCard, Users, Database, Cpu } from "lucide-react";
+import { Plus, Edit, Archive, CreditCard, Users, Database, Cpu, X } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -30,40 +30,141 @@ interface Plan {
   } | null;
 }
 
+interface PlanFormData {
+  name: string;
+  slug: string;
+  description: string;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  maxSeats: string;
+  isTrialAllowed: boolean;
+  trialDays: number;
+}
+
+const initialFormData: PlanFormData = {
+  name: "",
+  slug: "",
+  description: "",
+  monthlyPriceCents: 0,
+  yearlyPriceCents: 0,
+  maxSeats: "",
+  isTrialAllowed: false,
+  trialDays: 14,
+};
+
 export default function PlansPage() {
   const { data: session } = useSession();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [formData, setFormData] = useState<PlanFormData>(initialFormData);
+  const [saving, setSaving] = useState(false);
+
+  const apiToken = (session as any)?.apiToken;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+  const fetchPlans = () => {
+    if (!apiToken) return;
+    
+    fetch(`${apiUrl}/api/plans?includeInactive=true`, {
+      headers: { Authorization: `Bearer ${apiToken}` }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to load plans");
+        return res.json();
+      })
+      .then(data => {
+        setPlans(data);
+        setLoading(false);
+      })
+      .catch(e => {
+        setError(e.message);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    if ((session as any)?.apiToken) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/plans?includeInactive=true`, {
-        headers: { "Authorization": `Bearer ${(session as any).apiToken}` }
-      })
-        .then(res => {
-          if (!res.ok) throw new Error("Failed to load plans");
-          return res.json();
-        })
-        .then(data => {
-          setPlans(data);
-          setLoading(false);
-        })
-        .catch(e => {
-          setError(e.message);
-          setLoading(false);
-        });
+    fetchPlans();
+  }, [apiToken]);
+
+  const handleCreateClick = () => {
+    setEditingPlan(null);
+    setFormData(initialFormData);
+    setShowModal(true);
+  };
+
+  const handleEditClick = (plan: Plan) => {
+    setEditingPlan(plan);
+    setFormData({
+      name: plan.name,
+      slug: plan.slug,
+      description: plan.description,
+      monthlyPriceCents: plan.monthlyPriceCents,
+      yearlyPriceCents: plan.yearlyPriceCents,
+      maxSeats: plan.maxSeats?.toString() || "",
+      isTrialAllowed: plan.isTrialAllowed,
+      trialDays: plan.trialDays,
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apiToken) return;
+
+    setSaving(true);
+    setError(null);
+
+    const payload = {
+      name: formData.name,
+      slug: formData.slug,
+      description: formData.description,
+      monthlyPriceCents: formData.monthlyPriceCents,
+      yearlyPriceCents: formData.yearlyPriceCents,
+      maxSeats: formData.maxSeats ? parseInt(formData.maxSeats) : null,
+      isTrialAllowed: formData.isTrialAllowed,
+      trialDays: formData.trialDays,
+      isFree: formData.monthlyPriceCents === 0,
+      moduleIds: [],
+    };
+
+    try {
+      const url = editingPlan 
+        ? `${apiUrl}/api/plans/${editingPlan.id}`
+        : `${apiUrl}/api/plans`;
+      
+      const res = await fetch(url, {
+        method: editingPlan ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save plan");
+      }
+
+      setShowModal(false);
+      fetchPlans();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
     }
-  }, [session]);
+  };
 
   const handleArchive = async (planId: string) => {
     if (!confirm("Are you sure you want to archive this plan?")) return;
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/plans/${planId}/archive`, {
+      const res = await fetch(`${apiUrl}/api/plans/${planId}/archive`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${(session as any).apiToken}` }
+        headers: { Authorization: `Bearer ${apiToken}` },
       });
       if (!res.ok) throw new Error("Failed to archive plan");
       
@@ -73,8 +174,9 @@ export default function PlansPage() {
     }
   };
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (cents: number, interval?: string) => {
+    if (cents === 0 && interval === "Custom") return "Custom";
+    return `$${(cents / 100).toFixed(0)}`;
   };
 
   if (loading) {
@@ -97,7 +199,7 @@ export default function PlansPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleCreateClick}
           className="px-4 py-2 bg-danger text-white rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-danger/90 transition-colors"
         >
           <Plus className="w-4 h-4" /> Create Plan
@@ -135,6 +237,8 @@ export default function PlansPage() {
               </div>
               {plan.isFree ? (
                 <span className="px-2 py-1 bg-success/20 text-success text-xs rounded font-bold">Free</span>
+              ) : plan.billingInterval === "Custom" ? (
+                <span className="text-lg font-bold text-white">Custom</span>
               ) : (
                 <span className="text-lg font-bold text-white">
                   {formatPrice(plan.monthlyPriceCents)}
@@ -164,7 +268,10 @@ export default function PlansPage() {
             </div>
 
             <div className="flex gap-2 pt-4 border-t border-white/10">
-              <button className="flex-1 px-3 py-2 bg-danger/10 text-danger text-xs font-medium rounded hover:bg-danger/20 transition-colors flex items-center justify-center gap-1">
+              <button 
+                onClick={() => handleEditClick(plan)}
+                className="flex-1 px-3 py-2 bg-danger/10 text-danger text-xs font-medium rounded hover:bg-danger/20 transition-colors flex items-center justify-center gap-1"
+              >
                 <Edit className="w-3 h-3" /> Edit
               </button>
               {plan.isActive && !plan.legacyLocked && (
@@ -179,6 +286,142 @@ export default function PlansPage() {
           </div>
         ))}
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">
+                {editingPlan ? "Edit Plan" : "Create New Plan"}
+              </h2>
+              <button 
+                onClick={() => setShowModal(false)}
+                className="text-muted hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Plan Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Slug</label>
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={e => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Monthly Price ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.monthlyPriceCents === 0 ? "" : formData.monthlyPriceCents / 100}
+                    onChange={e => setFormData({ ...formData, monthlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Yearly Price ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.yearlyPriceCents === 0 ? "" : formData.yearlyPriceCents / 100}
+                    onChange={e => setFormData({ ...formData, yearlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Max Seats (empty = unlimited)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.maxSeats}
+                    onChange={e => setFormData({ ...formData, maxSeats: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    placeholder="Unlimited"
+                  />
+                </div>
+                <div className="flex items-center gap-4 pt-6">
+                  <label className="flex items-center gap-2 text-sm text-white">
+                    <input
+                      type="checkbox"
+                      checked={formData.isTrialAllowed}
+                      onChange={e => setFormData({ ...formData, isTrialAllowed: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                    />
+                    Allow Trial
+                  </label>
+                  {formData.isTrialAllowed && (
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={formData.trialDays}
+                      onChange={e => setFormData({ ...formData, trialDays: parseInt(e.target.value) || 14 })}
+                      className="w-20 px-2 py-1 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-danger text-sm">{error}</div>
+              )}
+
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-5 py-2.5 text-sm font-medium border border-white/10 hover:bg-white/5 rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2.5 text-sm font-medium bg-danger text-white hover:bg-danger/90 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : editingPlan ? "Update Plan" : "Create Plan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
