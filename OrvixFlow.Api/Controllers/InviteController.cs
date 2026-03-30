@@ -17,11 +17,13 @@ public class InviteController : ControllerBase
 {
     private readonly IAuthService _auth;
     private readonly AppDbContext _db;
+    private readonly IEntitlementResolver _entitlementResolver;
 
-    public InviteController(IAuthService auth, AppDbContext db)
+    public InviteController(IAuthService auth, AppDbContext db, IEntitlementResolver entitlementResolver)
     {
         _auth = auth;
         _db = db;
+        _entitlementResolver = entitlementResolver;
     }
 
     [HttpGet]
@@ -93,6 +95,15 @@ public class InviteController : ControllerBase
         if (!Guid.TryParse(User.FindFirst("ActiveCompanyId")?.Value
                            ?? User.FindFirst("TenantId")?.Value, out var companyId))
             return Unauthorized();
+
+        var currentMemberCount = await _db.UserCompanyMemberships
+            .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
+
+        var canInvite = await _entitlementResolver.CanInviteUserAsync(companyId, currentMemberCount);
+        if (!canInvite)
+        {
+            return BadRequest(new { error = "Seat limit exceeded. Please upgrade your plan to add more members." });
+        }
 
         var result = await _auth.InviteUserAsync(new InviteRequest(
             InvitedByUserId: callerId,

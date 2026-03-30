@@ -85,6 +85,9 @@ public class AppDbContext : DbContext
             .HasIndex(m => m.Key)
             .IsUnique();
         modelBuilder.Entity<ModuleDefinition>().HasData(ModuleCatalog.BuildSeed());
+        modelBuilder.Entity<PlanTemplate>().HasData(PlanCatalog.BuildPlanSeed());
+        modelBuilder.Entity<PlanEntitlements>().HasData(PlanCatalog.BuildEntitlementsSeed());
+        modelBuilder.Entity<PlanModuleInclusion>().HasData(PlanCatalog.BuildModuleInclusionsSeed());
         modelBuilder.Entity<ModuleAssignment>()
             .HasIndex(m => new { m.CompanyId, m.ModuleDefinitionId, m.DepartmentId, m.UserId, m.Scope });
         modelBuilder.Entity<UsageEvent>()

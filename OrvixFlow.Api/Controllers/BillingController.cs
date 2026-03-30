@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 
 namespace OrvixFlow.Api.Controllers;
@@ -14,10 +15,12 @@ namespace OrvixFlow.Api.Controllers;
 public class BillingController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IEntitlementResolver _entitlementResolver;
 
-    public BillingController(AppDbContext db)
+    public BillingController(AppDbContext db, IEntitlementResolver entitlementResolver)
     {
         _db = db;
+        _entitlementResolver = entitlementResolver;
     }
 
     [HttpPost("usage")]
@@ -142,6 +145,49 @@ public class BillingController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpGet("subscription")]
+    public async Task<IActionResult> GetSubscription()
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        var subscription = await _entitlementResolver.GetSubscriptionAsync(companyId.Value);
+        var entitlements = await _entitlementResolver.GetEntitlementsAsync(companyId.Value);
+
+        var memberCount = await _db.UserCompanyMemberships
+            .CountAsync(m => m.CompanyId == companyId.Value && m.Status == "Active");
+
+        var kbCount = await _db.KnowledgeBases
+            .CountAsync(k => k.TenantId == companyId.Value);
+
+        return Ok(new
+        {
+            plan = subscription?.PlanTemplate != null ? new
+            {
+                name = subscription.PlanTemplate.Name,
+                price = subscription.PlanTemplate.MonthlyPriceCents,
+                interval = subscription.PlanTemplate.BillingInterval
+            } : null,
+            status = subscription?.Status ?? "Active",
+            currentPeriodEnd = subscription?.CurrentPeriodEnd != default ? subscription.CurrentPeriodEnd.ToString("o") : null,
+            entitlements = new
+            {
+                maxSeats = entitlements.MaxSeats,
+                usedSeats = memberCount,
+                maxMonthlyTokens = entitlements.MaxMonthlyTokens,
+                usedTokens = entitlements.TokensUsedThisPeriod,
+                maxStorageMb = entitlements.MaxStorageMb,
+                usedStorageMb = entitlements.StorageUsedMb,
+                maxKnowledgeBases = entitlements.MaxKnowledgeBases,
+                usedKnowledgeBases = kbCount
+            },
+            billingHistory = Array.Empty<object>()
+        });
     }
 
     private Guid? ParseGuid(string claimType)

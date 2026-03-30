@@ -22,6 +22,7 @@
 | PlanModuleInclusion | `OrvixFlow.Core/Entities/PlanModuleInclusion.cs` |
 | PlanEntitlements | `OrvixFlow.Core/Entities/PlanEntitlements.cs` |
 | CompanySubscription | `OrvixFlow.Core/Entities/CompanySubscription.cs` |
+| PlanCatalog | `OrvixFlow.Core/Entities/PlanCatalog.cs` |
 
 ## Tests
 
@@ -31,6 +32,9 @@
 | EntitlementResolverTests | `OrvixFlow.Tests/EntitlementResolverTests.cs` |
 | PlanServiceTests | `OrvixFlow.Tests/PlanServiceTests.cs` |
 | CompanySubscriptionServiceTests | `OrvixFlow.Tests/CompanySubscriptionServiceTests.cs` |
+| SeatLimitTests | `OrvixFlow.Tests/SeatLimitTests.cs` |
+| EntitlementResolverIntegrationTests | `OrvixFlow.Tests/EntitlementResolverIntegrationTests.cs` |
+| AuditLogTests | `OrvixFlow.Tests/AuditLogTests.cs` |
 
 ## Core Interfaces
 
@@ -111,6 +115,7 @@
 | Dashboard Layout | `orvixflow-web/app/(dashboard)/layout.tsx` |
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Settings Tabs | `orvixflow-web/components/settings/*.tsx` |
+| Settings Billing | `orvixflow-web/app/(dashboard)/settings/billing/page.tsx` |
 | Admin Plans Page | `orvixflow-web/app/admin/plans/page.tsx` |
 | Admin Company Detail | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 

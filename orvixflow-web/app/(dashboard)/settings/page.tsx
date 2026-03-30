@@ -1,11 +1,12 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { User, Shield, Key, Building, BellRing, Users, Network, Lock, AlertTriangle } from "lucide-react";
+import { User, Shield, Key, Building, BellRing, Users, Network, Lock, AlertTriangle, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TeamTab } from "../../../components/settings/TeamTab";
 import { DepartmentsTab } from "../../../components/settings/DepartmentsTab";
 import { AuditLogTab } from "../../../components/settings/AuditLogTab";
+import SettingsBillingPage from "./billing/page";
 
 type OrgStatus = {
   hasOrganization: boolean;
@@ -151,6 +152,7 @@ export default function SettingsPage() {
   const mainTabs = [
     { id: "profile",      label: "Profile",       icon: User },
     { id: "organization", label: "Organization",  icon: Building },
+    { id: "billing",      label: "Billing",       icon: CreditCard },
     { id: "api-keys",     label: "API Keys",      icon: Key },
     { id: "notifications",label: "Notifications", icon: BellRing },
   ];
@@ -435,6 +437,10 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
+            )}
+
+            {activeTab === "billing" && (
+              <SettingsBillingPage />
             )}
 
             {/* Placeholder for unimplemented tabs */}

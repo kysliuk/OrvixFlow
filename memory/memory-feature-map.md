@@ -89,23 +89,39 @@
 | Entitlement Resolution | - | EntitlementResolver | - |
 | Subscription | BillingController | - | BillingSubscription |
 | Usage Tracking | - | UsageService | UsageEvent |
+| Seat Limit Enforcement | InviteController | EntitlementResolver | - |
+| Audit Logging (Plan Changes) | - | CompanySubscriptionService | AuditTrail |
+| Module Access Control | RequireModuleAttribute | EntitlementResolver | - |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/PlansController.cs`
+- `OrvixFlow.Api/Controllers/BillingController.cs`
+- `OrvixFlow.Api/Controllers/InviteController.cs`
+- `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
 - `OrvixFlow.Core/Entities/PlanTemplate.cs`
 - `OrvixFlow.Core/Entities/PlanModuleInclusion.cs`
 - `OrvixFlow.Core/Entities/PlanEntitlements.cs`
+- `OrvixFlow.Core/Entities/PlanCatalog.cs`
 - `OrvixFlow.Core/Entities/CompanySubscription.cs`
+- `OrvixFlow.Core/Entities/BillingSubscription.cs`
+- `OrvixFlow.Core/Entities/UsageEvent.cs`
+- `OrvixFlow.Core/Entities/AuditTrail.cs`
 - `OrvixFlow.Core/Interfaces/IPlanService.cs`
 - `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs`
 - `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs`
+- `OrvixFlow.Core/Interfaces/IAuditService.cs`
 - `OrvixFlow.Infrastructure/Services/PlanService.cs`
 - `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs`
 - `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs`
-- `OrvixFlow.Api/Controllers/BillingController.cs`
-- `OrvixFlow.Core/Entities/BillingSubscription.cs`
-- `OrvixFlow.Core/Entities/UsageEvent.cs`
 - `OrvixFlow.Infrastructure/Shadow/UsageService.cs`
+- `OrvixFlow.Infrastructure/Shadow/AuditService.cs`
+- `OrvixFlow.Infrastructure/Data/AppDbContext.cs`
+- `OrvixFlow.Infrastructure/Migrations/AddPlanSystem.cs`
+
+**Test Files:**
+- `OrvixFlow.Tests/SeatLimitTests.cs`
+- `OrvixFlow.Tests/EntitlementResolverIntegrationTests.cs`
+- `OrvixFlow.Tests/AuditLogTests.cs`
 
 ## Audit & Compliance
 
@@ -154,5 +170,6 @@
 | Pending Items | /(dashboard)/inbox/pending/page.tsx | Yes |
 | Knowledge | /(dashboard)/knowledge/page.tsx | Yes |
 | Settings | /(dashboard)/settings/page.tsx | Yes |
+| Settings/Billing | /(dashboard)/settings/billing/page.tsx | Yes |
 | Billing | /(dashboard)/billing/page.tsx | Yes |
 | Admin | /admin/page.tsx | Yes |

@@ -283,7 +283,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/home/kysliuk/.dotnet/sdk/9.0.312/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/home/kysliuk/dotnet/sdk/9.0.312/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

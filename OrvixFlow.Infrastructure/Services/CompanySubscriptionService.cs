@@ -12,11 +12,13 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 {
     private readonly AppDbContext _dbContext;
     private readonly IPlanService _planService;
+    private readonly IAuditService? _auditService;
 
-    public CompanySubscriptionService(AppDbContext dbContext, IPlanService planService)
+    public CompanySubscriptionService(AppDbContext dbContext, IPlanService planService, IAuditService? auditService = null)
     {
         _dbContext = dbContext;
         _planService = planService;
+        _auditService = auditService;
     }
 
     public async Task<CompanySubscription> CreateTrialSubscriptionAsync(Guid companyId, Guid planTemplateId)
@@ -100,6 +102,12 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             existingSubscription.UpdatedAt = DateTime.UtcNow;
             
             await _dbContext.SaveChangesAsync();
+            
+            if (_auditService != null)
+            {
+                await _auditService.RecordAsync(companyId, "PlanAssigned", $"Plan '{plan.Name}' (ID: {planTemplateId}) assigned to company. Status: {existingSubscription.Status}");
+            }
+            
             return existingSubscription;
         }
 
@@ -116,6 +124,11 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
+
+        if (_auditService != null)
+        {
+            await _auditService.RecordAsync(companyId, "PlanAssigned", $"Plan '{plan.Name}' (ID: {planTemplateId}) assigned to new subscription. Status: {subscription.Status}");
+        }
 
         return subscription;
     }
@@ -147,6 +160,8 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             throw new SeatLimitExceededException(memberCount, newPlan.MaxSeats.Value);
         }
 
+        var oldPlanName = subscription.PlanTemplate?.Name ?? "None";
+
         if (immediate)
         {
             subscription.PlanTemplateId = newPlanTemplateId;
@@ -162,6 +177,12 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         }
 
         await _dbContext.SaveChangesAsync();
+
+        if (_auditService != null)
+        {
+            await _auditService.RecordAsync(companyId, "PlanChanged", $"Plan changed from '{oldPlanName}' to '{newPlan.Name}' (ID: {newPlanTemplateId}). Immediate: {immediate}");
+        }
+
         return subscription;
     }
 
@@ -173,10 +194,17 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             throw new SubscriptionNotFoundException(companyId);
         }
 
+        var planName = subscription.PlanTemplate?.Name ?? "Unknown";
         subscription.Status = SubscriptionStatus.Suspended;
         subscription.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
+
+        if (_auditService != null)
+        {
+            await _auditService.RecordAsync(companyId, "SubscriptionSuspended", $"Subscription for plan '{planName}' has been suspended");
+        }
+
         return subscription;
     }
 
@@ -188,10 +216,17 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             throw new SubscriptionNotFoundException(companyId);
         }
 
+        var planName = subscription.PlanTemplate?.Name ?? "Unknown";
         subscription.Status = SubscriptionStatus.Active;
         subscription.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
+
+        if (_auditService != null)
+        {
+            await _auditService.RecordAsync(companyId, "SubscriptionReactivated", $"Subscription for plan '{planName}' has been reactivated");
+        }
+
         return subscription;
     }
 
@@ -203,10 +238,17 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             throw new SubscriptionNotFoundException(companyId);
         }
 
+        var planName = subscription.PlanTemplate?.Name ?? "Unknown";
         subscription.Status = SubscriptionStatus.Cancelled;
         subscription.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
+
+        if (_auditService != null)
+        {
+            await _auditService.RecordAsync(companyId, "SubscriptionCancelled", $"Subscription for plan '{planName}' has been cancelled");
+        }
+
         return subscription;
     }
 
