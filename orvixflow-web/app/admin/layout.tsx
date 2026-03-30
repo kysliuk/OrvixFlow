@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ShieldAlert, Users, LayoutDashboard, Database, Activity, LogOut, ArrowLeft } from "lucide-react";
+import { ShieldAlert, Users, LayoutDashboard, Database, Activity, LogOut, ArrowLeft, CreditCard, Building } from "lucide-react";
 import { useEffect } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -33,7 +33,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { href: "/admin", label: "Global Platform", icon: LayoutDashboard },
-    { href: "/admin/tenants", label: "Tenant Directory", icon: Users },
+    { href: "/admin/plans", label: "Plan Templates", icon: CreditCard },
+    { href: "/admin/tenants", label: "Companies", icon: Building },
     { href: "/admin/test", label: "Inbox Simulator", icon: ShieldAlert },
     { href: "/admin/logs", label: "Kernel Trace Logs", icon: Activity },
     { href: "/admin/vector-db", label: "Raw pgvector", icon: Database },

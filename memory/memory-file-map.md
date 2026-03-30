@@ -18,6 +18,19 @@
 | BillingSubscription | `OrvixFlow.Core/Entities/BillingSubscription.cs` |
 | UsageEvent | `OrvixFlow.Core/Entities/UsageEvent.cs` |
 | Invitation | `OrvixFlow.Core/Entities/Invitation.cs` |
+| PlanTemplate | `OrvixFlow.Core/Entities/PlanTemplate.cs` |
+| PlanModuleInclusion | `OrvixFlow.Core/Entities/PlanModuleInclusion.cs` |
+| PlanEntitlements | `OrvixFlow.Core/Entities/PlanEntitlements.cs` |
+| CompanySubscription | `OrvixFlow.Core/Entities/CompanySubscription.cs` |
+
+## Tests
+
+| Test Suite | Location |
+|------------|----------|
+| PlanTemplateTests | `OrvixFlow.Tests/PlanTemplateTests.cs` |
+| EntitlementResolverTests | `OrvixFlow.Tests/EntitlementResolverTests.cs` |
+| PlanServiceTests | `OrvixFlow.Tests/PlanServiceTests.cs` |
+| CompanySubscriptionServiceTests | `OrvixFlow.Tests/CompanySubscriptionServiceTests.cs` |
 
 ## Core Interfaces
 
@@ -32,6 +45,9 @@
 | IAccessResolver | `OrvixFlow.Core/Interfaces/IAccessResolver.cs` |
 | IAuditService | `OrvixFlow.Core/Interfaces/IAuditService.cs` |
 | IUsageService | `OrvixFlow.Core/Interfaces/IUsageService.cs` |
+| IPlanService | `OrvixFlow.Core/Interfaces/IPlanService.cs` |
+| IEntitlementResolver | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
+| ICompanySubscriptionService | `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` |
 
 ## Controllers
 
@@ -51,6 +67,7 @@
 | ActionsController | `OrvixFlow.Api/Controllers/ActionsController.cs` |
 | AdminController | `OrvixFlow.Api/Controllers/AdminController.cs` |
 | OrganizationController | `OrvixFlow.Api/Controllers/OrganizationController.cs` |
+| PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
 
 ## Infrastructure Services
 
@@ -68,6 +85,9 @@
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |
 | BackgroundTenantProvider | `OrvixFlow.Infrastructure/Services/BackgroundTenantProvider.cs` |
+| PlanService | `OrvixFlow.Infrastructure/Services/PlanService.cs` |
+| EntitlementResolver | `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs` |
+| CompanySubscriptionService | `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` |
 | AuditService (Shadow) | `OrvixFlow.Infrastructure/Shadow/AuditService.cs` |
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
 
@@ -91,6 +111,8 @@
 | Dashboard Layout | `orvixflow-web/app/(dashboard)/layout.tsx` |
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Settings Tabs | `orvixflow-web/components/settings/*.tsx` |
+| Admin Plans Page | `orvixflow-web/app/admin/plans/page.tsx` |
+| Admin Company Detail | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 
 ## Data
 

@@ -78,14 +78,30 @@
 - `OrvixFlow.Core/Entities/ModuleAssignment.cs`
 - `OrvixFlow.Core/Entities/Department.cs`
 
-## Billing
+## Billing & Plans (Admin Panel Phase 1)
 
-| Feature | Controller | Entity |
-|---------|-----------|--------|
-| Subscription | BillingController | BillingSubscription |
-| Usage Tracking | - | UsageEvent |
+| Feature | Controller | Service | Entity |
+|---------|-----------|---------|--------|
+| Plan Templates | PlansController | PlanService | PlanTemplate |
+| Plan Modules | - | - | PlanModuleInclusion |
+| Plan Entitlements | - | - | PlanEntitlements |
+| Company Subscription | - | CompanySubscriptionService | CompanySubscription |
+| Entitlement Resolution | - | EntitlementResolver | - |
+| Subscription | BillingController | - | BillingSubscription |
+| Usage Tracking | - | UsageService | UsageEvent |
 
 **Files:**
+- `OrvixFlow.Api/Controllers/PlansController.cs`
+- `OrvixFlow.Core/Entities/PlanTemplate.cs`
+- `OrvixFlow.Core/Entities/PlanModuleInclusion.cs`
+- `OrvixFlow.Core/Entities/PlanEntitlements.cs`
+- `OrvixFlow.Core/Entities/CompanySubscription.cs`
+- `OrvixFlow.Core/Interfaces/IPlanService.cs`
+- `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs`
+- `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs`
+- `OrvixFlow.Infrastructure/Services/PlanService.cs`
+- `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs`
+- `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs`
 - `OrvixFlow.Api/Controllers/BillingController.cs`
 - `OrvixFlow.Core/Entities/BillingSubscription.cs`
 - `OrvixFlow.Core/Entities/UsageEvent.cs`

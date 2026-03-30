@@ -102,6 +102,9 @@ public static class DependencyInjection
         services.AddScoped<IInboxEventRepository, InboxEventRepository>();
         services.AddScoped<IPolicyGateService, PolicyGateService>();
         services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+        services.AddScoped<IPlanService, PlanService>();
+        services.AddScoped<IEntitlementResolver, EntitlementResolver>();
+        services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
 
         // Shadow modules
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();

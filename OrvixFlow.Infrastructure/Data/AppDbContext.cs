@@ -41,6 +41,10 @@ public class AppDbContext : DbContext
     public DbSet<UsageEvent> UsageEvents => Set<UsageEvent>();
     public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<PlanTemplate> PlanTemplates => Set<PlanTemplate>();
+    public DbSet<PlanModuleInclusion> PlanModuleInclusions => Set<PlanModuleInclusion>();
+    public DbSet<PlanEntitlements> PlanEntitlements => Set<PlanEntitlements>();
+    public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -165,6 +169,56 @@ public class AppDbContext : DbContext
             .HasForeignKey(i => i.DepartmentId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // PlanTemplate
+        modelBuilder.Entity<PlanTemplate>()
+            .HasIndex(p => p.Slug)
+            .IsUnique();
+        modelBuilder.Entity<PlanTemplate>()
+            .HasOne(p => p.Entitlements)
+            .WithOne(e => e.PlanTemplate)
+            .HasForeignKey<PlanEntitlements>(e => e.PlanTemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<PlanTemplate>()
+            .HasMany(p => p.ModuleInclusions)
+            .WithOne(m => m.PlanTemplate)
+            .HasForeignKey(m => m.PlanTemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // PlanModuleInclusion
+        modelBuilder.Entity<PlanModuleInclusion>()
+            .HasIndex(m => new { m.PlanTemplateId, m.ModuleDefinitionId })
+            .IsUnique();
+        modelBuilder.Entity<PlanModuleInclusion>()
+            .HasOne(m => m.ModuleDefinition)
+            .WithMany(d => d.PlanInclusions)
+            .HasForeignKey(m => m.ModuleDefinitionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // PlanEntitlements
+        modelBuilder.Entity<PlanEntitlements>()
+            .HasIndex(e => e.PlanTemplateId)
+            .IsUnique();
+
+        // CompanySubscription
+        modelBuilder.Entity<CompanySubscription>()
+            .HasIndex(s => s.CompanyId)
+            .IsUnique();
+        modelBuilder.Entity<CompanySubscription>()
+            .HasOne(s => s.Company)
+            .WithMany()
+            .HasForeignKey(s => s.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CompanySubscription>()
+            .HasOne(s => s.PlanTemplate)
+            .WithMany(p => p.CompanySubscriptions)
+            .HasForeignKey(s => s.PlanTemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CompanySubscription>()
+            .HasOne(s => s.PendingPlan)
+            .WithMany()
+            .HasForeignKey(s => s.PendingPlanId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Global Query Filters for strict Multi-Tenancy (from both)
         modelBuilder.Entity<KnowledgeBase>().HasQueryFilter(k => k.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<WorkflowLog>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
@@ -182,5 +236,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UsageEvent>().HasQueryFilter(e => e.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<BillingSubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<Invitation>().HasQueryFilter(i => i.CompanyId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
     }
 }
