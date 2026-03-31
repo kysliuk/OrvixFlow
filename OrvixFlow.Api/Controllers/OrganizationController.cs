@@ -290,14 +290,33 @@ public class OrganizationController : ControllerBase
         var userId = ParseGuid("sub");
         if (userId == null) return Unauthorized();
 
-        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
-        if (role != UserRole.CompanyOwner) return Forbid();
+        var roleClaim = User.FindFirst("Role")?.Value;
+        var role = UserRoleExtensions.ParseRole(roleClaim);
+        
+        Console.WriteLine($"[DEBUG] UpdateCompanyName - UserId: {userId}, CompanyId: {companyId}, Role claim: '{roleClaim}', Parsed role: {role}");
+
+        if (role != UserRole.CompanyOwner)
+        {
+            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: role {role} != CompanyOwner");
+            return StatusCode(403, new { error = $"Access denied: CompanyOwner role required. Your role: {roleClaim}" });
+        }
 
         var membership = await _db.UserCompanyMemberships
             .FirstOrDefaultAsync(m => m.UserId == userId.Value && m.CompanyId == companyId && m.Status == "Active");
         
-        if (membership == null || membership.CompanyRole != UserRole.CompanyOwner.ToClaimValue())
-            return Forbid();
+        Console.WriteLine($"[DEBUG] UpdateCompanyName - Membership found: {membership != null}, CompanyRole: {membership?.CompanyRole}");
+        
+        if (membership == null)
+        {
+            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: membership not found");
+            return StatusCode(403, new { error = "You are not a member of this company." });
+        }
+            
+        if (membership.CompanyRole != UserRole.CompanyOwner.ToClaimValue())
+        {
+            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: CompanyRole {membership.CompanyRole} != {UserRole.CompanyOwner.ToClaimValue()}");
+            return StatusCode(403, new { error = $"You are not the owner of this company. Your role: {membership.CompanyRole}" });
+        }
 
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Company name is required." });
@@ -310,6 +329,7 @@ public class OrganizationController : ControllerBase
         var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == companyId);
         if (company == null) return NotFound(new { error = "Company not found." });
 
+        Console.WriteLine($"[DEBUG] UpdateCompanyName - Updating company {companyId} name from '{company.Name}' to '{dto.Name}'");
         var oldName = company.Name;
         company.Name = dto.Name;
         await _db.SaveChangesAsync();
