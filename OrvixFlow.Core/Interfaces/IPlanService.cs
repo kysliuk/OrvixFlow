@@ -14,6 +14,7 @@ public interface IPlanService
     Task<IEnumerable<PlanTemplate>> GetActivePlansAsync();
     Task<PlanTemplate> UpdatePlanAsync(PlanTemplate plan);
     Task ArchivePlanAsync(Guid planId);
+    Task ReactivatePlanAsync(Guid planId);
     Task AddModuleToPlanAsync(Guid planId, Guid moduleId);
     Task RemoveModuleFromPlanAsync(Guid planId, Guid moduleId);
     Task SetEntitlementsAsync(Guid planId, PlanEntitlements entitlements);

@@ -82,12 +82,29 @@ public class PlansController : ControllerBase
             IsActive = true,
             IsFree = request.IsFree,
             IsTrialAllowed = request.IsTrialAllowed,
-            TrialDays = request.TrialDays
+            TrialDays = request.TrialDays,
+            LegacyLocked = request.LegacyLocked
         };
 
         try
         {
             var result = await _planService.CreatePlanAsync(plan, request.ModuleIds);
+            
+            if (request.Entitlements != null)
+            {
+                var entitlements = new Core.Entities.PlanEntitlements
+                {
+                    PlanTemplateId = result.Id,
+                    MaxMonthlyTokens = request.Entitlements.MaxMonthlyTokens,
+                    MaxApiRequestsPerDay = request.Entitlements.MaxApiRequestsPerDay,
+                    MaxStorageMb = request.Entitlements.MaxStorageMb,
+                    MaxKnowledgeBases = request.Entitlements.MaxKnowledgeBases,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _planService.SetEntitlementsAsync(result.Id, entitlements);
+                result = await _planService.GetPlanByIdAsync(result.Id);
+            }
+            
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, MapToDto(result));
         }
         catch (PlanSlugAlreadyExistsException)
@@ -124,6 +141,22 @@ public class PlansController : ControllerBase
         try
         {
             var result = await _planService.UpdatePlanAsync(existing);
+            
+            if (request.Entitlements != null)
+            {
+                var entitlements = new Core.Entities.PlanEntitlements
+                {
+                    PlanTemplateId = result.Id,
+                    MaxMonthlyTokens = request.Entitlements.MaxMonthlyTokens,
+                    MaxApiRequestsPerDay = request.Entitlements.MaxApiRequestsPerDay,
+                    MaxStorageMb = request.Entitlements.MaxStorageMb,
+                    MaxKnowledgeBases = request.Entitlements.MaxKnowledgeBases,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _planService.SetEntitlementsAsync(result.Id, entitlements);
+                result = await _planService.GetPlanByIdAsync(result.Id);
+            }
+            
             return Ok(MapToDto(result));
         }
         catch (PlanSlugAlreadyExistsException)
@@ -141,6 +174,22 @@ public class PlansController : ControllerBase
         {
             await _planService.ArchivePlanAsync(id);
             return Ok(new { message = "Plan archived successfully" });
+        }
+        catch (PlanNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost("{id}/reactivate")]
+    public async Task<IActionResult> Reactivate(Guid id)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        try
+        {
+            await _planService.ReactivatePlanAsync(id);
+            return Ok(new { message = "Plan reactivated successfully" });
         }
         catch (PlanNotFoundException)
         {
@@ -245,7 +294,9 @@ public record CreatePlanRequest(
     bool IsFree,
     bool IsTrialAllowed,
     int TrialDays,
-    IEnumerable<Guid>? ModuleIds
+    bool LegacyLocked,
+    IEnumerable<Guid>? ModuleIds,
+    EntitlementsInput? Entitlements
 );
 
 public record UpdatePlanRequest(
@@ -260,7 +311,15 @@ public record UpdatePlanRequest(
     bool IsFree,
     bool IsTrialAllowed,
     int TrialDays,
-    bool LegacyLocked
+    bool LegacyLocked,
+    EntitlementsInput? Entitlements
+);
+
+public record EntitlementsInput(
+    int MaxMonthlyTokens,
+    int MaxApiRequestsPerDay,
+    int MaxStorageMb,
+    int MaxKnowledgeBases
 );
 
 public record SetEntitlementsRequest(

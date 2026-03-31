@@ -146,6 +146,21 @@ public class PlanService : IPlanService
         await _dbContext.SaveChangesAsync();
     }
 
+    public async Task ReactivatePlanAsync(Guid planId)
+    {
+        var plan = await _dbContext.PlanTemplates.FindAsync(planId);
+
+        if (plan == null)
+        {
+            throw new PlanNotFoundException(planId);
+        }
+
+        plan.IsActive = true;
+        plan.ArchivedAt = null;
+
+        await _dbContext.SaveChangesAsync();
+    }
+
     public async Task AddModuleToPlanAsync(Guid planId, Guid moduleId)
     {
         var plan = await _dbContext.PlanTemplates

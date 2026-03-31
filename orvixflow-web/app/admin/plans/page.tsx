@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { Plus, Edit, Archive, CreditCard, Users, Database, Cpu, X } from "lucide-react";
+import { Plus, Edit, Archive, CreditCard, Users, Database, Cpu, X, RotateCcw } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -39,6 +39,15 @@ interface PlanFormData {
   maxSeats: string;
   isTrialAllowed: boolean;
   trialDays: number;
+  isActive: boolean;
+  billingInterval: string;
+  legacyLocked: boolean;
+  entitlements: {
+    maxMonthlyTokens: number;
+    maxApiRequestsPerDay: number;
+    maxStorageMb: number;
+    maxKnowledgeBases: number;
+  };
 }
 
 const initialFormData: PlanFormData = {
@@ -50,6 +59,15 @@ const initialFormData: PlanFormData = {
   maxSeats: "",
   isTrialAllowed: false,
   trialDays: 14,
+  isActive: true,
+  billingInterval: "Monthly",
+  legacyLocked: false,
+  entitlements: {
+    maxMonthlyTokens: 50000,
+    maxApiRequestsPerDay: 500,
+    maxStorageMb: 100,
+    maxKnowledgeBases: 1,
+  },
 };
 
 export default function PlansPage() {
@@ -106,6 +124,15 @@ export default function PlansPage() {
       maxSeats: plan.maxSeats?.toString() || "",
       isTrialAllowed: plan.isTrialAllowed,
       trialDays: plan.trialDays,
+      isActive: plan.isActive,
+      billingInterval: plan.billingInterval || "Monthly",
+      legacyLocked: plan.legacyLocked,
+      entitlements: plan.entitlements || {
+        maxMonthlyTokens: 50000,
+        maxApiRequestsPerDay: 500,
+        maxStorageMb: 100,
+        maxKnowledgeBases: 1,
+      },
     });
     setShowModal(true);
   };
@@ -127,6 +154,10 @@ export default function PlansPage() {
       isTrialAllowed: formData.isTrialAllowed,
       trialDays: formData.trialDays,
       isFree: formData.monthlyPriceCents === 0,
+      isActive: formData.isActive,
+      billingInterval: formData.billingInterval,
+      legacyLocked: formData.legacyLocked,
+      entitlements: formData.entitlements,
       moduleIds: [],
     };
 
@@ -171,6 +202,20 @@ export default function PlansPage() {
       setPlans(plans.map(p => p.id === planId ? { ...p, isActive: false, archivedAt: new Date().toISOString() } : p));
     } catch (e) {
       alert("Failed to archive plan");
+    }
+  };
+
+  const handleReactivate = async (planId: string) => {
+    try {
+      const res = await fetch(`${apiUrl}/api/plans/${planId}/reactivate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiToken}` },
+      });
+      if (!res.ok) throw new Error("Failed to reactivate plan");
+      
+      setPlans(plans.map(p => p.id === planId ? { ...p, isActive: true, archivedAt: null } : p));
+    } catch (e) {
+      alert("Failed to reactivate plan");
     }
   };
 
@@ -274,6 +319,15 @@ export default function PlansPage() {
               >
                 <Edit className="w-3 h-3" /> Edit
               </button>
+              {!plan.isActive && !plan.legacyLocked && (
+                <button 
+                  onClick={() => handleReactivate(plan.id)}
+                  className="px-3 py-2 bg-success/10 text-success text-xs font-medium rounded hover:bg-success/20 transition-colors"
+                  title="Reactivate plan"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              )}
               {plan.isActive && !plan.legacyLocked && (
                 <button 
                   onClick={() => handleArchive(plan.id)}
@@ -302,107 +356,181 @@ export default function PlansPage() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-white/70 mb-1">Plan Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-white/70 mb-1">Slug</label>
-                  <input
-                    type="text"
-                    value={formData.slug}
-                    onChange={e => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
-                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-white/70 mb-1">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                  rows={2}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-white/70 mb-1">Monthly Price ($)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formData.monthlyPriceCents === 0 ? "" : formData.monthlyPriceCents / 100}
-                    onChange={e => setFormData({ ...formData, monthlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
-                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-white/70 mb-1">Yearly Price ($)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formData.yearlyPriceCents === 0 ? "" : formData.yearlyPriceCents / 100}
-                    onChange={e => setFormData({ ...formData, yearlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
-                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-white/70 mb-1">Max Seats (empty = unlimited)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.maxSeats}
-                    onChange={e => setFormData({ ...formData, maxSeats: e.target.value })}
-                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
-                    placeholder="Unlimited"
-                  />
-                </div>
-                <div className="flex items-center gap-4 pt-6">
-                  <label className="flex items-center gap-2 text-sm text-white">
+            <form onSubmit={handleSubmit} className="flex flex-col max-h-[70vh]">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Plan Name</label>
                     <input
-                      type="checkbox"
-                      checked={formData.isTrialAllowed}
-                      onChange={e => setFormData({ ...formData, isTrialAllowed: e.target.checked })}
-                      className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                      type="text"
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      required
                     />
-                    Allow Trial
-                  </label>
-                  {formData.isTrialAllowed && (
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Slug</label>
+                    <input
+                      type="text"
+                      value={formData.slug}
+                      onChange={e => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/70 mb-1">Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    rows={2}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Monthly Price ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.monthlyPriceCents === 0 ? "" : formData.monthlyPriceCents / 100}
+                      onChange={e => setFormData({ ...formData, monthlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Yearly Price ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.yearlyPriceCents === 0 ? "" : formData.yearlyPriceCents / 100}
+                      onChange={e => setFormData({ ...formData, yearlyPriceCents: Math.round((parseFloat(e.target.value) || 0) * 100) })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Max Seats (empty = unlimited)</label>
                     <input
                       type="number"
                       min="1"
-                      max="90"
-                      value={formData.trialDays}
-                      onChange={e => setFormData({ ...formData, trialDays: parseInt(e.target.value) || 14 })}
-                      className="w-20 px-2 py-1 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      value={formData.maxSeats}
+                      onChange={e => setFormData({ ...formData, maxSeats: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      placeholder="Unlimited"
                     />
-                  )}
+                  </div>
+                  <div className="flex items-center gap-4 pt-6">
+                    <label className="flex items-center gap-2 text-sm text-white">
+                      <input
+                        type="checkbox"
+                        checked={formData.isTrialAllowed}
+                        onChange={e => setFormData({ ...formData, isTrialAllowed: e.target.checked })}
+                        className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                      />
+                      Allow Trial
+                    </label>
+                    {formData.isTrialAllowed && (
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={formData.trialDays}
+                        onChange={e => setFormData({ ...formData, trialDays: parseInt(e.target.value) || 14 })}
+                        className="w-20 px-2 py-1 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Billing Interval</label>
+                    <select
+                      value={formData.billingInterval}
+                      onChange={e => setFormData({ ...formData, billingInterval: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    >
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-4 pt-6">
+                    <label className="flex items-center gap-2 text-sm text-white">
+                      <input
+                        type="checkbox"
+                        checked={formData.legacyLocked}
+                        onChange={e => setFormData({ ...formData, legacyLocked: e.target.checked })}
+                        className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                      />
+                      Legacy Locked
+                    </label>
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 pt-4">
+                  <label className="block text-xs font-medium text-white/70 mb-3">Entitlements</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Max Monthly Tokens</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entitlements.maxMonthlyTokens}
+                        onChange={e => setFormData({ ...formData, entitlements: { ...formData.entitlements, maxMonthlyTokens: parseInt(e.target.value) || 0 } })}
+                        className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Max API Requests/Day</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entitlements.maxApiRequestsPerDay}
+                        onChange={e => setFormData({ ...formData, entitlements: { ...formData.entitlements, maxApiRequestsPerDay: parseInt(e.target.value) || 0 } })}
+                        className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Max Storage (MB)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entitlements.maxStorageMb}
+                        onChange={e => setFormData({ ...formData, entitlements: { ...formData.entitlements, maxStorageMb: parseInt(e.target.value) || 0 } })}
+                        className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1">Max Knowledge Bases</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entitlements.maxKnowledgeBases}
+                        onChange={e => setFormData({ ...formData, entitlements: { ...formData.entitlements, maxKnowledgeBases: parseInt(e.target.value) || 0 } })}
+                        className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {error && (
-                <div className="text-danger text-sm">{error}</div>
+                <div className="px-6 py-2 text-danger text-sm">{error}</div>
               )}
 
-              <div className="flex gap-3 justify-end pt-4">
+              <div className="px-6 py-4 border-t border-white/10 flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
