@@ -474,54 +474,6 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      {hasOrg && orgStatus?.companyName && (
-                        <div className="mb-6">
-                          <h3 className="text-sm font-medium mb-3">Organization Name</h3>
-                          <div className="bg-background border border-white/5 rounded-lg p-4">
-                            {isEditingCompanyName ? (
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="text"
-                                  value={editedCompanyName}
-                                  onChange={(e) => setEditedCompanyName(e.target.value)}
-                                  className="flex-1 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={handleSaveCompanyNameClick}
-                                  disabled={isSavingCompanyName || !editedCompanyName.trim()}
-                                  className="px-3 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                  {isSavingCompanyName ? "Saving..." : "Save"}
-                                </button>
-                                <button
-                                  onClick={handleCancelEditCompanyName}
-                                  disabled={isSavingCompanyName}
-                                  className="px-3 py-2 border border-white/10 hover:bg-white/5 text-white text-sm font-medium rounded-lg transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <Building className="w-5 h-5 text-primary" />
-                                  <span className="text-sm font-medium">{orgStatus.companyName}</span>
-                                  {orgStatus?.role === "CompanyOwner" && (
-                                    <button
-                                      onClick={handleStartEditCompanyName}
-                                      className="text-xs text-muted hover:text-white transition-colors"
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
                       <div className="mb-6">
                         <h3 className="text-sm font-medium mb-3">Your Companies</h3>
                         {companies.length === 0 ? (
@@ -548,17 +500,26 @@ export default function SettingsPage() {
                                   </div>
                                   <div className="text-xs text-muted mt-1">{company.role} • {company.plan} Plan</div>
                                 </div>
-                                <button 
-                                  onClick={() => handleSwitchCompany(company.companyId)} 
-                                  disabled={company.companyId === orgStatus?.activeCompanyId}
-                                  className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${
-                                    company.companyId === orgStatus?.activeCompanyId 
-                                      ? "border-white/5 text-white/30 cursor-not-allowed bg-white/5" 
-                                      : "border-white/10 hover:bg-white/10 text-white"
-                                  }`}
-                                >
-                                  {company.companyId === orgStatus?.activeCompanyId ? "Current" : "Switch"}
-                                </button>
+                                {company.companyId === orgStatus?.activeCompanyId && orgStatus?.role === "CompanyOwner" ? (
+                                  <button 
+                                    onClick={handleStartEditCompanyName}
+                                    className="px-3 py-1.5 text-xs border border-white/10 hover:bg-white/10 text-white rounded-md transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                ) : (
+                                  <button 
+                                    onClick={() => handleSwitchCompany(company.companyId)} 
+                                    disabled={company.companyId === orgStatus?.activeCompanyId}
+                                    className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${
+                                      company.companyId === orgStatus?.activeCompanyId 
+                                        ? "border-white/5 text-white/30 cursor-not-allowed bg-white/5" 
+                                        : "border-white/10 hover:bg-white/10 text-white"
+                                    }`}
+                                  >
+                                    {company.companyId === orgStatus?.activeCompanyId ? "Current" : "Switch"}
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </div>
