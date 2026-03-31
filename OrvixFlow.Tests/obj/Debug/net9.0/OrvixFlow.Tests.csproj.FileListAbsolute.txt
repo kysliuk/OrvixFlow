@@ -643,3 +643,14 @@ D:/Antigravity/OrvixFlow/OrvixFlow.Tests/obj/Debug/net9.0/ref/OrvixFlow.Tests.dl
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/obj/Debug/net9.0/OrvixFlo.758007EE.Up2Date
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/obj/Debug/net9.0/OrvixFlow.Tests.genruntimeconfig.cache
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/obj/Debug/net9.0/ref/OrvixFlow.Tests.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/DocumentFormat.OpenXml.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/DocumentFormat.OpenXml.Framework.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.Core.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.DocumentLayoutAnalysis.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.Fonts.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.Package.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.Tokenization.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.Tokens.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/SixLabors.ImageSharp.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/System.IO.Packaging.dll

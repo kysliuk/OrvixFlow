@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "+vGN1cuo0Z0=",
+  "dgSpecHash": "udE2sWqCnxk=",
   "success": true,
   "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
   "expectedPackageFiles": [
@@ -8,6 +8,8 @@
     "/home/kysliuk/.nuget/packages/azure.core/1.50.0/azure.core.1.50.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/bcrypt.net-next/4.1.0/bcrypt.net-next.4.1.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/dapper/2.0.123/dapper.2.0.123.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/documentformat.openxml/3.1.0/documentformat.openxml.3.1.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/documentformat.openxml.framework/3.1.0/documentformat.openxml.framework.3.1.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/hangfire.core/1.8.23/hangfire.core.1.8.23.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/hangfire.postgresql/1.9.2/hangfire.postgresql.1.9.2.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/microsoft.bcl.asyncinterfaces/8.0.0/microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
@@ -49,11 +51,14 @@
     "/home/kysliuk/.nuget/packages/npgsql/9.0.1/npgsql.9.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/npgsql.entityframeworkcore.postgresql/9.0.1/npgsql.entityframeworkcore.postgresql.9.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/openai/2.8.0/openai.2.8.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/pdfpig/0.1.9/pdfpig.0.1.9.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/pgvector/0.3.2/pgvector.0.3.2.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/pgvector.entityframeworkcore/0.3.0/pgvector.entityframeworkcore.0.3.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.5/sixlabors.imagesharp.3.1.5.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.clientmodel/1.8.1/system.clientmodel.1.8.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.diagnostics.diagnosticsource/10.0.3/system.diagnostics.diagnosticsource.10.0.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.identitymodel.tokens.jwt/8.16.0/system.identitymodel.tokens.jwt.8.16.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.io.packaging/8.0.0/system.io.packaging.8.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.pipelines/10.0.3/system.io.pipelines.10.0.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.linq.asyncenumerable/10.0.2/system.linq.asyncenumerable.10.0.2.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.memory.data/8.0.1/system.memory.data.8.0.1.nupkg.sha512",
@@ -72,6 +77,30 @@
       "warningLevel": 1,
       "filePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
       "libraryId": "Hangfire.PostgreSql",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    },
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "Package 'SixLabors.ImageSharp' 3.1.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-2cmq-823j-5qj8",
+      "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
+      "warningLevel": 1,
+      "filePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
+      "libraryId": "SixLabors.ImageSharp",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    },
+    {
+      "code": "NU1902",
+      "level": "Warning",
+      "message": "Package 'SixLabors.ImageSharp' 3.1.5 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc",
+      "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
+      "warningLevel": 1,
+      "filePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
+      "libraryId": "SixLabors.ImageSharp",
       "targetGraphs": [
         "net9.0"
       ]

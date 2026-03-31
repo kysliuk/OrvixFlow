@@ -75,6 +75,11 @@ CompanyOwner (full access)
 - Supports: OpenAI, Groq, or Mock (for testing)
 - Plugins: KnowledgeBaseSearchPlugin, N8nAutomationPlugin
 
+**RAG Ingestion Pipeline (NEW):**
+- **Abstractions**: `IDocumentParser` (PDF, DOCX, TXT), `IChunker` (Overlap), `IFileStorage` (Local).
+- **Service**: `IngestionPipelineService` (Orchestrates Parse -> Chunk -> Embed).
+- **Worker**: `FileIngestionJob` (Hangfire background job).
+
 **Agent Flow:**
 1. User prompt → AgentController
 2. AgentService.ProcessInternalAsync
@@ -85,8 +90,9 @@ CompanyOwner (full access)
 
 **Hangfire** with PostgreSQL storage:
 - Dashboard: `/hangfire` (local only)
-- Jobs registered in `InboxProcessingJob.cs`
-- Endpoint: `api/inbox/process`
+- `InboxProcessingJob`: Asynchronous email processing
+- `FileIngestionJob`: Background document parsing and embedding
+- Endpoint: `api/inbox/process`, `api/v1/knowledge/upload`
 
 ## Webhook Security
 

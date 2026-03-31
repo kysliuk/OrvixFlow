@@ -60,3 +60,10 @@ Environment variables (or appsettings.json):
 - `AI:Provider` - "OpenAI", "Mock", or "Groq"
 - `Automation:N8nBaseUrl` - n8n instance URL
 - `ConnectionStrings:DefaultConnection` - PostgreSQL connection
+
+## RAG Assistant Extension (Status: Phase 1 Completed)
+Implemented file ingestion pipeline:
+- PDF, DOCX, TXT support
+- Paragraph-aware overlap chunking
+- Background ingestion with Hangfire
+- Local multi-tenant file storage

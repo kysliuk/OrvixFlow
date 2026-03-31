@@ -1,0 +1,267 @@
+{
+  "name": "OrvixFlow RAG Email Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-inbound",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Email Inbound Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "email-inbound"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://orvix-api:8080/api/v1/inbox/rag",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Automation-Key",
+              "value": "={{ $env.ORVIX_AUTOMATION_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"tenantId\": \"{{ $json.tenantId }}\",\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"threadId\": \"{{ $json.threadId }}\",\n  \"senderEmail\": \"{{ $json.senderEmail }}\",\n  \"senderName\": \"{{ $json.senderName }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"bodyText\": \"{{ $json.bodyText }}\",\n  \"attachmentUrls\": [],\n  \"webhookCallbackPath\": \"reply-ready\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "rag-request",
+      "name": "Call OrvixFlow RAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "draft_ready",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "draft_ready"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "human_review_required",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "human_review"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "escalate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "escalate"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "spam_detected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "spam"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "action-switch",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.flags.autoSendAllowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "auto-send-check",
+      "name": "Auto-Send Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 160]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.email.from }}",
+        "toEmail": "={{ $json.email.to }}",
+        "subject": "={{ $json.email.subject }}",
+        "text": "={{ $json.email.bodyText }}",
+        "html": "={{ $json.email.bodyHtml }}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email (Auto)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1120, 60],
+      "notes": "Configure SMTP/Gmail credentials in n8n credentials"
+    },
+    {
+      "parameters": {
+        "channel": "#support-review",
+        "text": "=📬 *Email Draft Ready for Review*\n\n*From:* {{ $json.email.to }}\n*Subject:* {{ $json.email.subject }}\n*Category:* {{ $json.classification.category }} ({{ Math.round($json.classification.confidenceScore * 100) }}%)\n\n*Draft:*\n```\n{{ $json.email.bodyText }}\n```\n\n_RAG snippets used: {{ $json.rag.snippetsUsed }}_",
+        "options": {
+          "username": "OrvixFlow Bot"
+        }
+      },
+      "id": "slack-review",
+      "name": "Slack - Request Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1120, 280],
+      "notes": "Configure Slack credentials in n8n credentials"
+    },
+    {
+      "parameters": {
+        "channel": "#support-escalations",
+        "text": "=🚨 *ESCALATION REQUIRED*\n\n*From:* {{ $json.email.to }}\n*Subject:* {{ $json.email.subject }}\n*Reason:* {{ $json.classification.reasonForReview }}\n*Category:* {{ $json.classification.category }}\n\n*Action Required:* Human review needed immediately.\n*Trace ID:* {{ $json.audit.traceId }}",
+        "options": {
+          "username": "OrvixFlow Escalation Bot"
+        }
+      },
+      "id": "slack-escalate",
+      "name": "Slack - Escalation Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "channel": "#support-review",
+        "text": "=👀 *Human Review Required*\n\n*From:* {{ $json.email.to }}\n*Subject:* {{ $json.email.subject }}\n*Reason:* {{ $json.classification.reasonForReview }}\n*Draft (needs editing):*\n```\n{{ $json.email.bodyText }}\n```",
+        "options": {
+          "username": "OrvixFlow Bot"
+        }
+      },
+      "id": "slack-human-review",
+      "name": "Slack - Human Review",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [900, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log spam to audit trail or simply discard\nconsole.log('Spam detected, archiving:', $input.item.json.messageId);\nreturn [];"
+      },
+      "id": "archive-spam",
+      "name": "Archive Spam",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 520]
+    }
+  ],
+  "connections": {
+    "Email Inbound Trigger": {
+      "main": [
+        [{ "node": "Call OrvixFlow RAG", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call OrvixFlow RAG": {
+      "main": [
+        [{ "node": "Route by Action", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [{ "node": "Auto-Send Allowed?", "type": "main", "index": 0 }],
+        [{ "node": "Slack - Human Review", "type": "main", "index": 0 }],
+        [{ "node": "Slack - Escalation Alert", "type": "main", "index": 0 }],
+        [{ "node": "Archive Spam", "type": "main", "index": 0 }]
+      ]
+    },
+    "Auto-Send Allowed?": {
+      "main": [
+        [{ "node": "Send Email (Auto)", "type": "main", "index": 0 }],
+        [{ "node": "Slack - Request Approval", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["orvixflow", "rag", "email"],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-31T13:00:00.000Z",
+  "versionId": "1"
+}

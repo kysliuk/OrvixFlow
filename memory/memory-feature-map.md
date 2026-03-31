@@ -55,12 +55,22 @@
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
 | Search | KnowledgeBaseController | HybridVectorSearchService | KnowledgeBase |
-| Vector Index | - | IngestionService (embedding) | KnowledgeBase |
+| Vector Index | - | IngestionService (old) | KnowledgeBase |
+| File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
+| File Parsing | - | IDocumentParser implementations | - |
+| Background Jobs| - | FileIngestionJob | - |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/KnowledgeBaseController.cs`
+- `OrvixFlow.Api/Controllers/FileIngestionController.cs`
 - `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs`
+- `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs`
+- `OrvixFlow.Infrastructure/Ai/Parsers/` (.txt, .pdf, .docx)
+- `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs`
+- `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs`
+- `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs`
 - `OrvixFlow.Core/Entities/KnowledgeBase.cs`
+- `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs`
 
 ## Organization & Access
 

@@ -8,6 +8,7 @@
 | Tenant | `OrvixFlow.Core/Entities/Tenant.cs` |
 | Department | `OrvixFlow.Core/Entities/Department.cs` |
 | KnowledgeBase | `OrvixFlow.Core/Entities/KnowledgeBase.cs` |
+| KnowledgeBaseDocument | `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs` |
 | InboxEvent | `OrvixFlow.Core/Entities/InboxEvent.cs` |
 | AuditTrail | `OrvixFlow.Core/Entities/AuditTrail.cs` |
 | WorkflowPolicy | `OrvixFlow.Core/Entities/WorkflowPolicy.cs` |
@@ -35,6 +36,9 @@
 | SeatLimitTests | `OrvixFlow.Tests/SeatLimitTests.cs` |
 | EntitlementResolverIntegrationTests | `OrvixFlow.Tests/EntitlementResolverIntegrationTests.cs` |
 | AuditLogTests | `OrvixFlow.Tests/AuditLogTests.cs` |
+| OverlapChunkerTests | `OrvixFlow.Tests/OverlapChunkerTests.cs` |
+| IngestionPipelineServiceTests | `OrvixFlow.Tests/IngestionPipelineServiceTests.cs` |
+| PlainTextParserTests | `OrvixFlow.Tests/PlainTextParserTests.cs` |
 
 ## Core Interfaces
 
@@ -45,6 +49,10 @@
 | IAuthService | `OrvixFlow.Core/Interfaces/IAuthService.cs` |
 | IAgentService | `OrvixFlow.Core/Interfaces/IAgentService.cs` |
 | IIngestionService | `OrvixFlow.Core/Interfaces/IIngestionService.cs` |
+| IIngestionPipelineService | `OrvixFlow.Core/Interfaces/IIngestionPipelineService.cs` |
+| IDocumentParser | `OrvixFlow.Core/Interfaces/IDocumentParser.cs` |
+| IChunker | `OrvixFlow.Core/Interfaces/IChunker.cs` |
+| IFileStorage | `OrvixFlow.Core/Interfaces/IFileStorage.cs` |
 | IInboxGuardianService | `OrvixFlow.Core/Interfaces/IInboxGuardianService.cs` |
 | IAccessResolver | `OrvixFlow.Core/Interfaces/IAccessResolver.cs` |
 | IAuditService | `OrvixFlow.Core/Interfaces/IAuditService.cs` |
@@ -74,6 +82,7 @@
 | AdminController | `OrvixFlow.Api/Controllers/AdminController.cs` |
 | OrganizationController | `OrvixFlow.Api/Controllers/OrganizationController.cs` |
 | PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
+| FileIngestionController | `OrvixFlow.Api/Controllers/FileIngestionController.cs` |
 
 ## Infrastructure Services
 
@@ -88,6 +97,13 @@
 | IntentClassifierService | `OrvixFlow.Infrastructure/Ai/IntentClassifierService.cs` |
 | DraftGeneratorService | `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs` |
 | HybridVectorSearchService | `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs` |
+| IngestionPipelineService | `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs` |
+| PlainTextParser | `OrvixFlow.Infrastructure/Ai/Parsers/PlainTextParser.cs` |
+| PdfParser | `OrvixFlow.Infrastructure/Ai/Parsers/PdfParser.cs` |
+| DocxParser | `OrvixFlow.Infrastructure/Ai/Parsers/DocxParser.cs` |
+| OverlapChunker | `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs` |
+| FileIngestionJob | `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` |
+| LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` |
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |
 | BackgroundTenantProvider | `OrvixFlow.Infrastructure/Services/BackgroundTenantProvider.cs` |

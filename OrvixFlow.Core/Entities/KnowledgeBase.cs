@@ -11,4 +11,11 @@ public class KnowledgeBase
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     
     public Pgvector.Vector? EmbeddingVector { get; set; }
+
+    public Guid? DocumentId { get; set; }
+    public KnowledgeBaseDocument? Document { get; set; }
+
+    public int ChunkIndex { get; set; } = 0;
+    public string ChunkType { get; set; } = "text"; // "text", "image_caption"
+    public string Title { get; set; } = string.Empty;
 }

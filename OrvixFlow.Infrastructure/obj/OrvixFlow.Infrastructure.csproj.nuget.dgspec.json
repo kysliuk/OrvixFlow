@@ -117,6 +117,10 @@
               "target": "Package",
               "version": "[4.1.0, )"
             },
+            "DocumentFormat.OpenXml": {
+              "target": "Package",
+              "version": "[3.1.0, )"
+            },
             "Hangfire.Core": {
               "target": "Package",
               "version": "[1.8.23, )"
@@ -137,9 +141,17 @@
               "target": "Package",
               "version": "[1.73.0, )"
             },
+            "PdfPig": {
+              "target": "Package",
+              "version": "[0.1.9, )"
+            },
             "Pgvector.EntityFrameworkCore": {
               "target": "Package",
               "version": "[0.3.0, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.5, )"
             },
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",

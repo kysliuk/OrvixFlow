@@ -337,8 +337,18 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("ChunkIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChunkType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uuid");
 
                     b.Property<Vector>("EmbeddingVector")
                         .HasColumnType("vector");
@@ -354,9 +364,61 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("DocumentId");
+
                     b.ToTable("KnowledgeBases");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBaseDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("IndexedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("KnowledgeBaseDocuments");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>
@@ -454,7 +516,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(1054),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 194, DateTimeKind.Utc).AddTicks(2403),
                             Description = "",
                             DisplayName = "Doc-Intel",
                             IsActive = true,
@@ -468,7 +530,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8717),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(470),
                             Description = "",
                             DisplayName = "Finance-Flow",
                             IsActive = true,
@@ -482,7 +544,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8758),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(580),
                             Description = "",
                             DisplayName = "Inbox-Guardian",
                             IsActive = true,
@@ -496,7 +558,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("44444444-4444-4444-4444-444444444444"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8780),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(653),
                             Description = "",
                             DisplayName = "Lead-Qualifier",
                             IsActive = true,
@@ -510,7 +572,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8801),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(689),
                             Description = "",
                             DisplayName = "Legal-Scribe",
                             IsActive = true,
@@ -524,7 +586,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("66666666-6666-6666-6666-666666666666"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8890),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(726),
                             Description = "",
                             DisplayName = "Data-Guardian",
                             IsActive = true,
@@ -538,7 +600,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("77777777-7777-7777-7777-777777777777"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8911),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(750),
                             Description = "",
                             DisplayName = "SOP-Generator",
                             IsActive = true,
@@ -552,7 +614,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("88888888-8888-8888-8888-888888888888"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8931),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(786),
                             Description = "",
                             DisplayName = "Metered-Billing",
                             IsActive = true,
@@ -566,7 +628,7 @@ namespace OrvixFlow.Infrastructure.Migrations
                         {
                             Id = new Guid("99999999-9999-9999-9999-999999999999"),
                             Category = "Utility",
-                            CreatedAt = new DateTime(2026, 3, 30, 10, 56, 17, 638, DateTimeKind.Utc).AddTicks(8952),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 196, DateTimeKind.Utc).AddTicks(815),
                             Description = "",
                             DisplayName = "Audit-Log",
                             IsActive = true,
@@ -648,6 +710,58 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("PlanEntitlements");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            MaxApiRequestsPerDay = 500,
+                            MaxKnowledgeBases = 1,
+                            MaxMonthlyTokens = 50000,
+                            MaxStorageMb = 100,
+                            PlanTemplateId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            MaxApiRequestsPerDay = 1000,
+                            MaxKnowledgeBases = 5,
+                            MaxMonthlyTokens = 100000,
+                            MaxStorageMb = 500,
+                            PlanTemplateId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+                        },
+                        new
+                        {
+                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            MaxApiRequestsPerDay = 5000,
+                            MaxKnowledgeBases = 25,
+                            MaxMonthlyTokens = 500000,
+                            MaxStorageMb = 5120,
+                            PlanTemplateId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                        },
+                        new
+                        {
+                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            MaxApiRequestsPerDay = 20000,
+                            MaxKnowledgeBases = 100,
+                            MaxMonthlyTokens = 2000000,
+                            MaxStorageMb = 51200,
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            MaxApiRequestsPerDay = 100000,
+                            MaxKnowledgeBases = 1000,
+                            MaxMonthlyTokens = 10000000,
+                            MaxStorageMb = 512000,
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        });
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.PlanModuleInclusion", b =>
@@ -673,6 +787,148 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("PlanModuleInclusions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("1ed1b64a-8104-496d-9ca0-5b44de61b3ef"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 212, DateTimeKind.Utc).AddTicks(8066),
+                            ModuleDefinitionId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            PlanTemplateId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                        },
+                        new
+                        {
+                            Id = new Guid("9dd3dbfd-030a-4954-b832-332218517aa2"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2360),
+                            ModuleDefinitionId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            PlanTemplateId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+                        },
+                        new
+                        {
+                            Id = new Guid("e85fdae2-3525-442f-8651-f2aeb47c2dcf"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2396),
+                            ModuleDefinitionId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            PlanTemplateId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+                        },
+                        new
+                        {
+                            Id = new Guid("bbe3c268-11da-450c-8dda-b7e69203e116"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2421),
+                            ModuleDefinitionId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            PlanTemplateId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                        },
+                        new
+                        {
+                            Id = new Guid("8a111ae9-b773-426e-a4fe-c66977fedb7d"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2443),
+                            ModuleDefinitionId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            PlanTemplateId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                        },
+                        new
+                        {
+                            Id = new Guid("6a1cd56c-e372-4f2d-b4cf-02e1bd6dfd58"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2468),
+                            ModuleDefinitionId = new Guid("44444444-4444-4444-4444-444444444444"),
+                            PlanTemplateId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                        },
+                        new
+                        {
+                            Id = new Guid("f6b39d2c-c679-45b3-82c0-52cad19680c2"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2492),
+                            ModuleDefinitionId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            PlanTemplateId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                        },
+                        new
+                        {
+                            Id = new Guid("68820318-ce72-4859-b384-8fe63ad7d79f"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2519),
+                            ModuleDefinitionId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("4d19b213-135c-4e41-89b1-aaeddcf46f6b"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2545),
+                            ModuleDefinitionId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("c02f71bf-cc21-420d-a25a-6572c4465317"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2568),
+                            ModuleDefinitionId = new Guid("44444444-4444-4444-4444-444444444444"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("83b2689a-03dc-4107-83e5-a5a478e2047d"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2591),
+                            ModuleDefinitionId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("3699a661-3bfa-4889-84ce-55a4275a0931"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2613),
+                            ModuleDefinitionId = new Guid("55555555-5555-5555-5555-555555555555"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("243507a4-fe6a-431a-82d3-a93eb1747b44"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2637),
+                            ModuleDefinitionId = new Guid("77777777-7777-7777-7777-777777777777"),
+                            PlanTemplateId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd")
+                        },
+                        new
+                        {
+                            Id = new Guid("9767c79c-54e8-40ce-8064-02a2a4d0880a"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2662),
+                            ModuleDefinitionId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("933df29a-e0f4-4ca0-b474-c31317e022d6"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2687),
+                            ModuleDefinitionId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("0e243aa2-3c4f-4805-a82b-0ff44df7fca1"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2710),
+                            ModuleDefinitionId = new Guid("44444444-4444-4444-4444-444444444444"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("d7fe4282-629b-480c-9dc6-27b993b3c332"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2737),
+                            ModuleDefinitionId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("edba4bdc-b37a-47b6-91e0-c71f2d4d0697"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2761),
+                            ModuleDefinitionId = new Guid("55555555-5555-5555-5555-555555555555"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("fdb021be-f4fa-44a2-9c58-085859d5a344"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2789),
+                            ModuleDefinitionId = new Guid("77777777-7777-7777-7777-777777777777"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        },
+                        new
+                        {
+                            Id = new Guid("df4f0284-832b-4679-9b2b-4424ae04d0b9"),
+                            CreatedAt = new DateTime(2026, 3, 31, 13, 43, 9, 213, DateTimeKind.Utc).AddTicks(2820),
+                            ModuleDefinitionId = new Guid("66666666-6666-6666-6666-666666666666"),
+                            PlanTemplateId = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+                        });
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.PlanTemplate", b =>
@@ -737,6 +993,97 @@ namespace OrvixFlow.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("PlanTemplates");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                            BillingInterval = "Monthly",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "USD",
+                            Description = "For individuals testing AI workflows.",
+                            IsActive = true,
+                            IsFree = true,
+                            IsTrialAllowed = false,
+                            LegacyLocked = false,
+                            MaxSeats = 2,
+                            MonthlyPriceCents = 0,
+                            Name = "Free",
+                            Slug = "free",
+                            TrialDays = 0,
+                            YearlyPriceCents = 0
+                        },
+                        new
+                        {
+                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                            BillingInterval = "Monthly",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "USD",
+                            Description = "For small teams automating support.",
+                            IsActive = true,
+                            IsFree = false,
+                            IsTrialAllowed = true,
+                            LegacyLocked = false,
+                            MaxSeats = 5,
+                            MonthlyPriceCents = 2900,
+                            Name = "Starter",
+                            Slug = "starter",
+                            TrialDays = 14,
+                            YearlyPriceCents = 29000
+                        },
+                        new
+                        {
+                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                            BillingInterval = "Monthly",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "USD",
+                            Description = "For growing teams needing more power.",
+                            IsActive = true,
+                            IsFree = false,
+                            IsTrialAllowed = true,
+                            LegacyLocked = false,
+                            MaxSeats = 25,
+                            MonthlyPriceCents = 9900,
+                            Name = "Growth",
+                            Slug = "growth",
+                            TrialDays = 14,
+                            YearlyPriceCents = 99000
+                        },
+                        new
+                        {
+                            Id = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+                            BillingInterval = "Monthly",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "USD",
+                            Description = "For large teams with advanced needs.",
+                            IsActive = true,
+                            IsFree = false,
+                            IsTrialAllowed = true,
+                            LegacyLocked = false,
+                            MaxSeats = 100,
+                            MonthlyPriceCents = 29900,
+                            Name = "Business",
+                            Slug = "business",
+                            TrialDays = 14,
+                            YearlyPriceCents = 299000
+                        },
+                        new
+                        {
+                            Id = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+                            BillingInterval = "Custom",
+                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Currency = "USD",
+                            Description = "For large organizations with custom needs.",
+                            IsActive = true,
+                            IsFree = false,
+                            IsTrialAllowed = false,
+                            LegacyLocked = false,
+                            MonthlyPriceCents = 0,
+                            Name = "Enterprise",
+                            Slug = "enterprise",
+                            TrialDays = 0,
+                            YearlyPriceCents = 0
+                        });
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.Tenant", b =>
@@ -1055,6 +1402,16 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBase", b =>
+                {
+                    b.HasOne("OrvixFlow.Core.Entities.KnowledgeBaseDocument", "Document")
+                        .WithMany("Chunks")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Document");
+                });
+
             modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>
                 {
                     b.HasOne("OrvixFlow.Core.Entities.Tenant", "Company")
@@ -1195,6 +1552,11 @@ namespace OrvixFlow.Infrastructure.Migrations
                     b.Navigation("ModuleAssignments");
 
                     b.Navigation("UserMemberships");
+                });
+
+            modelBuilder.Entity("OrvixFlow.Core.Entities.KnowledgeBaseDocument", b =>
+                {
+                    b.Navigation("Chunks");
                 });
 
             modelBuilder.Entity("OrvixFlow.Core.Entities.ModuleAssignment", b =>

@@ -45,6 +45,7 @@ public class AppDbContext : DbContext
     public DbSet<PlanModuleInclusion> PlanModuleInclusions => Set<PlanModuleInclusion>();
     public DbSet<PlanEntitlements> PlanEntitlements => Set<PlanEntitlements>();
     public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
+    public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -222,6 +223,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(s => s.PendingPlanId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // KnowledgeBaseDocument Relationship
+        modelBuilder.Entity<KnowledgeBaseDocument>()
+            .HasMany(d => d.Chunks)
+            .WithOne(c => c.Document)
+            .HasForeignKey(c => c.DocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Global Query Filters for strict Multi-Tenancy (from both)
         modelBuilder.Entity<KnowledgeBase>().HasQueryFilter(k => k.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<WorkflowLog>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
@@ -240,5 +248,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BillingSubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<Invitation>().HasQueryFilter(i => i.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
     }
 }

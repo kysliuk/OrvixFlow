@@ -8,6 +8,10 @@ using OrvixFlow.Infrastructure.Ai;
 using OrvixFlow.Infrastructure.Auth;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Infrastructure.Services;
+using OrvixFlow.Infrastructure.Ai.Parsers;
+using OrvixFlow.Infrastructure.Ai.Chunking;
+using OrvixFlow.Infrastructure.Ai.Jobs;
+using OrvixFlow.Infrastructure.Storage;
 
 namespace OrvixFlow.Infrastructure;
 
@@ -105,6 +109,15 @@ public static class DependencyInjection
         services.AddScoped<IPlanService, PlanService>();
         services.AddScoped<IEntitlementResolver, EntitlementResolver>();
         services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
+
+        // RAG Extension Phase 1
+        services.AddScoped<IChunker, OverlapChunker>();
+        services.AddScoped<IFileStorage, LocalFileStorage>();
+        services.AddScoped<IIngestionPipelineService, IngestionPipelineService>();
+        services.AddScoped<IDocumentParser, PlainTextParser>();
+        services.AddScoped<IDocumentParser, PdfParser>();
+        services.AddScoped<IDocumentParser, DocxParser>();
+        services.AddScoped<FileIngestionJob>();
 
         // Shadow modules
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
