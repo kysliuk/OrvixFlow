@@ -108,9 +108,29 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = result.Error });
         }
     }
+
+    [HttpPut("profile")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest req)
+    {
+        var user = HttpContext.User;
+        var userIdValue = user.FindFirst("sub")?.Value
+            ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return Unauthorized(new { error = "Invalid user context." });
+
+        var result = await _authService.UpdateUserAsync(userId, req.DisplayName);
+
+        if (result.IsSuccess)
+            return Ok(new { token = result.Token, profile = result.Profile });
+        else
+            return BadRequest(new { error = result.Error });
+    }
 }
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
 public record OAuthProvisionRequest(string Email, string DisplayName, string Provider, string ExternalId);
 public record SwitchCompanyRequest(Guid CompanyId);
+public record UpdateProfileRequest(string? DisplayName);

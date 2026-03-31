@@ -409,4 +409,21 @@ public class AuthService : IAuthService
         var profile  = await BuildProfileAsync(user, invitation.CompanyId);
         return new AuthResult(true, Token: jwtToken, Profile: profile);
     }
+
+    public async Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+            return new AuthResult(false, Error: "User not found.");
+
+        if (!string.IsNullOrWhiteSpace(displayName))
+            user.DisplayName = displayName;
+
+        await _db.SaveChangesAsync();
+
+        var activeCompanyId = user.TenantId;
+        var token = await MintJwtAsync(user, activeCompanyId);
+        var profile = await BuildProfileAsync(user, activeCompanyId);
+        return new AuthResult(true, Token: token, Profile: profile);
+    }
 }

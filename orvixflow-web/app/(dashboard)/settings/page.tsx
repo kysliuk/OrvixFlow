@@ -25,6 +25,12 @@ export default function SettingsPage() {
   const [orgStatus, setOrgStatus] = useState<OrgStatus | null>(null);
   const [orgLoading, setOrgLoading] = useState(true);
 
+  // Profile form state
+  const [displayName, setDisplayName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
   // Create Org Modal State
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
@@ -60,6 +66,43 @@ export default function SettingsPage() {
       .then(setDepartments)
       .catch(() => setDepartments([]));
   }, [apiToken]);
+
+  // Set initial display name from session
+  useEffect(() => {
+    if (session?.user?.name) {
+      setDisplayName(session.user.name as string);
+    }
+  }, [session]);
+
+  const handleSaveProfile = async () => {
+    if (!apiToken) return;
+    
+    setSavingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiToken}` },
+        body: JSON.stringify({ displayName }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        await update(data);
+        setProfileSuccess(true);
+        setTimeout(() => setProfileSuccess(false), 3000);
+      } else {
+        const err = await res.json();
+        setProfileError(err.error || "Failed to save profile");
+      }
+    } catch (err) {
+      setProfileError("An unexpected error occurred");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const hasOrg = orgStatus?.hasOrganization === true;
 
@@ -252,7 +295,8 @@ export default function SettingsPage() {
                       <label className="text-xs font-medium text-muted">Full Name</label>
                       <input 
                         type="text" 
-                        defaultValue={session?.user?.name || ""}
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
                         className="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
                       />
                     </div>
@@ -275,8 +319,22 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="border-t border-white/5 pt-6 mt-4">
-                    <button className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all">
-                      Save Changes
+                    {profileError && (
+                      <div className="mb-4 px-4 py-2 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
+                        {profileError}
+                      </div>
+                    )}
+                    {profileSuccess && (
+                      <div className="mb-4 px-4 py-2 bg-success/10 border border-success/20 rounded-lg text-success text-sm">
+                        Profile updated successfully!
+                      </div>
+                    )}
+                    <button 
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all disabled:opacity-50"
+                    >
+                      {savingProfile ? "Saving..." : "Save Changes"}
                     </button>
                   </div>
                 </div>
