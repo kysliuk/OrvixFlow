@@ -38,7 +38,6 @@ export default function SettingsPage() {
   const [createOrgError, setCreateOrgError] = useState<string | null>(null);
 
   // Edit Company Name State
-  const [isEditingCompanyName, setIsEditingCompanyName] = useState(false);
   const [editedCompanyName, setEditedCompanyName] = useState("");
   const [isSavingCompanyName, setIsSavingCompanyName] = useState(false);
   const [showCompanyNameConfirm, setShowCompanyNameConfirm] = useState(false);
@@ -201,20 +200,7 @@ export default function SettingsPage() {
   const handleStartEditCompanyName = () => {
     if (orgStatus?.companyName) {
       setEditedCompanyName(orgStatus.companyName);
-      setIsEditingCompanyName(true);
-    }
-  };
-
-  const handleCancelEditCompanyName = () => {
-    setIsEditingCompanyName(false);
-    setEditedCompanyName("");
-  };
-
-  const handleSaveCompanyNameClick = () => {
-    if (editedCompanyName.trim() && editedCompanyName.trim() !== orgStatus?.companyName) {
       setShowCompanyNameConfirm(true);
-    } else {
-      handleCancelEditCompanyName();
     }
   };
 
