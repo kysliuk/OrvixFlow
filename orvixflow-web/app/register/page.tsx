@@ -86,11 +86,11 @@ export default function RegisterPage() {
 
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="displayName" className="text-xs font-medium text-muted ml-0.5">Organization Name</label>
+            <label htmlFor="displayName" className="text-xs font-medium text-muted ml-0.5">User Name</label>
             <input 
               type="text" 
               id="displayName" 
-              placeholder="Acme Corp" 
+              placeholder="John Doe" 
               value={formData.displayName}
               onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
               className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
