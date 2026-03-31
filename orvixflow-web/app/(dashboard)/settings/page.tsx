@@ -218,7 +218,6 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setOrgStatus(prev => prev ? { ...prev, companyName: data.companyName } : null);
-        setIsEditingCompanyName(false);
         setShowCompanyNameConfirm(false);
         setEditedCompanyName("");
       } else {
@@ -661,7 +660,13 @@ export default function SettingsPage() {
               
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
                 <div className="text-xs text-primary mb-1">New Name</div>
-                <div className="text-sm font-medium text-white">{editedCompanyName}</div>
+                <input
+                  type="text"
+                  value={editedCompanyName}
+                  onChange={(e) => setEditedCompanyName(e.target.value)}
+                  placeholder="Enter new company name"
+                  className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50"
+                />
               </div>
 
               <div className="flex gap-3 justify-end pt-2">
@@ -674,7 +679,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleConfirmCompanyNameChange}
-                  disabled={isSavingCompanyName}
+                  disabled={isSavingCompanyName || !editedCompanyName.trim() || editedCompanyName.trim() === orgStatus?.companyName}
                   className="px-5 py-2.5 text-sm font-medium bg-danger text-white hover:bg-danger/90 focus:ring-4 focus:ring-danger/30 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSavingCompanyName ? (
