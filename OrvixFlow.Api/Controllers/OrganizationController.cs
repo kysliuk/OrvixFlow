@@ -284,6 +284,39 @@ public class OrganizationController : ControllerBase
         return Ok(new { invitedUserId = user.Id });
     }
 
+    [HttpPut("companies/{companyId}")]
+    public async Task<IActionResult> UpdateCompanyName(Guid companyId, [FromBody] UpdateCompanyNameDto dto)
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        var role = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (role != UserRole.CompanyOwner) return Forbid();
+
+        var membership = await _db.UserCompanyMemberships
+            .FirstOrDefaultAsync(m => m.UserId == userId.Value && m.CompanyId == companyId && m.Status == "Active");
+        
+        if (membership == null || membership.CompanyRole != UserRole.CompanyOwner.ToClaimValue())
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Company name is required." });
+
+        var existingWithName = await _db.Tenants
+            .AnyAsync(t => t.Name.ToLower() == dto.Name.ToLower() && t.Id != companyId);
+        if (existingWithName)
+            return Conflict(new { error = "A company with this name already exists." });
+
+        var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == companyId);
+        if (company == null) return NotFound(new { error = "Company not found." });
+
+        var oldName = company.Name;
+        company.Name = dto.Name;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { companyId = company.Id, companyName = company.Name });
+    }
+
     private Guid? ParseGuid(string claimType)
     {
         var value = User.FindFirst(claimType)?.Value;
@@ -307,3 +340,4 @@ public record InviteUserRequest(
 );
 
 public record CreateDepartmentDto(string Name, string Code);
+public record UpdateCompanyNameDto(string Name);

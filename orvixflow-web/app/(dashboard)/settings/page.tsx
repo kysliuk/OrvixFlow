@@ -37,6 +37,12 @@ export default function SettingsPage() {
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
   const [createOrgError, setCreateOrgError] = useState<string | null>(null);
 
+  // Edit Company Name State
+  const [isEditingCompanyName, setIsEditingCompanyName] = useState(false);
+  const [editedCompanyName, setEditedCompanyName] = useState("");
+  const [isSavingCompanyName, setIsSavingCompanyName] = useState(false);
+  const [showCompanyNameConfirm, setShowCompanyNameConfirm] = useState(false);
+
   const apiToken = (session as any)?.apiToken;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -189,6 +195,54 @@ export default function SettingsPage() {
       setCreateOrgError("An unexpected error occurred.");
     } finally {
       setIsCreatingOrg(false);
+    }
+  };
+
+  const handleStartEditCompanyName = () => {
+    if (orgStatus?.companyName) {
+      setEditedCompanyName(orgStatus.companyName);
+      setIsEditingCompanyName(true);
+    }
+  };
+
+  const handleCancelEditCompanyName = () => {
+    setIsEditingCompanyName(false);
+    setEditedCompanyName("");
+  };
+
+  const handleSaveCompanyNameClick = () => {
+    if (editedCompanyName.trim() && editedCompanyName.trim() !== orgStatus?.companyName) {
+      setShowCompanyNameConfirm(true);
+    } else {
+      handleCancelEditCompanyName();
+    }
+  };
+
+  const handleConfirmCompanyNameChange = async () => {
+    if (!apiToken || !orgStatus?.activeCompanyId) return;
+
+    setIsSavingCompanyName(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/org/companies/${orgStatus.activeCompanyId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiToken}` },
+        body: JSON.stringify({ name: editedCompanyName.trim() }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setOrgStatus(prev => prev ? { ...prev, companyName: data.companyName } : null);
+        setIsEditingCompanyName(false);
+        setShowCompanyNameConfirm(false);
+        setEditedCompanyName("");
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to update company name");
+      }
+    } catch (err) {
+      alert("An unexpected error occurred");
+    } finally {
+      setIsSavingCompanyName(false);
     }
   };
 
@@ -420,6 +474,54 @@ export default function SettingsPage() {
                         </div>
                       )}
 
+                      {hasOrg && orgStatus?.companyName && (
+                        <div className="mb-6">
+                          <h3 className="text-sm font-medium mb-3">Organization Name</h3>
+                          <div className="bg-background border border-white/5 rounded-lg p-4">
+                            {isEditingCompanyName ? (
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="text"
+                                  value={editedCompanyName}
+                                  onChange={(e) => setEditedCompanyName(e.target.value)}
+                                  className="flex-1 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={handleSaveCompanyNameClick}
+                                  disabled={isSavingCompanyName || !editedCompanyName.trim()}
+                                  className="px-3 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                  {isSavingCompanyName ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                  onClick={handleCancelEditCompanyName}
+                                  disabled={isSavingCompanyName}
+                                  className="px-3 py-2 border border-white/10 hover:bg-white/5 text-white text-sm font-medium rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <Building className="w-5 h-5 text-primary" />
+                                  <span className="text-sm font-medium">{orgStatus.companyName}</span>
+                                  {orgStatus?.role === "CompanyOwner" && (
+                                    <button
+                                      onClick={handleStartEditCompanyName}
+                                      className="text-xs text-muted hover:text-white transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mb-6">
                         <h3 className="text-sm font-medium mb-3">Your Companies</h3>
                         {companies.length === 0 ? (
@@ -583,6 +685,62 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Company Name Change Modal */}
+      {showCompanyNameConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Confirm Company Name Change</h2>
+              <button 
+                onClick={() => setShowCompanyNameConfirm(false)}
+                className="text-muted hover:text-white transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-muted mb-5">
+                Are you sure you want to change your company name? This action will update your organization across the platform.
+              </p>
+              
+              <div className="bg-background border border-white/5 rounded-lg p-4 mb-6">
+                <div className="text-xs text-muted mb-1">Current Name</div>
+                <div className="text-sm text-white line-through">{orgStatus?.companyName}</div>
+              </div>
+              
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
+                <div className="text-xs text-primary mb-1">New Name</div>
+                <div className="text-sm font-medium text-white">{editedCompanyName}</div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setShowCompanyNameConfirm(false)}
+                  disabled={isSavingCompanyName}
+                  className="px-5 py-2.5 text-sm font-medium border border-white/10 hover:bg-white/5 rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmCompanyNameChange}
+                  disabled={isSavingCompanyName}
+                  className="px-5 py-2.5 text-sm font-medium bg-danger text-white hover:bg-danger/90 focus:ring-4 focus:ring-danger/30 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingCompanyName ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Confirm Change"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
