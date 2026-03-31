@@ -55,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (trigger === "update" && session) {
         if (session.token) token.apiToken = session.token;
         if (session.profile) {
+          token.name = session.profile.displayName;
           token.tenantId = session.profile.tenantId;
           token.activeCompanyId = session.profile.activeCompanyId;
           token.plan = session.profile.plan;
@@ -109,6 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token) {
         session.user.id = token.sub!;
+        session.user.name = token.name as string;
         // Pass the API Token and Tenant data into the active session
         session.apiToken = token.apiToken as string;
         session.user.tenantId = token.tenantId as string;
