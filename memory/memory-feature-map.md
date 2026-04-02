@@ -159,6 +159,8 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Limit Check Methods | - | EntitlementResolver | - |
 | Change Plan | BillingController | CompanySubscriptionService | CompanySubscription |
 | Module Gate UI | module-gate.tsx | - | - |
+| **Entitlement Overrides** | AdminController | EntitlementResolver | CompanyEntitlementOverride |
+| **Module Overrides** | AdminController | EntitlementResolver | CompanyModuleOverride |
 
 ### Limit Check Methods (Agent 1)
 - `IsWithinTokenLimitAsync()` - Check if can consume tokens

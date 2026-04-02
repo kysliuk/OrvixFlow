@@ -193,4 +193,72 @@ public class EntitlementResolver : IEntitlementResolver
         result.UpgradeUrl = "/billing";
         return result;
     }
+
+    public async Task<CompanyEntitlementOverride?> GetEntitlementOverrideAsync(Guid companyId)
+    {
+        return await _dbContext.CompanyEntitlementOverrides
+            .FirstOrDefaultAsync(o => o.CompanyId == companyId);
+    }
+
+    public async Task<IEnumerable<CompanyModuleOverride>> GetModuleOverridesAsync(Guid companyId)
+    {
+        return await _dbContext.CompanyModuleOverrides
+            .Where(o => o.CompanyId == companyId)
+            .ToListAsync();
+    }
+
+    public async Task<CompanyEntitlements> GetEffectiveEntitlementsAsync(Guid companyId)
+    {
+        var entitlements = await GetEntitlementsAsync(companyId);
+        var overrideEntity = await GetEntitlementOverrideAsync(companyId);
+
+        if (overrideEntity != null)
+        {
+            if (overrideEntity.MaxSeats.HasValue) entitlements.MaxSeats = overrideEntity.MaxSeats;
+            if (overrideEntity.MaxMonthlyTokens.HasValue) entitlements.MaxMonthlyTokens = overrideEntity.MaxMonthlyTokens.Value;
+            if (overrideEntity.MaxApiRequestsPerDay.HasValue) entitlements.MaxApiRequestsPerDay = overrideEntity.MaxApiRequestsPerDay.Value;
+            if (overrideEntity.MaxStorageMb.HasValue) entitlements.MaxStorageMb = overrideEntity.MaxStorageMb.Value;
+            if (overrideEntity.MaxKnowledgeBases.HasValue) entitlements.MaxKnowledgeBases = overrideEntity.MaxKnowledgeBases.Value;
+            if (overrideEntity.MaxInboxMessages.HasValue) entitlements.MaxInboxMessagesPerMonth = overrideEntity.MaxInboxMessages.Value;
+            if (overrideEntity.MaxMailboxConnections.HasValue) entitlements.MaxMailboxConnections = overrideEntity.MaxMailboxConnections.Value;
+
+            entitlements.HasEntitlementOverride = true;
+            entitlements.OverrideNote = overrideEntity.Note;
+        }
+
+        return entitlements;
+    }
+
+    public async Task<bool> CanUseModuleWithOverridesAsync(Guid companyId, string moduleKey)
+    {
+        var plan = await GetActivePlanAsync(companyId);
+        if (plan == null)
+        {
+            return false;
+        }
+
+        var moduleIds = plan.ModuleInclusions
+            .Where(m => m.ModuleDefinition.IsActive)
+            .Select(m => m.ModuleDefinitionId)
+            .ToHashSet();
+
+        var overrides = await GetModuleOverridesAsync(companyId);
+        foreach (var o in overrides)
+        {
+            if (o.IsEnabled)
+            {
+                moduleIds.Add(o.ModuleDefinitionId);
+            }
+            else
+            {
+                moduleIds.Remove(o.ModuleDefinitionId);
+            }
+        }
+
+        var modules = await _dbContext.ModuleDefinitions
+            .Where(m => moduleIds.Contains(m.Id))
+            .ToListAsync();
+
+        return modules.Any(m => m.Key == moduleKey);
+    }
 }

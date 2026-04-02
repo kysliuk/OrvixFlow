@@ -41,7 +41,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SuperAdminOnly", policy =>
+        policy.RequireClaim("Role", "SuperAdmin"));
+    options.AddPolicy("PlatformAdmin", policy =>
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.FindFirst("Role")?.Value;
+            return role == "SuperAdmin" || role == "InternalOperator";
+        }));
+});
 
 // Add services to the container.
 builder.Services.AddControllers()

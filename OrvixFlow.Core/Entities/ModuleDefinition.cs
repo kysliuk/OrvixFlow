@@ -17,6 +17,10 @@ public class ModuleDefinition
     public bool IsPremium { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? IconKey { get; set; }
+    public string? UpgradePromptText { get; set; }
+    public int SortOrder { get; set; } = 0;
+
     public ICollection<ModuleAssignment> Assignments { get; set; } = new List<ModuleAssignment>();
     public ICollection<PlanModuleInclusion> PlanInclusions { get; set; } = new List<PlanModuleInclusion>();
 }

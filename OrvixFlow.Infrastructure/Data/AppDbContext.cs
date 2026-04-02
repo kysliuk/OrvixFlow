@@ -48,6 +48,8 @@ public class AppDbContext : DbContext
     public DbSet<PlanModuleInclusion> PlanModuleInclusions => Set<PlanModuleInclusion>();
     public DbSet<PlanEntitlements> PlanEntitlements => Set<PlanEntitlements>();
     public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
+    public DbSet<CompanyEntitlementOverride> CompanyEntitlementOverrides => Set<CompanyEntitlementOverride>();
+    public DbSet<CompanyModuleOverride> CompanyModuleOverrides => Set<CompanyModuleOverride>();
     public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
     public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
 
@@ -331,5 +333,41 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseImage>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
+
+        modelBuilder.Entity<CompanyEntitlementOverride>()
+            .HasOne(o => o.Company)
+            .WithMany()
+            .HasForeignKey(o => o.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CompanyEntitlementOverride>()
+            .HasOne(o => o.CreatedBy)
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CompanyEntitlementOverride>()
+            .HasIndex(o => o.CompanyId)
+            .IsUnique();
+
+        modelBuilder.Entity<CompanyModuleOverride>()
+            .HasOne(o => o.Company)
+            .WithMany()
+            .HasForeignKey(o => o.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CompanyModuleOverride>()
+            .HasOne(o => o.ModuleDefinition)
+            .WithMany()
+            .HasForeignKey(o => o.ModuleDefinitionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CompanyModuleOverride>()
+            .HasOne(o => o.CreatedBy)
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CompanyModuleOverride>()
+            .HasIndex(o => new { o.CompanyId, o.ModuleDefinitionId })
+            .IsUnique();
+
+        modelBuilder.Entity<CompanyEntitlementOverride>().HasQueryFilter(o => o.CompanyId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<CompanyModuleOverride>().HasQueryFilter(o => o.CompanyId == _tenantProvider.GetTenantId());
     }
 }

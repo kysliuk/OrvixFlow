@@ -22,6 +22,9 @@ public class PlanTemplate
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ArchivedAt { get; set; }
 
+    public int SortOrder { get; set; } = 0;
+    public bool IsPubliclyVisible { get; set; } = true;
+
     public ICollection<PlanModuleInclusion> ModuleInclusions { get; set; } = new List<PlanModuleInclusion>();
     public PlanEntitlements? Entitlements { get; set; }
     public ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();

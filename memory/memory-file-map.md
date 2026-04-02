@@ -27,6 +27,8 @@
 | PlanModuleInclusion | `OrvixFlow.Core/Entities/PlanModuleInclusion.cs` |
 | PlanEntitlements | `OrvixFlow.Core/Entities/PlanEntitlements.cs` |
 | CompanySubscription | `OrvixFlow.Core/Entities/CompanySubscription.cs` |
+| CompanyEntitlementOverride | `OrvixFlow.Core/Entities/CompanyEntitlementOverride.cs` |
+| CompanyModuleOverride | `OrvixFlow.Core/Entities/CompanyModuleOverride.cs` |
 | PlanCatalog | `OrvixFlow.Core/Entities/PlanCatalog.cs` |
 
 ## Tests
@@ -42,13 +44,13 @@
 | AuditLogTests | `OrvixFlow.Tests/AuditLogTests.cs` |
 | OverlapChunkerTests | `OrvixFlow.Tests/OverlapChunkerTests.cs` |
 | IngestionPipelineServiceTests | `OrvixFlow.Tests/IngestionPipelineServiceTests.cs` |
-| RagImageSupportTests | `OrvixFlow.Tests/RagImageSupportTests.cs` |
-| RagEmailServiceTests | `OrvixFlow.Tests/RagEmailServiceTests.cs` |
 | PlainTextParserTests | `OrvixFlow.Tests/PlainTextParserTests.cs` |
 | DraftFeedbackServiceTests | `OrvixFlow.Tests/DraftFeedbackServiceTests.cs` |
 | MailboxConnectionTests | `OrvixFlow.Tests/MailboxConnectionTests.cs` |
 | AgentPersonaTests | `OrvixFlow.Tests/AgentPersonaTests.cs` |
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
+| CompanyEntitlementOverrideTests | `OrvixFlow.Tests/CompanyEntitlementOverrideTests.cs` |
+| CompanyModuleOverrideTests | `OrvixFlow.Tests/CompanyModuleOverrideTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 | Load Test Script | `OrvixFlow.Api/load-test.sh` |
@@ -74,6 +76,7 @@
 | IUsageService | `OrvixFlow.Core/Interfaces/IUsageService.cs` |
 | IPlanService | `OrvixFlow.Core/Interfaces/IPlanService.cs` |
 | IEntitlementResolver | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
+| IDraftFeedbackService | `OrvixFlow.Core/Interfaces/IDraftFeedbackService.cs` |
 | ICompanySubscriptionService | `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` |
 | CompanyEntitlements | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 | LimitCheckResult | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
@@ -140,6 +143,7 @@
 | PlanService | `OrvixFlow.Infrastructure/Services/PlanService.cs` |
 | EntitlementResolver | `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs` |
 | CompanySubscriptionService | `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` |
+| DraftFeedbackService | `OrvixFlow.Infrastructure/Services/DraftFeedbackService.cs` |
 | AuditService (Shadow) | `OrvixFlow.Infrastructure/Shadow/AuditService.cs` |
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
 | NoopVirusScanService | `OrvixFlow.Infrastructure/Services/Security/NoopVirusScanService.cs` |

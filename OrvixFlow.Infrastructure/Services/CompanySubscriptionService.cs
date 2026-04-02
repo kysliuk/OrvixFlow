@@ -101,6 +101,12 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             existingSubscription.Status = plan.IsFree ? SubscriptionStatus.Active : SubscriptionStatus.Trialing;
             existingSubscription.UpdatedAt = DateTime.UtcNow;
             
+            var tenant = await _dbContext.Tenants.FindAsync(companyId);
+            if (tenant != null)
+            {
+                tenant.Plan = plan.Slug;
+            }
+            
             await _dbContext.SaveChangesAsync();
             
             if (_auditService != null)
@@ -123,6 +129,13 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         };
 
         _dbContext.CompanySubscriptions.Add(subscription);
+        
+        var tenantForNew = await _dbContext.Tenants.FindAsync(companyId);
+        if (tenantForNew != null)
+        {
+            tenantForNew.Plan = plan.Slug;
+        }
+        
         await _dbContext.SaveChangesAsync();
 
         if (_auditService != null)

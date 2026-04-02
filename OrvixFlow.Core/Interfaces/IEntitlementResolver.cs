@@ -18,6 +18,11 @@ public interface IEntitlementResolver
     Task<bool> IsWithinStorageLimitAsync(Guid companyId, int mbToConsume);
     Task<bool> IsWithinKnowledgeBaseLimitAsync(Guid companyId);
     Task<LimitCheckResult> CheckLimitAsync(Guid companyId, string limitType, int amount = 1);
+
+    Task<CompanyEntitlementOverride?> GetEntitlementOverrideAsync(Guid companyId);
+    Task<IEnumerable<CompanyModuleOverride>> GetModuleOverridesAsync(Guid companyId);
+    Task<CompanyEntitlements> GetEffectiveEntitlementsAsync(Guid companyId);
+    Task<bool> CanUseModuleWithOverridesAsync(Guid companyId, string moduleKey);
 }
 
 public class CompanyEntitlements
@@ -32,11 +37,19 @@ public class CompanyEntitlements
     public int StorageUsedMb { get; set; }
     public int KnowledgeBasesCount { get; set; }
 
+    public int MaxInboxMessagesPerMonth { get; set; }
+    public int InboxMessagesUsedThisMonth { get; set; }
+    public int MaxMailboxConnections { get; set; }
+
+    public bool HasEntitlementOverride { get; set; }
+    public string? OverrideNote { get; set; }
+
     public bool CanAddSeats(int count) => MaxSeats == null || (MaxSeats.Value >= count);
     public bool CanAddTokens(int count) => MaxMonthlyTokens >= (TokensUsedThisPeriod + count);
     public bool CanAddApiRequests => MaxApiRequestsPerDay > ApiRequestsUsedToday;
     public bool CanAddStorage(int mb) => MaxStorageMb >= (StorageUsedMb + mb);
     public bool CanAddKnowledgeBase => MaxKnowledgeBases > KnowledgeBasesCount;
+    public bool CanProcessInboxMessage => MaxInboxMessagesPerMonth == 0 || MaxInboxMessagesPerMonth > InboxMessagesUsedThisMonth;
 }
 
 public class LimitCheckResult

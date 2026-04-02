@@ -9,6 +9,10 @@ public class PlanModuleInclusion
     public Guid ModuleDefinitionId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public int? MaxUsagePerMonth { get; set; }
+    public int? MaxItemsTotal { get; set; }
+    public string? LimitDescription { get; set; }
+
     public PlanTemplate PlanTemplate { get; set; } = null!;
     public ModuleDefinition ModuleDefinition { get; set; } = null!;
 }

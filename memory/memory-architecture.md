@@ -29,13 +29,33 @@
 **Implementation:** EF Core Query Filters + TenantProvider
 
 - Every entity has `TenantId` or `CompanyId` (same concept)
-- `AppDbContext` applies global query filters (lines 168-185)
+- `AppDbContext` applies global query filters
 - `ITenantProvider` interface extracts tenant from JWT claims
 - `TenantProvider` (Api/Services) resolves current tenant
 
 **Tenant Resolution Order:**
 1. JWT claim `TenantId` or `ActiveCompanyId`
 2. For webhooks: `X-Tenant-ID` header fallback
+
+### Override Hierarchy (Phase 2)
+
+**Entitlements:**
+```
+CompanyEntitlementOverride (per-company custom limits)
+      ↓
+PlanEntitlements (plan defaults)
+```
+
+**Modules:**
+```
+CompanyModuleOverride (grant/suppress per company)
+      ↓
+PlanModuleInclusion (plan default modules)
+```
+
+Resolution is handled by `EntitlementResolver.GetEffectiveEntitlementsAsync()` and `CanUseModuleWithOverridesAsync()`.
+
+**Tenant.Plan Sync:** `Tenant.Plan` string is denormalized and synced with `CompanySubscription.PlanTemplate.Slug` whenever a plan is assigned via `CompanySubscriptionService.AssignPlanAsync()`.
 
 ## Authentication & Authorization
 
