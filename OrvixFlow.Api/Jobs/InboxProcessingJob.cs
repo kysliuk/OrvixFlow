@@ -103,13 +103,24 @@ public class InboxProcessingJob
             {
                 case PolicyDecisionType.AutoExecute:
                     await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.AutoApproved);
-                    if (policyDecision.ShouldSendCallback && !string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
+                    if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        await callbackService.SendCallbackAsync(
-                            inboxEvent.WebhookCallbackPath,
-                            policyDecision,
-                            inboxEventId,
-                            response.Message);
+                        try
+                        {
+                            await callbackService.SendCallbackAsync(
+                                inboxEvent.WebhookCallbackPath,
+                                policyDecision,
+                                inboxEventId,
+                                response.Message);
+                        }
+                        catch (Exception callbackEx)
+                        {
+                            _logger.LogWarning(callbackEx,
+                                "Callback failed for auto-approve {MessageId}, scheduling retry",
+                                inboxEvent.MessageId);
+                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                policyDecision, inboxEventId, response.Message, 1);
+                        }
                     }
                     _logger.LogInformation(
                         "Email auto-approved: {MessageId}, Category: {Category}, Confidence: {Confidence}",
@@ -157,11 +168,22 @@ public class InboxProcessingJob
 
                     if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        await callbackService.SendCallbackAsync(
-                            inboxEvent.WebhookCallbackPath,
-                            policyDecision,
-                            inboxEventId,
-                            response.Message);
+                        try
+                        {
+                            await callbackService.SendCallbackAsync(
+                                inboxEvent.WebhookCallbackPath,
+                                policyDecision,
+                                inboxEventId,
+                                response.Message);
+                        }
+                        catch (Exception callbackEx)
+                        {
+                            _logger.LogWarning(callbackEx,
+                                "Callback failed for hold-approval {MessageId}, scheduling retry",
+                                inboxEvent.MessageId);
+                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                policyDecision, inboxEventId, response.Message, 1);
+                        }
                     }
                     _logger.LogInformation(
                         "Email requires human review: {MessageId}, Category: {Category}, Confidence: {Confidence}, ActionRequestId: {ActionId}",
@@ -177,6 +199,39 @@ public class InboxProcessingJob
             await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.Failed);
             _logger.LogError(ex, "Exception processing email: {MessageId}", inboxEvent.MessageId);
             throw;
+        }
+    }
+
+    private void ScheduleCallbackRetry(IWebhookCallbackService callbackService, string webhookPath,
+        PolicyDecision decision, Guid inboxEventId, string? draftResponse, int attempt)
+    {
+        if (attempt > 3)
+        {
+            _logger.LogError("Callback retry exhausted for {WebhookPath} EventId: {EventId}",
+                webhookPath, inboxEventId);
+            return;
+        }
+
+        var delaySeconds = attempt * 30;
+        BackgroundJob.Schedule(
+            () => RetryCallbackAsync(callbackService, webhookPath, decision, inboxEventId, draftResponse, attempt),
+            TimeSpan.FromSeconds(delaySeconds));
+    }
+
+    public async Task RetryCallbackAsync(IWebhookCallbackService callbackService, string webhookPath,
+        PolicyDecision decision, Guid inboxEventId, string? draftResponse, int attempt)
+    {
+        try
+        {
+            await callbackService.SendCallbackAsync(webhookPath, decision, inboxEventId, draftResponse);
+            _logger.LogInformation("Callback retry succeeded on attempt {Attempt} for {WebhookPath}",
+                attempt, webhookPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Callback retry {Attempt} failed for {WebhookPath}, scheduling next retry",
+                attempt, webhookPath);
+            ScheduleCallbackRetry(callbackService, webhookPath, decision, inboxEventId, draftResponse, attempt + 1);
         }
     }
 }

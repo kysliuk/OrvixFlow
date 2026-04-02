@@ -106,9 +106,13 @@ public static class DependencyInjection
         services.AddScoped<IInboxEventRepository, InboxEventRepository>();
         services.AddScoped<IPolicyGateService, PolicyGateService>();
         services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+        services.AddScoped<IDraftFeedbackService, DraftFeedbackService>();
+        services.AddScoped<IN8nProvisioningService, N8nProvisioningService>();
         services.AddScoped<IPlanService, PlanService>();
         services.AddScoped<IEntitlementResolver, EntitlementResolver>();
         services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
+        
+        services.AddScoped<IReranker, LlmScorerReranker>();
 
         // RAG Extension Phase 1
         services.AddScoped<IChunker, OverlapChunker>();

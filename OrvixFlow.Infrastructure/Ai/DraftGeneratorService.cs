@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Models;
 
 namespace OrvixFlow.Infrastructure.Ai;
@@ -15,7 +16,8 @@ public interface IDraftGeneratorService
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext);
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null);
 }
 
 public class DraftGeneratorService : IDraftGeneratorService
@@ -33,9 +35,10 @@ public class DraftGeneratorService : IDraftGeneratorService
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null)
     {
-        var prompt = BuildDraftPrompt(senderEmail, subject, body, classification, knowledgeContext);
+        var prompt = BuildDraftPrompt(senderEmail, subject, body, classification, knowledgeContext, persona);
 
         var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
         var chatHistory = new ChatHistory();
@@ -81,7 +84,8 @@ public class DraftGeneratorService : IDraftGeneratorService
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are the Inbox Guardian, an automated customer support assistant for OrvixFlow.");
@@ -98,6 +102,17 @@ public class DraftGeneratorService : IDraftGeneratorService
         sb.AppendLine($"- Confidence: {classification.ConfidenceScore:P0}");
         sb.AppendLine($"- Reasoning: {classification.Reasoning}");
         sb.AppendLine();
+
+        if (persona != null)
+        {
+            sb.AppendLine("PERSONA SETTINGS:");
+            sb.AppendLine($"- Tone: {persona.Tone}");
+            if (!string.IsNullOrEmpty(persona.CustomInstructions))
+            {
+                sb.AppendLine($"- Custom Instructions: {persona.CustomInstructions}");
+            }
+            sb.AppendLine();
+        }
 
         if (knowledgeContext.Count > 0)
         {
@@ -122,8 +137,13 @@ public class DraftGeneratorService : IDraftGeneratorService
         }
 
         sb.AppendLine();
-        sb.AppendLine("TONE: Professional, friendly, helpful. Use the customer's name if available.");
+        sb.AppendLine($"TONE: {persona?.Tone ?? "Professional"}, friendly, helpful. Use the customer's name if available.");
         sb.AppendLine("FORMAT: Plain text email response, ready to send.");
+
+        if (!string.IsNullOrEmpty(persona?.CustomSignOff))
+        {
+            sb.AppendLine($"SIGN-OFF: Use this exact sign-off: {persona.CustomSignOff}");
+        }
 
         return sb.ToString();
     }

@@ -30,6 +30,9 @@ public class AppDbContext : DbContext
     public DbSet<InboxEvent> InboxEvents => Set<InboxEvent>();
     public DbSet<WorkflowPolicy> WorkflowPolicies => Set<WorkflowPolicy>();
     public DbSet<ActionRequest> ActionRequests => Set<ActionRequest>();
+    public DbSet<MailboxConnection> MailboxConnections => Set<MailboxConnection>();
+    public DbSet<AgentPersona> AgentPersonas => Set<AgentPersona>();
+    public DbSet<DraftFeedback> DraftFeedbacks => Set<DraftFeedback>();
 
     // From DockerizationAndCompanyInfraFeature
     public DbSet<Department> Departments => Set<Department>();
@@ -54,12 +57,30 @@ public class AppDbContext : DbContext
         if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
         {
             modelBuilder.Entity<KnowledgeBase>().Ignore(k => k.EmbeddingVector);
+            modelBuilder.Entity<KnowledgeBase>().Ignore(k => k.SearchVector);
         }
 
         // Required for pgvector
         if (Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
         {
             modelBuilder.HasPostgresExtension("vector");
+
+            modelBuilder.Entity<KnowledgeBase>()
+                .HasGeneratedTsVectorColumn(
+                    p => p.SearchVector,
+                    "english",
+                    p => new { p.Title, p.RawContent })
+                .HasIndex(p => p.SearchVector)
+                .HasMethod("GIN");
+
+            modelBuilder.Entity<KnowledgeBase>()
+                .Property(x => x.EmbeddingVector)
+                .HasColumnType("vector(1536)");
+
+            modelBuilder.Entity<KnowledgeBase>()
+                .HasIndex(x => x.EmbeddingVector)
+                .HasMethod("hnsw")
+                .HasOperators("vector_cosine_ops");
         }
 
         // Tenant → User relationship
@@ -230,6 +251,40 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // MailboxConnection relationships
+        modelBuilder.Entity<MailboxConnection>()
+            .HasIndex(m => new { m.TenantId, m.EmailAddress })
+            .IsUnique();
+        modelBuilder.Entity<MailboxConnection>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(m => m.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // AgentPersona relationships
+        modelBuilder.Entity<AgentPersona>()
+            .HasIndex(a => a.TenantId)
+            .IsUnique();
+
+        // DraftFeedback relationships
+        modelBuilder.Entity<DraftFeedback>()
+            .HasOne<ActionRequest>()
+            .WithMany()
+            .HasForeignKey(d => d.ActionRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<DraftFeedback>()
+            .HasIndex(d => new { d.TenantId, d.ActionRequestId });
+
+        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            modelBuilder.Entity<MailboxConnection>()
+                .HasIndex(m => new { m.TenantId, m.EmailAddress })
+                .IsUnique();
+            modelBuilder.Entity<AgentPersona>()
+                .HasIndex(a => a.TenantId)
+                .IsUnique();
+        }
+
         // Global Query Filters for strict Multi-Tenancy (from both)
         modelBuilder.Entity<KnowledgeBase>().HasQueryFilter(k => k.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<WorkflowLog>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
@@ -238,6 +293,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<InboxEvent>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<WorkflowPolicy>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<ActionRequest>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<MailboxConnection>().HasQueryFilter(m => m.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<AgentPersona>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<DraftFeedback>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
 
         modelBuilder.Entity<Department>().HasQueryFilter(d => d.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<UserCompanyMembership>().HasQueryFilter(m => m.CompanyId == _tenantProvider.GetTenantId());

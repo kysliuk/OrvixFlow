@@ -54,8 +54,9 @@
 
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
-| Search | KnowledgeBaseController | HybridVectorSearchService | KnowledgeBase |
+| Search (Hybrid) | KnowledgeBaseController | HybridVectorSearchService | KnowledgeBase |
 | Vector Index | - | IngestionService (old) | KnowledgeBase |
+| Reranking | - | IReranker (LlmScorerReranker) | KnowledgeSnippet |
 | File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
 | File Parsing | - | IDocumentParser implementations | - |
 | Background Jobs| - | FileIngestionJob | - |
@@ -64,6 +65,8 @@
 - `OrvixFlow.Api/Controllers/KnowledgeBaseController.cs`
 - `OrvixFlow.Api/Controllers/FileIngestionController.cs`
 - `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs`
+- `OrvixFlow.Infrastructure/Ai/LlmScorerReranker.cs`
+- `OrvixFlow.Core/Interfaces/IReranker.cs`
 - `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs`
 - `OrvixFlow.Infrastructure/Ai/Parsers/` (.txt, .pdf, .docx)
 - `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs`
