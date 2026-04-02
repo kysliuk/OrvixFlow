@@ -52,6 +52,7 @@
 | CompanyEntitlementOverrideTests | `OrvixFlow.Tests/CompanyEntitlementOverrideTests.cs` |
 | CompanyModuleOverrideTests | `OrvixFlow.Tests/CompanyModuleOverrideTests.cs` |
 | TrialExpirationTests | `OrvixFlow.Tests/TrialExpirationTests.cs` |
+| InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 | Load Test Script | `OrvixFlow.Api/load-test.sh` |
@@ -137,6 +138,12 @@
 | TrialExpirationJob | `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
+| Company Detail Page | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
+| Company Audit Page | `orvixflow-web/app/admin/companies/[id]/audit/page.tsx` |
+| Modules Page | `orvixflow-web/app/admin/modules/page.tsx` |
+| Inbox Settings Page | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
+| Inbox History Page | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
+| Admin Inbox Metrics | `orvixflow-web/app/(admin)/inbox-metrics/page.tsx` |
 | LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` |
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |

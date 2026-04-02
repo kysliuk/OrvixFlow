@@ -164,6 +164,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | **Company Audit Log** | AdminController | - | AuditTrail |
 | **Entitlement Overrides** | AdminController | EntitlementResolver | CompanyEntitlementOverride |
 | **Module Overrides** | AdminController | EntitlementResolver | CompanyModuleOverride |
+| **InternalOperator Access** | AdminController | - | - |
 
 ### Limit Check Methods (Agent 1)
 - `IsWithinTokenLimitAsync()` - Check if can consume tokens
@@ -256,6 +257,26 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 **Files:**
 - `OrvixFlow.Api/Controllers/AdminController.cs`
 - `OrvixFlow.Api/Controllers/OrganizationController.cs`
+
+## Admin Frontend Pages
+
+| Page | Route | Purpose |
+|------|-------|---------|
+| Admin Dashboard | `/admin` | Global platform metrics |
+| Plan Templates | `/admin/plans` | Plan CRUD, module assignments |
+| Companies List | `/admin/tenants` | Company listing, plan assignment |
+| Company Detail | `/admin/companies/[id]` | 3 tabs: Overview, Entitlements (overrides), Modules (overrides) |
+| Company Audit Log | `/admin/companies/[id]/audit` | Paginated audit trail per company |
+| Modules Definitions | `/admin/modules` | Module CRUD with toggle active/inactive |
+| Inbox Metrics | `/admin/inbox-metrics` | Global inbox guardian metrics |
+| Inbox Simulator | `/admin/test` | Test inbox processing |
+| Kernel Logs | `/admin/logs` | RAG kernel trace logs |
+| Raw pgvector | `/admin/vector-db` | Direct vector DB inspection |
+
+### Admin Access Control
+- **SuperAdmin**: Full read/write access to all admin endpoints
+- **InternalOperator**: Read-only access to GET endpoints (metrics, companies, usage, overrides, modules, audit)
+- **Policy**: `SuperAdminOnly` for mutations, `PlatformAdmin` for reads
 
 ## Frontend Pages
 

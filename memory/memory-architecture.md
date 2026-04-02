@@ -173,6 +173,12 @@ CompanyOwner (full access)
 - Downgrades to Free plan, syncs `Tenant.Plan`, writes `AuditTrail` entry
 - Prevents free-tier abuse by enforcing trial deadlines
 
+### InternalOperator Enforcement
+- `IsGlobalAdmin()` allows both `SuperAdmin` and `InternalOperator`
+- GET endpoints use `IsGlobalAdmin()` (read-only access)
+- POST/PUT/DELETE endpoints use `IsSuperAdmin()` (mutations only)
+- Policies registered in `Program.cs`: `SuperAdminOnly` and `PlatformAdmin`
+
 ## Webhook Security
 
 HMAC-SHA256 signature validation:

@@ -229,6 +229,10 @@ public class MailboxConnectionsController : ControllerBase
         {
             var templateWorkflowId = Environment.GetEnvironmentVariable("N8N_TEMPLATE_WORKFLOW_ID") ?? "default-email-sync";
 
+            var credentialId = await n8nProvisioning.CreateCredentialAsync(connection.Provider, connection.EmailAddress, new { });
+            connection.N8nCredentialId = credentialId;
+            await dbContext.SaveChangesAsync();
+
             var workflowId = await n8nProvisioning.ProvisionWorkflowAsync(templateWorkflowId, connection.EmailAddress, tenantId);
             connection.N8nWorkflowId = workflowId;
             connection.IsActive = true;
@@ -236,8 +240,8 @@ public class MailboxConnectionsController : ControllerBase
 
             await dbContext.SaveChangesAsync();
 
-            logger.LogInformation("Provisioned n8n workflow {WorkflowId} for connection {ConnectionId}",
-                workflowId, connectionId);
+            logger.LogInformation("Provisioned n8n credential {CredentialId} and workflow {WorkflowId} for connection {ConnectionId}",
+                credentialId, workflowId, connectionId);
         }
         catch (Exception ex)
         {
