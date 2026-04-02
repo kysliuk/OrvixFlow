@@ -9,7 +9,11 @@
 | Department | `OrvixFlow.Core/Entities/Department.cs` |
 | KnowledgeBase | `OrvixFlow.Core/Entities/KnowledgeBase.cs` |
 | KnowledgeBaseDocument | `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs` |
+| KnowledgeBaseImage | `OrvixFlow.Core/Entities/KnowledgeBaseImage.cs` |
 | InboxEvent | `OrvixFlow.Core/Entities/InboxEvent.cs` |
+| MailboxConnection | `OrvixFlow.Core/Entities/MailboxConnection.cs` |
+| AgentPersona | `OrvixFlow.Core/Entities/AgentPersona.cs` |
+| DraftFeedback | `OrvixFlow.Core/Entities/DraftFeedback.cs` |
 | AuditTrail | `OrvixFlow.Core/Entities/AuditTrail.cs` |
 | WorkflowPolicy | `OrvixFlow.Core/Entities/WorkflowPolicy.cs` |
 | ActionRequest | `OrvixFlow.Core/Entities/ActionRequest.cs` |
@@ -38,7 +42,16 @@
 | AuditLogTests | `OrvixFlow.Tests/AuditLogTests.cs` |
 | OverlapChunkerTests | `OrvixFlow.Tests/OverlapChunkerTests.cs` |
 | IngestionPipelineServiceTests | `OrvixFlow.Tests/IngestionPipelineServiceTests.cs` |
+| RagImageSupportTests | `OrvixFlow.Tests/RagImageSupportTests.cs` |
+| RagEmailServiceTests | `OrvixFlow.Tests/RagEmailServiceTests.cs` |
 | PlainTextParserTests | `OrvixFlow.Tests/PlainTextParserTests.cs` |
+| DraftFeedbackServiceTests | `OrvixFlow.Tests/DraftFeedbackServiceTests.cs` |
+| MailboxConnectionTests | `OrvixFlow.Tests/MailboxConnectionTests.cs` |
+| AgentPersonaTests | `OrvixFlow.Tests/AgentPersonaTests.cs` |
+| InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
+| RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
+| RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
+| Load Test Script | `OrvixFlow.Api/load-test.sh` |
 
 ## Core Interfaces
 
@@ -54,6 +67,8 @@
 | IChunker | `OrvixFlow.Core/Interfaces/IChunker.cs` |
 | IFileStorage | `OrvixFlow.Core/Interfaces/IFileStorage.cs` |
 | IInboxGuardianService | `OrvixFlow.Core/Interfaces/IInboxGuardianService.cs` |
+| IDraftFeedbackService | `OrvixFlow.Core/Interfaces/IDraftFeedbackService.cs` |
+| IImageResolver | `OrvixFlow.Core/Interfaces/IImageResolver.cs` |
 | IAccessResolver | `OrvixFlow.Core/Interfaces/IAccessResolver.cs` |
 | IAuditService | `OrvixFlow.Core/Interfaces/IAuditService.cs` |
 | IUsageService | `OrvixFlow.Core/Interfaces/IUsageService.cs` |
@@ -62,6 +77,8 @@
 | ICompanySubscriptionService | `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` |
 | CompanyEntitlements | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 | LimitCheckResult | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
+| IVirusScanService | `OrvixFlow.Core/Interfaces/IVirusScanService.cs` |
+| IRagMetricsCollector| `OrvixFlow.Core/Interfaces/IRagMetricsCollector.cs` |
 
 ## Controllers
 
@@ -79,10 +96,16 @@
 | BillingController | `OrvixFlow.Api/Controllers/BillingController.cs` |
 | AuditController | `OrvixFlow.Api/Controllers/AuditController.cs` |
 | ActionsController | `OrvixFlow.Api/Controllers/ActionsController.cs` |
+| InboxSettingsController | `OrvixFlow.Api/Controllers/InboxSettingsController.cs` |
+| MailboxConnectionsController | `OrvixFlow.Api/Controllers/MailboxConnectionsController.cs` |
+| DraftFeedbackController | `OrvixFlow.Api/Controllers/DraftFeedbackController.cs` |
+| AdminInboxController | `OrvixFlow.Api/Controllers/AdminInboxController.cs` |
 | AdminController | `OrvixFlow.Api/Controllers/AdminController.cs` |
 | OrganizationController | `OrvixFlow.Api/Controllers/OrganizationController.cs` |
 | PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
 | FileIngestionController | `OrvixFlow.Api/Controllers/FileIngestionController.cs` |
+| RagEmailController | `OrvixFlow.Api/Controllers/RagEmailController.cs` |
+| RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 
 ## Infrastructure Services
 
@@ -96,22 +119,31 @@
 | InboxGuardianService | `OrvixFlow.Infrastructure/Ai/InboxGuardianService.cs` |
 | IntentClassifierService | `OrvixFlow.Infrastructure/Ai/IntentClassifierService.cs` |
 | DraftGeneratorService | `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs` |
+| RagEmailService | `OrvixFlow.Infrastructure/Ai/RagEmailService.cs` |
+| N8nProvisioningService | `OrvixFlow.Infrastructure/Ai/N8nProvisioningService.cs` |
 | HybridVectorSearchService | `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs` |
 | IngestionPipelineService | `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs` |
+| ImageResolver | `OrvixFlow.Infrastructure/Ai/ImageResolver.cs` |
 | PlainTextParser | `OrvixFlow.Infrastructure/Ai/Parsers/PlainTextParser.cs` |
 | PdfParser | `OrvixFlow.Infrastructure/Ai/Parsers/PdfParser.cs` |
 | DocxParser | `OrvixFlow.Infrastructure/Ai/Parsers/DocxParser.cs` |
+| ImageFileParser | `OrvixFlow.Infrastructure/Ai/Parsers/ImageFileParser.cs` |
 | OverlapChunker | `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs` |
 | FileIngestionJob | `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` |
+| InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
+| FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
 | LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` |
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |
+| DraftFeedbackService | `OrvixFlow.Infrastructure/Services/DraftFeedbackService.cs` |
 | BackgroundTenantProvider | `OrvixFlow.Infrastructure/Services/BackgroundTenantProvider.cs` |
 | PlanService | `OrvixFlow.Infrastructure/Services/PlanService.cs` |
 | EntitlementResolver | `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs` |
 | CompanySubscriptionService | `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` |
 | AuditService (Shadow) | `OrvixFlow.Infrastructure/Shadow/AuditService.cs` |
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
+| NoopVirusScanService | `OrvixFlow.Infrastructure/Services/Security/NoopVirusScanService.cs` |
+| RagMetricsCollector | `OrvixFlow.Infrastructure/Ai/RagMetricsCollector.cs` |
 
 ## API Middleware & Filters
 
@@ -138,6 +170,9 @@
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Admin Plans Page | `orvixflow-web/app/admin/plans/page.tsx` |
 | Admin Company Detail | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
+| Inbox Settings | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
+| Inbox History | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
+| Admin Inbox Metrics | `orvixflow-web/app/(admin)/inbox-metrics/page.tsx` |
 
 ## Data
 

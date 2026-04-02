@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Models;
 
 namespace OrvixFlow.Core.Interfaces;
@@ -13,5 +14,5 @@ public class InboxMessage
 
 public interface IInboxGuardianService
 {
-    Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, Guid? userId = null, Guid? departmentId = null);
+    Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, AgentPersona? persona = null, Guid? userId = null, Guid? departmentId = null);
 }

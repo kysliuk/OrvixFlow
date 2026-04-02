@@ -9,6 +9,7 @@ public class InboxEvent
     
     public string MessageId { get; set; } = string.Empty;
     public string? ThreadId { get; set; }
+    public string? TraceId { get; set; }
     
     public string SenderEmail { get; set; } = string.Empty;
     public string SenderName { get; set; } = string.Empty;
@@ -18,5 +19,5 @@ public class InboxEvent
     public string? WebhookCallbackPath { get; set; }
     
     public DateTime ReceivedAtUtc { get; set; }
-    public string Status { get; set; } = "Ingested"; // Ingested, Processing, Action_Required, Auto_Approved, Human_Approved, Human_Rejected, Completed, Failed
+    public string Status { get; set; } = "Ingested";
 }

@@ -20,10 +20,17 @@ public class EmailProcessingResult
     public string? ErrorMessage { get; set; }
 }
 
+public record KnowledgeImageRef(Guid ImageId, string AltText, string StoragePath);
+
 public class KnowledgeSnippet
 {
     public Guid Id { get; set; }
     public string Content { get; set; } = string.Empty;
     public string? Metadata { get; set; }
     public float SimilarityScore { get; set; }
+    
+    public string? Title { get; set; }
+    public string ChunkType { get; set; } = "text";
+    public Guid? DocumentId { get; set; }
+    public System.Collections.Generic.IReadOnlyList<KnowledgeImageRef> RelatedImages { get; set; } = Array.Empty<KnowledgeImageRef>();
 }

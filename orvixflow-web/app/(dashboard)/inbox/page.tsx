@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { ModuleGate } from "@/components/module-gate";
-import { Mail, CheckCircle2, AlertTriangle, Send, History, Filter, Search, RotateCw, Database, Activity } from "lucide-react";
+import { Mail, CheckCircle2, AlertTriangle, Send, History, Filter, Search, RotateCw, Database, Activity, Settings, ListChecks } from "lucide-react";
 
 interface InboxEvent {
   eventId: string;
@@ -170,6 +171,15 @@ export default function InboxGuardianPage() {
           <p className="text-sm text-muted">Real-time autonomous email triage and response routing.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/inbox/pending" className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-white/10 rounded-md text-sm text-muted hover:text-white transition-colors">
+            <ListChecks className="w-4 h-4" /> Pending
+          </Link>
+          <Link href="/inbox/history" className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-white/10 rounded-md text-sm text-muted hover:text-white transition-colors">
+            <History className="w-4 h-4" /> History
+          </Link>
+          <Link href="/settings/inbox" className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-white/10 rounded-md text-sm text-muted hover:text-white transition-colors">
+            <Settings className="w-4 h-4" /> Settings
+          </Link>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}

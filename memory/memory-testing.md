@@ -28,6 +28,8 @@ dotnet test
 | `AuditTrailTests.cs` | Audit logging |
 | `ActionsControllerTests.cs` | Action/policy endpoints |
 | `HmacSignatureMiddlewareTests.cs` | Webhook HMAC validation |
+| `RagPipelineIntegrationTests.cs` | End-to-end RAG orchestration |
+| `IngestionPipelineServiceTests.cs` | Multi-parser ingestion pipeline |
 
 ## Test Utilities
 
@@ -54,6 +56,8 @@ _db.Users.IgnoreQueryFilters()
 2. **Permission Resolution**: Test Company/Department/User scope resolution
 3. **Idempotency**: Test duplicate message handling via MessageId
 4. **HMAC Validation**: Test webhook signature verification
+5. **RAG Integration**: Test full flow from ingestion to email generation.
+6. **Load Testing**: Use `load-test.sh` for concurrent ingestion stress testing.
 
 ## Frontend Tests
 

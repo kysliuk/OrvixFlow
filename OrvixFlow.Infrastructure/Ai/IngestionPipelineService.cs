@@ -9,6 +9,10 @@ using Microsoft.SemanticKernel.Embeddings;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -22,6 +26,10 @@ public class IngestionPipelineService : IIngestionPipelineService
     private readonly ITenantProvider _tenantProvider;
     private readonly IUsageService _usageService;
     private readonly IConfiguration _configuration;
+    private readonly Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService _chatService;
+    private readonly IRagMetricsCollector _metrics;
+    private readonly ILogger<IngestionPipelineService> _logger;
+
 
     public IngestionPipelineService(
         AppDbContext dbContext,
@@ -31,7 +39,10 @@ public class IngestionPipelineService : IIngestionPipelineService
         IFileStorage storage,
         ITenantProvider tenantProvider,
         IUsageService usageService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService chatService,
+        IRagMetricsCollector metrics,
+        ILogger<IngestionPipelineService> logger)
     {
         _dbContext = dbContext;
         _parsers = parsers;
@@ -41,6 +52,9 @@ public class IngestionPipelineService : IIngestionPipelineService
         _tenantProvider = tenantProvider;
         _usageService = usageService;
         _configuration = configuration;
+        _chatService = chatService;
+        _metrics = metrics;
+        _logger = logger;
     }
 
     public async Task<IngestionResult> IngestFileAsync(
@@ -50,7 +64,10 @@ public class IngestionPipelineService : IIngestionPipelineService
         Guid? userId = null,
         Guid? departmentId = null)
     {
+        var sw = Stopwatch.StartNew();
         var tenantId = _tenantProvider.GetTenantId();
+        _logger.LogInformation("Starting ingestion for file: {FileName} (Tenant: {TenantId})", fileName, tenantId);
+
         var document = new KnowledgeBaseDocument
         {
             TenantId = tenantId,
@@ -61,14 +78,12 @@ public class IngestionPipelineService : IIngestionPipelineService
         };
 
         _dbContext.KnowledgeBaseDocuments.Add(document);
-        await _dbContext.SaveChangesAsync();
 
         try
         {
             // 1. Save raw file
             var storagePath = await _storage.SaveFileAsync(tenantId, document.Id, fileName, fileStream);
             document.StoragePath = storagePath;
-            await _dbContext.SaveChangesAsync();
 
             // 2. Resolve parser
             var parser = _parsers.FirstOrDefault(p => p.CanParse(contentType));
@@ -82,11 +97,9 @@ public class IngestionPipelineService : IIngestionPipelineService
             var parsedDoc = await parser.ParseAsync(fileStream, fileName);
 
             // 4. Chunk
-            var allChunks = new List<KnowledgeBase>();
-            int chunkIndex = 0;
-            
             var chunkSize = _configuration.GetValue("AI:Ingestion:ChunkSize", 800);
             var overlapSize = _configuration.GetValue("AI:Ingestion:ChunkOverlap", 150);
+            int chunkIndex = 0;
 
             foreach (var textChunk in parsedDoc.TextChunks)
             {
@@ -94,42 +107,114 @@ public class IngestionPipelineService : IIngestionPipelineService
                 foreach (var chunkText in chunks)
                 {
                     // 5. Embed
-                    var embedding = await _embeddingService.GenerateEmbeddingAsync(chunkText);
+                    var embeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { chunkText });
+                    var embedding = embeddings[0];
                     
                     var kbChunk = new KnowledgeBase
                     {
                         TenantId = tenantId,
-                        DocumentId = document.Id,
+                        DocumentId = document.Id, // Use explicit ID
                         RawContent = chunkText,
                         ChunkIndex = chunkIndex++,
                         ChunkType = "text",
                         Title = parsedDoc.Title,
                         EmbeddingVector = new Pgvector.Vector(embedding.ToArray())
                     };
-                    allChunks.Add(kbChunk);
+                    document.Chunks.Add(kbChunk);
                 }
             }
 
-            // 6. Save chunks
-            _dbContext.KnowledgeBases.AddRange(allChunks);
+            // 6. Save chunks - they are in document.Chunks and document is already tracked.
+
+            // 7. Process Images
+            foreach (var imageChunk in parsedDoc.ImageChunks)
+            {
+                using var imageMs = new MemoryStream(imageChunk.Data);
+                var imagePath = await _storage.SaveFileAsync(tenantId, document.Id, $"img_{imageChunk.Index}_{fileName}", imageMs);
+
+                var caption = imageChunk.Caption;
+                if (string.IsNullOrWhiteSpace(caption))
+                {
+                    // Generate descriptive caption using Vision
+                    caption = await GenerateImageCaptionAsync(imageChunk.Data, imageChunk.ContentType, fileName);
+                }
+
+                var captionEmbeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { caption });
+                var captionEmbedding = captionEmbeddings[0];
+
+                var kbImage = new KnowledgeBaseImage
+                {
+                    TenantId = tenantId,
+                    DocumentId = document.Id, // Use explicit ID
+                    StoragePath = imagePath,
+                    ContentType = imageChunk.ContentType,
+                    AltText = caption,
+                    Caption = caption, // For now original and alt are same
+                    CaptionEmbedding = new Pgvector.Vector(captionEmbedding.ToArray())
+                };
+
+                _dbContext.KnowledgeBaseImages.Add(kbImage);
+            }
             
             document.Status = "Indexed";
             document.IndexedAtUtc = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync();
 
             // 7. Usage tracking
-            var totalStorageMb = (int)((fileStream.Length + allChunks.Count * 1536 * 4) / (1024 * 1024));
+            var totalStorageMb = (int)((fileStream.Length + document.Chunks.Count * 1536 * 4) / (1024 * 1024));
             await _usageService.RecordKnowledgeBaseAsync(tenantId, "knowledge-base", 1, userId, departmentId);
             await _usageService.RecordStorageAsync(tenantId, "knowledge-base", totalStorageMb, userId, departmentId);
 
-            return new IngestionResult(document.Id, allChunks.Count, parsedDoc.ImageChunks.Count);
+            sw.Stop();
+            await _metrics.RecordIngestionMetricsAsync(
+                tenantId, 
+                document.Id, 
+                document.Chunks.Count, 
+                parsedDoc.ImageChunks.Count, 
+                sw.ElapsedMilliseconds);
+
+            _logger.LogInformation("Ingestion completed for {DocumentId} in {Duration}ms", document.Id, sw.ElapsedMilliseconds);
+
+            return new IngestionResult(document.Id, document.Chunks.Count, parsedDoc.ImageChunks.Count);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Ingestion failed for {FileName}", fileName);
+            // If the context is dirty from a failed SaveChangesAsync (common with InMemory duplication errors),
+            // trying to save again in the same context often fails with "item already added".
+            _dbContext.Entry(document).State = EntityState.Modified;
             document.Status = "Failed";
             document.ErrorMessage = ex.Message;
-            await _dbContext.SaveChangesAsync();
+            try 
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch
+            {
+                // Last resort if context is totally corrupted
+            }
             return new IngestionResult(document.Id, 0, 0, ex.Message);
+        }
+    }
+
+    private async Task<string> GenerateImageCaptionAsync(byte[] imageData, string contentType, string fileName)
+    {
+        try
+        {
+            var chatHistory = new Microsoft.SemanticKernel.ChatCompletion.ChatHistory();
+            chatHistory.AddSystemMessage("You are a vision-capable assistant. Describe the provided image concisely for a RAG knowledge base. Focus on technical details, text visible, and context.");
+            
+            var message = new ChatMessageContent(AuthorRole.User, "Describe this image.");
+            message.Items.Add(new ImageContent(new ReadOnlyMemory<byte>(imageData), contentType));
+            chatHistory.Add(message);
+
+            var result = await _chatService.GetChatMessageContentAsync(chatHistory, kernel: null);
+            return result.Content ?? $"Image from {fileName}";
+        }
+        catch (Exception)
+        {
+            // Fallback if vision is not supported or fails
+            return $"Image from {fileName}";
         }
     }
 }

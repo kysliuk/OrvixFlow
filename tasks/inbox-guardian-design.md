@@ -69,8 +69,9 @@ Inbox Guardian will minimize n8n logic and act as the core workflow engine.
 For n8n, we will use a **Template-Provisioned Workflow Per Customer (Hybrid)**.
 
 **Justification:** 
-Handling incoming/outgoing email requires tenant-specific credentials (OAuth for Gmail/M365). OrvixFlow will use the n8n API (`/api/v1/workflows`) to clone a master "Email Sync" template workflow for each tenant. 
-This tenant workflow does only two things:
+Since a tenant (company/org) can have multiple users, and each user can connect their own mailboxes (or shared mailboxes), handling incoming/outgoing email requires **user-specific and mailbox-specific credentials** (OAuth for Gmail/M365). Because we are self-hosting a multi-tenant embedded version of n8n, OrvixFlow has full administrative API access. 
+OrvixFlow will use the n8n API (`/api/v1/workflows`) to clone a master "Email Sync" template workflow for *each connected mailbox*. 
+This mailbox-specific workflow does only two things:
 1. Listens to their specific inbox (Trigger) → POSTs to OrvixFlow `/api/v1/inbox/events`.
 2. Listens to an OrvixFlow webhook (Trigger) → Sends via their specific SMTP (Action).
 
@@ -104,7 +105,7 @@ This separates connection identity (n8n) from business intelligence (OrvixFlow),
 
 - **Data Isolation:** Enforced natively via EF Core `HasQueryFilter`.
 - **Tenant Rules & Prompts:** `WorkflowPolicy` entities are bound by `TenantId`. In Phase 2, we will introduce `AgentPersona` entities which allow tenants to override default instructions (tone, custom sign-offs) injected into the semantic kernel prompt.
-- **Connections:** Each company manages their mailbox integrations in the settings panel. Under the hood, this provisions their dedicated n8n workflow space and securely stores their OAuth tokens in n8n's encrypted vault.
+- **Connections (Per-User/Per-Mailbox):** In the web UI, users can authenticate and connect their own features, including individual or shared mailboxes. A single company can therefore maintain multiple mailbox connections (mapped to specific users or teams). Under the hood, the OrvixFlow backend uses its embedded n8n API access to auto-provision a dedicated n8n workflow for each connected mailbox and safely stores their OAuth tokens in n8n's encrypted vault.
 
 ---
 
@@ -122,8 +123,8 @@ This separates connection identity (n8n) from business intelligence (OrvixFlow),
 ### End-User (Tenant) Pages
 - **/inbox/pending:** The primary queue. A split pane view showing the original email on the left, and the AI's classification, sources (RAG snippets), and editable draft on the right.
 - **/inbox/history:** Read-only log of all processed messages, showing AI confidence and whether it was auto-sent or human-touched.
-- **/settings/inbox:** 
-  - **Connections:** "Connect Gmail", "Connect Outlook" buttons (triggers n8n OAuth flows).
+- **/settings/inbox (or User Profile settings):** 
+  - **Connections:** "Connect Gmail", "Connect Outlook" buttons presented to individual users (triggers n8n OAuth flows embedded via UI). Users can authorize multiple mailboxes under their company.
   - **Identities:** Set the AI Persona tone (e.g., Casual, Professional, Technical).
   - **Policies:** A simple UI to define `WorkflowPolicy` rules (e.g., Toggle: "Auto-respond to general Support queries if confidence is > 95%").
 
@@ -145,6 +146,18 @@ public class WorkflowPolicy
     public string CategoryMatch { get; set; } // e.g., "Sales,Support"
     public decimal MinimumConfidenceScore { get; set; } // e.g., 0.85
     public bool AutoExecuteAllowed { get; set; }
+}
+
+// New Entity: MailboxConnection (Maps a connected email to a User and n8n Workflow)
+public class MailboxConnection
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid UserId { get; set; }
+    public string EmailAddress { get; set; }
+    public string N8nWorkflowId { get; set; }
+    public string N8nCredentialId { get; set; }
+    public bool IsActive { get; set; }
 }
 
 // New Entity: FeedbackLoop (For reinforcing future drafts based on human edits)

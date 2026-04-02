@@ -1,0 +1,28 @@
+  Determining projects to restore...
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1603: OrvixFlow.Infrastructure depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead. [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj : warning NU1603: OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1903: Package 'SixLabors.ImageSharp' 3.1.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-2cmq-823j-5qj8 [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.5 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+  All projects are up-to-date for restore.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj : warning NU1603: OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1603: OrvixFlow.Infrastructure depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1903: Package 'SixLabors.ImageSharp' 3.1.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-2cmq-823j-5qj8
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.5 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc
+  OrvixFlow.Core -> /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.dll
+  OrvixFlow.Infrastructure -> /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/bin/Debug/net9.0/OrvixFlow.Infrastructure.dll
+  OrvixFlow.Api -> /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/OrvixFlow.Api.dll
+
+Build succeeded.
+
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1603: OrvixFlow.Infrastructure depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead. [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj : warning NU1603: OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1903: Package 'SixLabors.ImageSharp' 3.1.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-2cmq-823j-5qj8 [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.5 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc [/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj]
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj : warning NU1603: OrvixFlow.Api depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1603: OrvixFlow.Infrastructure depends on Hangfire.PostgreSql (>= 1.8.23) but Hangfire.PostgreSql 1.8.23 was not found. Hangfire.PostgreSql 1.9.2 was resolved instead.
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1903: Package 'SixLabors.ImageSharp' 3.1.5 has a known high severity vulnerability, https://github.com/advisories/GHSA-2cmq-823j-5qj8
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj : warning NU1902: Package 'SixLabors.ImageSharp' 3.1.5 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc
+    8 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.10

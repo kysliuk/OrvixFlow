@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -48,15 +49,20 @@ public class InboxProcessingJob
             return;
         }
 
-        _logger.LogInformation(
-            "Processing email: {MessageId}, EventId: {EventId}",
-            inboxEvent.MessageId,
-            inboxEventId);
-
+        var traceId = inboxEvent.TraceId ?? Guid.NewGuid().ToString("N");
+        inboxEvent.TraceId = traceId;
         await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.Processing);
+
+        _logger.LogInformation(
+            "[{TraceId}] Processing email: {MessageId}, EventId: {EventId}, Tenant: {TenantId}",
+            traceId, inboxEvent.MessageId, inboxEventId, tenantId);
 
         try
         {
+            var persona = await dbContext.AgentPersonas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.TenantId == tenantId);
+
             var message = new InboxMessage
             {
                 SenderEmail = inboxEvent.SenderEmail,
@@ -64,15 +70,14 @@ public class InboxProcessingJob
                 Body = inboxEvent.BodyText
             };
 
-            var response = await guardianService.ProcessIncomingMessageAsync(message, tenantId);
+            var response = await guardianService.ProcessIncomingMessageAsync(message, tenantId, persona);
 
             if (!response.IsSuccess)
             {
                 await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.Failed);
                 _logger.LogError(
-                    "Failed to process email: {MessageId}, Error: {Error}",
-                    inboxEvent.MessageId,
-                    response.ErrorMessage);
+                    "[{TraceId}] Failed to process email: {MessageId}, Error: {Error}",
+                    traceId, inboxEvent.MessageId, response.ErrorMessage);
                 return;
             }
 
@@ -81,6 +86,7 @@ public class InboxProcessingJob
             var confidenceScore = metadata?["confidenceScore"] is decimal d ? d 
                 : metadata?["confidenceScore"] is double dbl ? (decimal)dbl 
                 : 0.0m;
+            var personaApplied = metadata?["personaApplied"] is true;
 
             var policyContext = new PolicyEvaluationContext
             {
@@ -94,28 +100,38 @@ public class InboxProcessingJob
             var policyDecision = await policyGateService.EvaluateAsync(policyContext, tenantId);
 
             _logger.LogInformation(
-                "Policy decision for {MessageId}: {Decision} - {Reason}",
-                inboxEvent.MessageId,
-                policyDecision.Decision,
-                policyDecision.Reason);
+                "[{TraceId}] Policy decision for {MessageId}: {Decision} - {Reason}, PersonaApplied: {PersonaApplied}",
+                traceId, inboxEvent.MessageId, policyDecision.Decision, policyDecision.Reason, personaApplied);
 
             switch (policyDecision.Decision)
             {
                 case PolicyDecisionType.AutoExecute:
                     await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.AutoApproved);
-                    if (policyDecision.ShouldSendCallback && !string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
+                    if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        await callbackService.SendCallbackAsync(
-                            inboxEvent.WebhookCallbackPath,
-                            policyDecision,
-                            inboxEventId,
-                            response.Message);
+                        try
+                        {
+                            await callbackService.SendCallbackAsync(
+                                inboxEvent.WebhookCallbackPath,
+                                policyDecision,
+                                inboxEventId,
+                                response.Message);
+                            _logger.LogInformation(
+                                "[{TraceId}] Callback sent for auto-approve {MessageId}",
+                                traceId, inboxEvent.MessageId);
+                        }
+                        catch (Exception callbackEx)
+                        {
+                            _logger.LogWarning(callbackEx,
+                                "[{TraceId}] Callback failed for auto-approve {MessageId}, scheduling retry",
+                                traceId, inboxEvent.MessageId);
+                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                policyDecision, inboxEventId, response.Message, 1, traceId);
+                        }
                     }
                     _logger.LogInformation(
-                        "Email auto-approved: {MessageId}, Category: {Category}, Confidence: {Confidence}",
-                        inboxEvent.MessageId,
-                        category,
-                        confidenceScore);
+                        "[{TraceId}] Email auto-approved: {MessageId}, Category: {Category}, Confidence: {Confidence}",
+                        traceId, inboxEvent.MessageId, category, confidenceScore);
                     break;
 
                 case PolicyDecisionType.HoldForApproval:
@@ -146,7 +162,7 @@ public class InboxProcessingJob
                         EntityId = actionRequest.Id.ToString(),
                         PreviousState = "",
                         NewState = "Pending",
-                        DecisionDetails = $"Human review required for email from {inboxEvent.SenderEmail}. Category: {category}. Reason: {policyDecision.Reason}",
+                        DecisionDetails = $"Human review required for email from {inboxEvent.SenderEmail}. Category: {category}. Reason: {policyDecision.Reason}. TraceId: {traceId}",
                         Timestamp = DateTime.UtcNow
                     };
                     dbContext.AuditTrails.Add(auditTrail);
@@ -157,26 +173,70 @@ public class InboxProcessingJob
 
                     if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        await callbackService.SendCallbackAsync(
-                            inboxEvent.WebhookCallbackPath,
-                            policyDecision,
-                            inboxEventId,
-                            response.Message);
+                        try
+                        {
+                            await callbackService.SendCallbackAsync(
+                                inboxEvent.WebhookCallbackPath,
+                                policyDecision,
+                                inboxEventId,
+                                response.Message);
+                            _logger.LogInformation(
+                                "[{TraceId}] Callback sent for hold-approval {MessageId}",
+                                traceId, inboxEvent.MessageId);
+                        }
+                        catch (Exception callbackEx)
+                        {
+                            _logger.LogWarning(callbackEx,
+                                "[{TraceId}] Callback failed for hold-approval {MessageId}, scheduling retry",
+                                traceId, inboxEvent.MessageId);
+                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                policyDecision, inboxEventId, response.Message, 1, traceId);
+                        }
                     }
                     _logger.LogInformation(
-                        "Email requires human review: {MessageId}, Category: {Category}, Confidence: {Confidence}, ActionRequestId: {ActionId}",
-                        inboxEvent.MessageId,
-                        category,
-                        confidenceScore,
-                        actionRequest.Id);
+                        "[{TraceId}] Email requires human review: {MessageId}, Category: {Category}, Confidence: {Confidence}, ActionRequestId: {ActionId}",
+                        traceId, inboxEvent.MessageId, category, confidenceScore, actionRequest.Id);
                     break;
             }
         }
         catch (Exception ex)
         {
             await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.Failed);
-            _logger.LogError(ex, "Exception processing email: {MessageId}", inboxEvent.MessageId);
+            _logger.LogError(ex, "[{TraceId}] Exception processing email: {MessageId}", traceId, inboxEvent.MessageId);
             throw;
+        }
+    }
+
+    private void ScheduleCallbackRetry(IWebhookCallbackService callbackService, string webhookPath,
+        PolicyDecision decision, Guid inboxEventId, string? draftResponse, int attempt, string traceId)
+    {
+        if (attempt > 3)
+        {
+            _logger.LogError("[{TraceId}] Callback retry exhausted for {WebhookPath} EventId: {EventId}",
+                traceId, webhookPath, inboxEventId);
+            return;
+        }
+
+        var delaySeconds = attempt * 30;
+        BackgroundJob.Schedule(
+            () => RetryCallbackAsync(callbackService, webhookPath, decision, inboxEventId, draftResponse, attempt, traceId),
+            TimeSpan.FromSeconds(delaySeconds));
+    }
+
+    public async Task RetryCallbackAsync(IWebhookCallbackService callbackService, string webhookPath,
+        PolicyDecision decision, Guid inboxEventId, string? draftResponse, int attempt, string traceId)
+    {
+        try
+        {
+            await callbackService.SendCallbackAsync(webhookPath, decision, inboxEventId, draftResponse);
+            _logger.LogInformation("[{TraceId}] Callback retry succeeded on attempt {Attempt} for {WebhookPath}",
+                traceId, attempt, webhookPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[{TraceId}] Callback retry {Attempt} failed for {WebhookPath}, scheduling next retry",
+                traceId, attempt, webhookPath);
+            ScheduleCallbackRetry(callbackService, webhookPath, decision, inboxEventId, draftResponse, attempt + 1, traceId);
         }
     }
 }

@@ -4,18 +4,20 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Models;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
 public interface IDraftGeneratorService
 {
-    Task<string> GenerateDraftAsync(
+    Task<EmailDraftResult> GenerateDraftAsync(
         string senderEmail,
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext);
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null);
 }
 
 public class DraftGeneratorService : IDraftGeneratorService
@@ -28,14 +30,15 @@ public class DraftGeneratorService : IDraftGeneratorService
         _kernel = kernel;
     }
 
-    public async Task<string> GenerateDraftAsync(
+    public async Task<EmailDraftResult> GenerateDraftAsync(
         string senderEmail,
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null)
     {
-        var prompt = BuildDraftPrompt(senderEmail, subject, body, classification, knowledgeContext);
+        var prompt = BuildDraftPrompt(senderEmail, subject, body, classification, knowledgeContext, persona);
 
         var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
         var chatHistory = new ChatHistory();
@@ -59,13 +62,46 @@ public class DraftGeneratorService : IDraftGeneratorService
             kernel: _kernel);
 
         var draft = result.Content ?? "";
+        bool insufficientContext = draft.Contains(InsufficientContextMarker, StringComparison.OrdinalIgnoreCase);
 
-        if (draft.Contains(InsufficientContextMarker, StringComparison.OrdinalIgnoreCase))
+        if (insufficientContext)
         {
             draft = GenerateFallbackResponse(senderEmail, classification);
         }
 
-        return draft.Trim();
+        var relevantImages = ExtractRelevantImages(draft, knowledgeContext);
+
+        return new EmailDraftResult(
+            draft.Trim(),
+            insufficientContext,
+            relevantImages
+        );
+    }
+
+    private IReadOnlyList<KnowledgeImageRef> ExtractRelevantImages(string draft, IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+    {
+        var relevantImages = new List<KnowledgeImageRef>();
+        var allPossibleImages = knowledgeContext.SelectMany(s => s.RelatedImages).ToList();
+
+        if (!allPossibleImages.Any()) return relevantImages;
+
+        // Regex to find [image:GUID]
+        var regex = new System.Text.RegularExpressions.Regex(@"\[image:([a-fA-F0-9-]{36})\]");
+        var matches = regex.Matches(draft);
+
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            if (Guid.TryParse(match.Groups[1].Value, out var imageId))
+            {
+                var img = allPossibleImages.FirstOrDefault(i => i.ImageId == imageId);
+                if (img != null && !relevantImages.Any(r => r.ImageId == imageId))
+                {
+                    relevantImages.Add(img);
+                }
+            }
+        }
+
+        return relevantImages;
     }
 
     private static string SanitizeForXml(string content)
@@ -81,7 +117,8 @@ public class DraftGeneratorService : IDraftGeneratorService
         string subject,
         string body,
         EmailClassification classification,
-        IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+        IReadOnlyList<KnowledgeSnippet> knowledgeContext,
+        AgentPersona? persona = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are the Inbox Guardian, an automated customer support assistant for OrvixFlow.");
@@ -99,18 +136,54 @@ public class DraftGeneratorService : IDraftGeneratorService
         sb.AppendLine($"- Reasoning: {classification.Reasoning}");
         sb.AppendLine();
 
+        if (persona != null)
+        {
+            sb.AppendLine("PERSONA SETTINGS:");
+            sb.AppendLine($"- Tone: {persona.Tone}");
+            if (!string.IsNullOrEmpty(persona.CustomInstructions))
+            {
+                sb.AppendLine($"- Custom Instructions: {persona.CustomInstructions}");
+            }
+            sb.AppendLine();
+        }
+
         if (knowledgeContext.Count > 0)
         {
             sb.AppendLine("KNOWLEDGE BASE CONTEXT:");
             sb.AppendLine("---");
+            var allImages = new List<KnowledgeImageRef>();
             for (var i = 0; i < knowledgeContext.Count; i++)
             {
                 var snippet = knowledgeContext[i];
                 sb.AppendLine($"[{i + 1}] (relevance: {snippet.SimilarityScore:P0})");
                 sb.AppendLine(snippet.Content);
+                if (snippet.RelatedImages.Any())
+                {
+                    sb.AppendLine("Related Images:");
+                    foreach (var img in snippet.RelatedImages)
+                    {
+                        if (!allImages.Any(x => x.ImageId == img.ImageId))
+                        {
+                            allImages.Add(img);
+                        }
+                        sb.AppendLine($"- [image:{img.ImageId}] {img.AltText}");
+                    }
+                }
                 sb.AppendLine("---");
             }
             sb.AppendLine();
+            
+            if (allImages.Any())
+            {
+                sb.AppendLine("AVAILABLE IMAGES FOR REFERENCE:");
+                foreach (var img in allImages)
+                {
+                    sb.AppendLine($"- [image:{img.ImageId}]: {img.AltText}");
+                }
+                sb.AppendLine("NOTE: You can reference these images in your response using the [image:ID] format if they are relevant to the user's inquiry.");
+                sb.AppendLine();
+            }
+
             sb.AppendLine("MANDATORY CONSTRAINT: You MUST base your response ONLY on information from the knowledge base above.");
             sb.AppendLine("If the knowledge base does not contain sufficient information to answer the customer's question,");
             sb.AppendLine($"you MUST respond with exactly this marker: {InsufficientContextMarker}");
@@ -122,8 +195,13 @@ public class DraftGeneratorService : IDraftGeneratorService
         }
 
         sb.AppendLine();
-        sb.AppendLine("TONE: Professional, friendly, helpful. Use the customer's name if available.");
+        sb.AppendLine($"TONE: {persona?.Tone ?? "Professional"}, friendly, helpful. Use the customer's name if available.");
         sb.AppendLine("FORMAT: Plain text email response, ready to send.");
+
+        if (!string.IsNullOrEmpty(persona?.CustomSignOff))
+        {
+            sb.AppendLine($"SIGN-OFF: Use this exact sign-off: {persona.CustomSignOff}");
+        }
 
         return sb.ToString();
     }

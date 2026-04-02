@@ -19,16 +19,29 @@ public class PdfParser : IDocumentParser
         using (var document = PdfDocument.Open(content))
         {
             var textChunks = new List<TextChunk>();
+            var imageChunks = new List<ImageChunk>();
             var sb = new StringBuilder();
+            int imageIndex = 0;
 
             foreach (var page in document.GetPages())
             {
                 sb.AppendLine(page.Text);
+                
+                foreach (var image in page.GetImages())
+                {
+                    var bytes = image.RawBytes;
+                    if (bytes != null && bytes.Length > 0)
+                    {
+                        var contentType = "image/png"; // default
+                        
+                        imageChunks.Add(new ImageChunk(imageIndex++, bytes.ToArray(), contentType, null));
+                    }
+                }
             }
 
             textChunks.Add(new TextChunk(0, sb.ToString(), null));
 
-            return Task.FromResult(new ParsedDocument(fileName, textChunks, new List<ImageChunk>()));
+            return Task.FromResult(new ParsedDocument(fileName, textChunks, imageChunks));
         }
     }
 }

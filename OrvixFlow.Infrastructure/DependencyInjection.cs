@@ -12,6 +12,7 @@ using OrvixFlow.Infrastructure.Ai.Parsers;
 using OrvixFlow.Infrastructure.Ai.Chunking;
 using OrvixFlow.Infrastructure.Ai.Jobs;
 using OrvixFlow.Infrastructure.Storage;
+using OrvixFlow.Infrastructure.Services.Security;
 
 namespace OrvixFlow.Infrastructure;
 
@@ -106,22 +107,31 @@ public static class DependencyInjection
         services.AddScoped<IInboxEventRepository, InboxEventRepository>();
         services.AddScoped<IPolicyGateService, PolicyGateService>();
         services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+        services.AddScoped<IDraftFeedbackService, DraftFeedbackService>();
+        services.AddScoped<IN8nProvisioningService, N8nProvisioningService>();
         services.AddScoped<IPlanService, PlanService>();
         services.AddScoped<IEntitlementResolver, EntitlementResolver>();
         services.AddScoped<ICompanySubscriptionService, CompanySubscriptionService>();
+        
+        services.AddScoped<IReranker, LlmScorerReranker>();
 
-        // RAG Extension Phase 1
+        // RAG Extension Phase 1 & 3
         services.AddScoped<IChunker, OverlapChunker>();
         services.AddScoped<IFileStorage, LocalFileStorage>();
         services.AddScoped<IIngestionPipelineService, IngestionPipelineService>();
         services.AddScoped<IDocumentParser, PlainTextParser>();
         services.AddScoped<IDocumentParser, PdfParser>();
         services.AddScoped<IDocumentParser, DocxParser>();
+        services.AddScoped<IDocumentParser, ImageFileParser>();
+        services.AddScoped<IImageResolver, ImageResolver>();
         services.AddScoped<FileIngestionJob>();
 
         // Shadow modules
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
         services.AddScoped<IUsageService, OrvixFlow.Infrastructure.Shadow.UsageService>();
+        
+        services.AddScoped<IVirusScanService, NoopVirusScanService>();
+        services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
 
         return services;
     }
