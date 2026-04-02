@@ -1,10 +1,12 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
+using OrvixFlow.Infrastructure.Ai;
 using OrvixFlow.Infrastructure.Data;
 
 namespace OrvixFlow.Api.Controllers;
@@ -16,15 +18,21 @@ public class MailboxConnectionsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IN8nProvisioningService _n8nProvisioning;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MailboxConnectionsController> _logger;
 
     public MailboxConnectionsController(
         AppDbContext dbContext,
         ITenantProvider tenantProvider,
+        IN8nProvisioningService n8nProvisioning,
+        IServiceProvider serviceProvider,
         ILogger<MailboxConnectionsController> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _n8nProvisioning = n8nProvisioning;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -131,13 +139,33 @@ public class MailboxConnectionsController : ControllerBase
             return NotFound(new { error = "Connection not found" });
         }
 
-        connection.IsActive = request.IsActive;
-        if (request.IsActive && connection.ConnectedAtUtc == null)
+        if (request.IsActive && !connection.IsActive)
         {
-            connection.ConnectedAtUtc = DateTime.UtcNow;
-        }
+            if (string.IsNullOrEmpty(connection.N8nWorkflowId))
+            {
+                BackgroundJob.Enqueue(() => ProvisionN8nWorkflowJob(connectionId, tenantId));
+                _logger.LogInformation("Queued n8n provisioning for connection {ConnectionId}", connectionId);
+                return Ok(new ConnectionResponse
+                {
+                    Id = connection.Id,
+                    EmailAddress = connection.EmailAddress,
+                    Provider = connection.Provider,
+                    IsActive = false,
+                    N8nWorkflowId = connection.N8nWorkflowId,
+                    CreatedAtUtc = connection.CreatedAtUtc,
+                    ConnectedAtUtc = connection.ConnectedAtUtc
+                });
+            }
 
-        await _dbContext.SaveChangesAsync();
+            connection.IsActive = true;
+            connection.ConnectedAtUtc = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+        }
+        else if (!request.IsActive)
+        {
+            connection.IsActive = false;
+            await _dbContext.SaveChangesAsync();
+        }
 
         _logger.LogInformation("Toggled connection {ConnectionId} to {IsActive} for tenant {TenantId}",
             connectionId, request.IsActive, tenantId);
@@ -172,6 +200,11 @@ public class MailboxConnectionsController : ControllerBase
             return NotFound(new { error = "Connection not found" });
         }
 
+        if (!string.IsNullOrEmpty(connection.N8nWorkflowId))
+        {
+            BackgroundJob.Enqueue(() => CleanupN8nWorkflowJob(connection.N8nWorkflowId, connection.N8nCredentialId));
+        }
+
         _dbContext.MailboxConnections.Remove(connection);
         await _dbContext.SaveChangesAsync();
 
@@ -179,5 +212,58 @@ public class MailboxConnectionsController : ControllerBase
             connectionId, tenantId);
 
         return NoContent();
+    }
+
+    [Hangfire.JobDisplayName("Provision n8n Workflow for Mailbox")]
+    public async Task ProvisionN8nWorkflowJob(Guid connectionId, Guid tenantId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var n8nProvisioning = scope.ServiceProvider.GetRequiredService<IN8nProvisioningService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<MailboxConnectionsController>>();
+
+        var connection = await dbContext.MailboxConnections.FindAsync(connectionId);
+        if (connection == null) return;
+
+        try
+        {
+            var templateWorkflowId = Environment.GetEnvironmentVariable("N8N_TEMPLATE_WORKFLOW_ID") ?? "default-email-sync";
+
+            var workflowId = await n8nProvisioning.ProvisionWorkflowAsync(templateWorkflowId, connection.EmailAddress, tenantId);
+            connection.N8nWorkflowId = workflowId;
+            connection.IsActive = true;
+            connection.ConnectedAtUtc = DateTime.UtcNow;
+
+            await dbContext.SaveChangesAsync();
+
+            logger.LogInformation("Provisioned n8n workflow {WorkflowId} for connection {ConnectionId}",
+                workflowId, connectionId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to provision n8n workflow for connection {ConnectionId}", connectionId);
+            connection.IsActive = false;
+            await dbContext.SaveChangesAsync();
+        }
+    }
+
+    [Hangfire.JobDisplayName("Cleanup n8n Workflow")]
+    public async Task CleanupN8nWorkflowJob(string? workflowId, string? credentialId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var n8nProvisioning = scope.ServiceProvider.GetRequiredService<IN8nProvisioningService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<MailboxConnectionsController>>();
+
+        if (!string.IsNullOrEmpty(workflowId))
+        {
+            await n8nProvisioning.DeleteWorkflowAsync(workflowId);
+            logger.LogInformation("Deleted n8n workflow {WorkflowId}", workflowId);
+        }
+
+        if (!string.IsNullOrEmpty(credentialId))
+        {
+            await n8nProvisioning.DeleteCredentialAsync(credentialId);
+            logger.LogInformation("Deleted n8n credential {CredentialId}", credentialId);
+        }
     }
 }

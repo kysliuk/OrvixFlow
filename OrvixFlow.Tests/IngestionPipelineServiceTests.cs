@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Moq;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
@@ -24,7 +25,9 @@ public class IngestionPipelineServiceTests
     private readonly Mock<IUsageService> _usageServiceMock;
     private readonly Mock<IFileStorage> _storageMock;
     private readonly Mock<IChunker> _chunkerMock;
+    private readonly Mock<IChatCompletionService> _chatCompletionMock;
     private readonly IConfiguration _configuration;
+
 
     public IngestionPipelineServiceTests()
     {
@@ -33,6 +36,8 @@ public class IngestionPipelineServiceTests
         _usageServiceMock = new Mock<IUsageService>();
         _storageMock = new Mock<IFileStorage>();
         _chunkerMock = new Mock<IChunker>();
+        _chatCompletionMock = new Mock<IChatCompletionService>();
+
         
         var inMemoryConfig = new Dictionary<string, string> {
             {"AI:Ingestion:ChunkSize", "800"},
@@ -43,8 +48,8 @@ public class IngestionPipelineServiceTests
             .Build();
 
         _tenantProviderMock.Setup(x => x.GetTenantId()).Returns(Guid.NewGuid());
-        _embeddingMock.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<ReadOnlyMemory<float>> { new ReadOnlyMemory<float>(new float[1536]) });
+        _embeddingMock.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ReadOnlyMemory<float>> { new float[1536] });
     }
 
     [Fact]
@@ -55,8 +60,6 @@ public class IngestionPipelineServiceTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
-        using var dbContext = new AppDbContext(options, _tenantProviderMock.Object);
-
         var parserMock = new Mock<IDocumentParser>();
         parserMock.Setup(p => p.CanParse("text/plain")).Returns(true);
         parserMock.Setup(p => p.ParseAsync(It.IsAny<Stream>(), "test.txt"))
@@ -65,33 +68,35 @@ public class IngestionPipelineServiceTests
         _chunkerMock.Setup(c => c.Chunk(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
             .Returns(new List<string> { "content_chunk1" });
 
-        var service = new IngestionPipelineService(
-            dbContext,
-            new[] { parserMock.Object },
-            _chunkerMock.Object,
-            _embeddingMock.Object,
-            _storageMock.Object,
-            _tenantProviderMock.Object,
-            _usageServiceMock.Object,
-            _configuration
-        );
-
         var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("content"));
 
         // Act
-        try {
-            var result = await service.IngestFileAsync(stream, "test.txt", "text/plain");
-            // Assert
-            Assert.NotEqual(Guid.Empty, result.DocumentId);
-            Assert.Equal(1, result.ChunkCount);
-        } catch (Exception ex) {
-            Console.WriteLine(ex.ToString());
-            if (ex.InnerException != null) Console.WriteLine("INNER: " + ex.InnerException.ToString());
-            throw;
+        IngestionResult result;
+        using (var dbContext = new AppDbContext(options, _tenantProviderMock.Object))
+        {
+            var service = new IngestionPipelineService(
+                dbContext,
+                new[] { parserMock.Object },
+                _chunkerMock.Object,
+                _embeddingMock.Object,
+                _storageMock.Object,
+                _tenantProviderMock.Object,
+                _usageServiceMock.Object,
+                _configuration,
+                _chatCompletionMock.Object
+            );
+            result = await service.IngestFileAsync(stream, "test.txt", "text/plain");
         }
+
+        // Assert
+        Assert.NotEqual(Guid.Empty, result.DocumentId);
+        Assert.Equal(1, result.ChunkCount);
         
-        var doc = dbContext.KnowledgeBaseDocuments.Include(d => d.Chunks).First();
-        Assert.Equal("Indexed", doc.Status);
-        Assert.Single(doc.Chunks);
+        using (var verifyCtx = new AppDbContext(options, _tenantProviderMock.Object))
+        {
+            var doc = verifyCtx.KnowledgeBaseDocuments.Include(d => d.Chunks).First();
+            Assert.Equal("Indexed", doc.Status);
+            Assert.Single(doc.Chunks);
+        }
     }
 }

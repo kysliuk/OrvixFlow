@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Core.Models;
 
@@ -31,7 +32,7 @@ public class InboxGuardianService : IInboxGuardianService
         _kernel.Plugins.AddFromObject(automationPlugin);
     }
 
-    public async Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, Guid? userId = null, Guid? departmentId = null)
+    public async Task<AgentResponse> ProcessIncomingMessageAsync(InboxMessage message, Guid tenantId, AgentPersona? persona = null, Guid? userId = null, Guid? departmentId = null)
     {
         try
         {
@@ -53,7 +54,8 @@ public class InboxGuardianService : IInboxGuardianService
                 message.Subject,
                 message.Body,
                 classification,
-                knowledgeContext);
+                knowledgeContext,
+                persona);
 
             var metadata = new System.Collections.Generic.Dictionary<string, object?>
             {
@@ -62,10 +64,10 @@ public class InboxGuardianService : IInboxGuardianService
                 ["requiresHumanReview"] = classification.RequiresHumanReview,
                 ["reasonForReview"] = classification.ReasonForReview,
                 ["knowledgeBaseResults"] = knowledgeContext.Count,
-                ["hasContext"] = knowledgeContext.Count > 0
+                ["hasContext"] = knowledgeContext.Count > 0,
+                ["personaApplied"] = persona != null
             };
 
-            // Track usage
             await _usageService.RecordInboxMessageAsync(tenantId, "inbox-guardian", 1, userId, departmentId);
 
             return new AgentResponse

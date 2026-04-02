@@ -75,24 +75,68 @@ CompanyOwner (full access)
 - Supports: OpenAI, Groq, or Mock (for testing)
 - Plugins: KnowledgeBaseSearchPlugin, N8nAutomationPlugin
 
-**RAG Ingestion Pipeline (NEW):**
-- **Abstractions**: `IDocumentParser` (PDF, DOCX, TXT), `IChunker` (Overlap), `IFileStorage` (Local).
-- **Service**: `IngestionPipelineService` (Orchestrates Parse -> Chunk -> Embed).
+**RAG Ingestion Pipeline (Phase 3):**
+- **Abstractions**: `IDocumentParser` (PDF, DOCX, TXT, Image), `IChunker` (Overlap), `IFileStorage` (Local).
+- **Service**: `IngestionPipelineService` (Orchestrates Parse -> Chunk -> Embed + Image Extraction).
+- **Parsers**: `PdfParser` (PdfPig), `DocxParser` (OpenXML), `ImageFileParser` (ImageSharp).
 - **Worker**: `FileIngestionJob` (Hangfire background job).
+
+**Advanced Retrieval (Hybrid Search):**
+- **Component**: `HybridVectorSearchService`.
+- **Search**: Combines Vector (pgvector) + FTS (Npgsql + english tsvector).
+- **Fusion**: Reciprocal Rank Fusion (RRF) for scoring integration.
+- **Reranker**: `LlmScorerReranker` (Semantic Kernel scoring).
+- **Image Resolution**: `ImageResolver` (Retrieves top relevant images based on snippet context).
 
 **Agent Flow:**
 1. User prompt → AgentController
-2. AgentService.ProcessInternalAsync
-3. Semantic Kernel invokes plugins
-4. Response + audit + usage recording
+2. AgentService.ProcessInternalAsync (or InboxGuardianService)
+3. Semantic Kernel invokes plugins (KnowledgeBaseSearchPlugin)
+4. KnowledgeBaseSearchPlugin calls `HybridVectorSearchService`
+5. Hybrid Search → RRF → Rerank → Image Resolution
+6. Response + relevant images → audit + usage recording
+
+**Inbox Guardian Flow:**
+1. InboxEvent ingested → `InboxProcessingJob` (Hangfire)
+2. Fetch `AgentPersona` for tenant (tone, custom instructions, sign-off)
+3. Classify intent → RAG search → Generate draft (persona-aware)
+4. Evaluate `WorkflowPolicy` → auto-execute or hold for approval
+5. On approval with edits → `DraftFeedback` → `FeedbackEnrichmentJob` → KB update
+
+### Correlation & Tracing
+- `InboxEvent.TraceId` assigned at processing start
+- All log messages include `[TraceId]` prefix for full pipeline traceability
+- Audit trails include TraceId reference for admin debugging
+
+**Inbox Guardian Flow:**
+1. InboxEvent ingested → `InboxProcessingJob` (Hangfire)
+2. Fetch `AgentPersona` for tenant (tone, custom instructions, sign-off)
+3. Classify intent → RAG search → Generate draft (persona-aware)
+4. Evaluate `WorkflowPolicy` → auto-execute or hold for approval
+5. On approval with edits → `DraftFeedback` → `FeedbackEnrichmentJob` → KB update
 
 ## Background Jobs
 
 **Hangfire** with PostgreSQL storage:
 - Dashboard: `/hangfire` (local only)
-- `InboxProcessingJob`: Asynchronous email processing
+- `InboxProcessingJob`: Asynchronous email processing (with persona lookup, correlation IDs, webhook retry/backoff)
+- `FeedbackEnrichmentJob`: Extracts guidelines from human-edited drafts, enriches KnowledgeBase
 - `FileIngestionJob`: Background document parsing and embedding
+- n8n provisioning/cleanup jobs in `MailboxConnectionsController`
 - Endpoint: `api/inbox/process`, `api/v1/knowledge/upload`
+
+### Webhook Callback Retry
+- On callback failure: scheduled retry with exponential backoff (30s, 60s, 120s)
+- Max 3 retries, logged with correlation TraceId
+
+### Agent Persona Flow
+- `AgentPersona` entity stores per-tenant tone, custom instructions, and sign-off
+- Fetched in `InboxProcessingJob` and passed through `InboxGuardianService` → `DraftGeneratorService`
+- Injected into LLM prompt for consistent brand voice
+
+### Webhook Callback Retry
+- On callback failure: scheduled retry with exponential backoff (30s, 60s, 120s)
+- Max 3 retries, logged with correlation TraceId
 
 ## Webhook Security
 

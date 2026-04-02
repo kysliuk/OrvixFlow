@@ -22,6 +22,7 @@ public class HybridVectorSearchService : IHybridVectorSearchService
     private readonly AppDbContext _dbContext;
     private readonly ITextEmbeddingGenerationService _embeddingService;
     private readonly IReranker? _reranker;
+    private readonly IImageResolver? _imageResolver;
     
     // We can tune RRF constant k
     private const int RrfK = 60;
@@ -29,17 +30,20 @@ public class HybridVectorSearchService : IHybridVectorSearchService
     public HybridVectorSearchService(
         AppDbContext dbContext,
         ITextEmbeddingGenerationService embeddingService,
-        IReranker? reranker = null)
+        IReranker? reranker = null,
+        IImageResolver? imageResolver = null)
     {
         _dbContext = dbContext;
         _embeddingService = embeddingService;
         _reranker = reranker;
+        _imageResolver = imageResolver;
     }
 
     public async Task<IReadOnlyList<KnowledgeSnippet>> SearchAsync(string query, int maxResults = 5)
     {
         // 1. Semantic Search (Dense Vector) - Use Cosine Distance
-        var embedding = await _embeddingService.GenerateEmbeddingAsync(query);
+        var embeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { query });
+        var embedding = embeddings[0];
         var queryVector = new Vector(embedding.ToArray());
 
         // We fetch more results initially to perform RRF and reranking
@@ -124,15 +128,32 @@ public class HybridVectorSearchService : IHybridVectorSearchService
             .Take(maxResults * 3) // Give reranker some candidates
             .ToList();
 
-        // 4. Reranking (Cross-Encoder / LLM)
-        if (_reranker != null && topRrfResults.Count > 0)
+        var finalResults = _reranker != null && topRrfResults.Count > 0
+            ? await _reranker.RerankAsync(query, topRrfResults)
+            : topRrfResults;
+
+        var topFinal = finalResults.Take(maxResults).ToList();
+
+        // 5. Resolve related images
+        if (_imageResolver != null && topFinal.Count > 0)
         {
-            var rerankedResults = await _reranker.RerankAsync(query, topRrfResults);
-            
-            // Normalize scale for return (Optional, but RerankAsync should return scored 0-1 snippets)
-            return rerankedResults.Take(maxResults).ToList();
+            var docIds = topFinal.Where(x => x.DocumentId.HasValue).Select(x => x.DocumentId!.Value).Distinct();
+            var images = await _imageResolver.ResolveRelevantImagesAsync(query, docIds, 5);
+
+            foreach (var snippet in topFinal)
+            {
+                if (snippet.DocumentId.HasValue)
+                {
+                    var relevantImages = images
+                        .Where(img => img.DocumentId == snippet.DocumentId.Value)
+                        .Select(img => new KnowledgeImageRef(img.Id, img.AltText, img.StoragePath))
+                        .ToList();
+                    
+                    snippet.RelatedImages = relevantImages;
+                }
+            }
         }
 
-        return topRrfResults.Take(maxResults).ToList();
+        return topFinal;
     }
 }

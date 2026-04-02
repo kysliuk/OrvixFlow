@@ -24,15 +24,56 @@
 | Webhook Receive | WebhookController | - | InboxEvent |
 | Process Queue | InboxEventsController | InboxGuardianService | InboxEvent |
 | Process Job | - | InboxProcessingJob (Hangfire) | InboxEvent |
+| Settings (Policies/Persona) | InboxSettingsController | - | WorkflowPolicy, AgentPersona |
+| Mailbox Connections | MailboxConnectionsController | N8nProvisioningService | MailboxConnection |
+| Draft Feedback | DraftFeedbackController | DraftFeedbackService | DraftFeedback |
+| Feedback Enrichment | - | FeedbackEnrichmentJob (Hangfire) | KnowledgeBase |
+| Action Requests | ActionsController | - | ActionRequest |
+| Admin Metrics | AdminInboxController | - | All inbox entities |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/InboxController.cs`
 - `OrvixFlow.Api/Controllers/WebhookController.cs`
 - `OrvixFlow.Api/Controllers/InboxEventsController.cs`
+- `OrvixFlow.Api/Controllers/ActionsController.cs`
+- `OrvixFlow.Api/Controllers/InboxSettingsController.cs`
+- `OrvixFlow.Api/Controllers/MailboxConnectionsController.cs`
+- `OrvixFlow.Api/Controllers/DraftFeedbackController.cs`
+- `OrvixFlow.Api/Controllers/AdminInboxController.cs`
 - `OrvixFlow.Api/Jobs/InboxProcessingJob.cs`
+- `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs`
 - `OrvixFlow.Infrastructure/Ai/IngestionService.cs`
 - `OrvixFlow.Infrastructure/Ai/InboxGuardianService.cs`
+- `OrvixFlow.Infrastructure/Ai/N8nProvisioningService.cs`
+- `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs` (persona-aware)
+- `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` (with retry/backoff)
+- `OrvixFlow.Infrastructure/Services/DraftFeedbackService.cs` (Levenshtein edit distance)
 - `OrvixFlow.Infrastructure/Data/InboxEventRepository.cs`
+
+### Inbox Processing Pipeline
+```
+InboxEvent (Ingested) → Hangfire Job → Fetch Persona → Classify Intent → 
+RAG Search → Generate Draft (persona-aware) → Evaluate Policy → 
+  Auto-Execute (callback + retry) OR Hold for Approval (ActionRequest)
+```
+
+### Feedback Learning Loop
+```
+Human modifies draft → DraftFeedback record created → 
+FeedbackEnrichmentJob (if edit distance > 0.3) → 
+Extract guidelines → KnowledgeBase entry created
+```
+
+### n8n Auto-Provisioning
+```
+Activate connection → ProvisionN8nWorkflowJob → Clone template workflow → 
+Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection becomes active
+```
+
+### Correlation & Tracing
+- `InboxEvent.TraceId` assigned at processing start
+- All log messages include `[TraceId]` prefix for full pipeline traceability
+- Audit trails include TraceId reference
 
 ## AI Agent
 
@@ -55,7 +96,8 @@
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
 | Search (Hybrid) | KnowledgeBaseController | HybridVectorSearchService | KnowledgeBase |
-| Vector Index | - | IngestionService (old) | KnowledgeBase |
+| Vector Index | - | IngestionPipelineService | KnowledgeBase |
+| Image Resolution| - | ImageResolver | KnowledgeBaseImage |
 | Reranking | - | IReranker (LlmScorerReranker) | KnowledgeSnippet |
 | File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
 | File Parsing | - | IDocumentParser implementations | - |
@@ -65,15 +107,17 @@
 - `OrvixFlow.Api/Controllers/KnowledgeBaseController.cs`
 - `OrvixFlow.Api/Controllers/FileIngestionController.cs`
 - `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs`
+- `OrvixFlow.Infrastructure/Ai/ImageResolver.cs`
 - `OrvixFlow.Infrastructure/Ai/LlmScorerReranker.cs`
 - `OrvixFlow.Core/Interfaces/IReranker.cs`
 - `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs`
-- `OrvixFlow.Infrastructure/Ai/Parsers/` (.txt, .pdf, .docx)
+- `OrvixFlow.Infrastructure/Ai/Parsers/` (.txt, .pdf, .docx, .image)
 - `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs`
 - `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs`
 - `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs`
 - `OrvixFlow.Core/Entities/KnowledgeBase.cs`
 - `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs`
+- `OrvixFlow.Core/Entities/KnowledgeBaseImage.cs`
 
 ## Organization & Access
 
@@ -178,12 +222,14 @@
 
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
+| Policy CRUD | InboxSettingsController | PolicyGateService | WorkflowPolicy |
 | Policy Gates | ActionsController | PolicyGateService | WorkflowPolicy |
 | Action Requests | ActionsController | - | ActionRequest |
 | Workflow Logs | - | - | WorkflowLog |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/ActionsController.cs`
+- `OrvixFlow.Api/Controllers/InboxSettingsController.cs`
 - `OrvixFlow.Infrastructure/Services/PolicyGateService.cs`
 - `OrvixFlow.Core/Entities/WorkflowPolicy.cs`
 - `OrvixFlow.Core/Entities/ActionRequest.cs`
@@ -208,8 +254,11 @@
 | Dashboard | /(dashboard)/page.tsx | Yes |
 | Inbox | /(dashboard)/inbox/page.tsx | Yes |
 | Pending Items | /(dashboard)/inbox/pending/page.tsx | Yes |
+| Inbox History | /(dashboard)/inbox/history/page.tsx | Yes |
+| Inbox Settings | /(dashboard)/settings/inbox/page.tsx | Yes |
 | Knowledge | /(dashboard)/knowledge/page.tsx | Yes |
 | Settings | /(dashboard)/settings/page.tsx | Yes |
 | Settings/Billing | /(dashboard)/settings/billing/page.tsx | Yes |
 | Billing | /(dashboard)/billing/page.tsx | Yes |
 | Admin | /admin/page.tsx | Yes |
+| Admin Inbox Metrics | /admin/inbox-metrics/page.tsx | Yes (SuperAdmin) |

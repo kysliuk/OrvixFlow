@@ -133,6 +133,16 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
+## Low: InMemory Vector Search Fallbacks
+
+**Location:** `OrvixFlow.Infrastructure/Ai/ImageResolver.cs`
+
+**Risk:** Unit tests skip vector arithmetic translation because `InMemoryDatabase` doesn't support pgvector `CosineDistance`.
+
+**Pattern:** Catch `Exception` in LINQ queries using vector arithmetic and provide clear client-side evaluation fallback for testing.
+
+**Critical:** Fallback MUST filter by `TenantId` manually to maintain isolation in tests.
+
 ## Architecture Boundaries
 
 ### DO NOT CROSS

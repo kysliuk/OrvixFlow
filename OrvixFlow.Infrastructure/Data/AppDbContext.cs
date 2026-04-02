@@ -49,6 +49,7 @@ public class AppDbContext : DbContext
     public DbSet<PlanEntitlements> PlanEntitlements => Set<PlanEntitlements>();
     public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
     public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
+    public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,6 +59,7 @@ public class AppDbContext : DbContext
         {
             modelBuilder.Entity<KnowledgeBase>().Ignore(k => k.EmbeddingVector);
             modelBuilder.Entity<KnowledgeBase>().Ignore(k => k.SearchVector);
+            modelBuilder.Entity<KnowledgeBaseImage>().Ignore(k => k.CaptionEmbedding);
         }
 
         // Required for pgvector
@@ -79,6 +81,15 @@ public class AppDbContext : DbContext
 
             modelBuilder.Entity<KnowledgeBase>()
                 .HasIndex(x => x.EmbeddingVector)
+                .HasMethod("hnsw")
+                .HasOperators("vector_cosine_ops");
+
+            modelBuilder.Entity<KnowledgeBaseImage>()
+                .Property(x => x.CaptionEmbedding)
+                .HasColumnType("vector(1536)");
+
+            modelBuilder.Entity<KnowledgeBaseImage>()
+                .HasIndex(x => x.CaptionEmbedding)
                 .HasMethod("hnsw")
                 .HasOperators("vector_cosine_ops");
         }
@@ -251,6 +262,18 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<KnowledgeBaseImage>()
+            .HasOne(i => i.Document)
+            .WithMany()
+            .HasForeignKey(i => i.DocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<KnowledgeBaseImage>()
+            .HasOne(i => i.Chunk)
+            .WithMany()
+            .HasForeignKey(i => i.ChunkId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // MailboxConnection relationships
         modelBuilder.Entity<MailboxConnection>()
             .HasIndex(m => new { m.TenantId, m.EmailAddress })
@@ -307,5 +330,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Invitation>().HasQueryFilter(i => i.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<KnowledgeBaseImage>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
     }
 }

@@ -61,9 +61,10 @@ Environment variables (or appsettings.json):
 - `Automation:N8nBaseUrl` - n8n instance URL
 - `ConnectionStrings:DefaultConnection` - PostgreSQL connection
 
-## RAG Assistant Extension (Status: Phase 1 Completed)
-Implemented file ingestion pipeline:
-- PDF, DOCX, TXT support
-- Paragraph-aware overlap chunking
-- Background ingestion with Hangfire
-- Local multi-tenant file storage
+## RAG Assistant Extension (Status: Phase 3 Completed)
+Implemented multi-modal ingestion and hybrid retrieval:
+- PDF (PdfPig), DOCX (OpenXML), Image (ImageSharp) support
+- Hybrid Search (pgvector + FTS) with Reciprocal Rank Fusion (RRF)
+- Image-aware RAG: Extracting, indexing, and retrieving relevant images
+- Semantic Kernel Integration with resilient InMemory fallbacks
+- Multi-tenant file storage for documents and images

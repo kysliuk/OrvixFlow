@@ -114,13 +114,15 @@ public static class DependencyInjection
         
         services.AddScoped<IReranker, LlmScorerReranker>();
 
-        // RAG Extension Phase 1
+        // RAG Extension Phase 1 & 3
         services.AddScoped<IChunker, OverlapChunker>();
         services.AddScoped<IFileStorage, LocalFileStorage>();
         services.AddScoped<IIngestionPipelineService, IngestionPipelineService>();
         services.AddScoped<IDocumentParser, PlainTextParser>();
         services.AddScoped<IDocumentParser, PdfParser>();
         services.AddScoped<IDocumentParser, DocxParser>();
+        services.AddScoped<IDocumentParser, ImageFileParser>();
+        services.AddScoped<IImageResolver, ImageResolver>();
         services.AddScoped<FileIngestionJob>();
 
         // Shadow modules

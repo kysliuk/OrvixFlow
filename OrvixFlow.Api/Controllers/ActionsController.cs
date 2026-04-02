@@ -1,7 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OrvixFlow.Api.Jobs;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Core.Models;
@@ -158,6 +160,31 @@ public class ActionsController : ControllerBase
                 decision,
                 inboxEvent.Id,
                 request.ModifiedResponse ?? action.DraftResponse);
+        }
+
+        if (request.Approved && !string.IsNullOrEmpty(request.ModifiedResponse) && request.ModifiedResponse != action.DraftResponse)
+        {
+            var feedback = new DraftFeedback
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantProvider.GetTenantId(),
+                ActionRequestId = actionId,
+                OriginalDraft = action.DraftResponse,
+                FinalHumanDraft = request.ModifiedResponse,
+                EditDistance = 0,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _dbContext.DraftFeedbacks.Add(feedback);
+            await _dbContext.SaveChangesAsync();
+
+            try
+            {
+                BackgroundJob.Enqueue<FeedbackEnrichmentJob>(job => job.ProcessAsync(feedback.Id));
+            }
+            catch (InvalidOperationException)
+            {
+                _logger.LogWarning("Hangfire not initialized, skipping feedback enrichment job");
+            }
         }
 
         _logger.LogInformation(

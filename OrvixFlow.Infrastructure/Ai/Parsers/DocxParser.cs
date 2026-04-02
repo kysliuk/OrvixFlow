@@ -20,7 +20,8 @@ public class DocxParser : IDocumentParser
     {
         using (var wordDoc = WordprocessingDocument.Open(content, false))
         {
-            var body = wordDoc.MainDocumentPart?.Document.Body;
+            var mainPart = wordDoc.MainDocumentPart;
+            var body = mainPart?.Document.Body;
             if (body == null)
             {
                 return Task.FromResult(new ParsedDocument(fileName, new List<TextChunk>(), new List<ImageChunk>()));
@@ -37,7 +38,27 @@ public class DocxParser : IDocumentParser
                 new TextChunk(0, sb.ToString(), null)
             };
 
-            return Task.FromResult(new ParsedDocument(fileName, textChunks, new List<ImageChunk>()));
+            var imageChunks = new List<ImageChunk>();
+            if (mainPart != null)
+            {
+                int imageIndex = 0;
+                foreach (var imagePart in mainPart.ImageParts)
+                {
+                    using (var stream = imagePart.GetStream())
+                    using (var ms = new MemoryStream())
+                    {
+                        stream.CopyTo(ms);
+                        imageChunks.Add(new ImageChunk(
+                            imageIndex++,
+                            ms.ToArray(),
+                            imagePart.ContentType,
+                            null // Caption not easily associated in simple run
+                        ));
+                    }
+                }
+            }
+
+            return Task.FromResult(new ParsedDocument(fileName, textChunks, imageChunks));
         }
     }
 }
