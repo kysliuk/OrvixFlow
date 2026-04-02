@@ -138,6 +138,7 @@
 | TrialExpirationJob | `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
+| Load Test Script | `scripts/load-test-inbox.sh` |
 | Company Detail Page | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 | Company Audit Page | `orvixflow-web/app/admin/companies/[id]/audit/page.tsx` |
 | Modules Page | `orvixflow-web/app/admin/modules/page.tsx` |

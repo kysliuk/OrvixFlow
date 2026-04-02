@@ -115,17 +115,25 @@ export default function TenantDirectoryPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <button 
-                      onClick={() => handleImpersonate(t.id)}
-                      className={`px-3 py-1.5 border rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 ml-auto ${
-                        impersonating === t.id 
-                          ? "bg-danger text-white border-danger shadow-[0_0_10px_rgba(244,63,94,0.3)]" 
-                          : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/20"
-                      }`}
-                    >
-                      <Crosshair className="w-3 h-3" /> 
-                      {impersonating === t.id ? "Impersonating" : "Assume Context"}
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <a 
+                        href={`/admin/companies/${t.id}/inbox`}
+                        className="px-3 py-1.5 border border-white/10 rounded-md text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                      >
+                        View Inbox
+                      </a>
+                      <button 
+                        onClick={() => handleImpersonate(t.id)}
+                        className={`px-3 py-1.5 border rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                          impersonating === t.id 
+                            ? "bg-danger text-white border-danger shadow-[0_0_10px_rgba(244,63,94,0.3)]" 
+                            : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/20"
+                        }`}
+                      >
+                        <Crosshair className="w-3 h-3" /> 
+                        {impersonating === t.id ? "Impersonating" : "Assume Context"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -165,6 +165,9 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | **Entitlement Overrides** | AdminController | EntitlementResolver | CompanyEntitlementOverride |
 | **Module Overrides** | AdminController | EntitlementResolver | CompanyModuleOverride |
 | **InternalOperator Access** | AdminController | - | - |
+| **Company Actions** | AdminController | CompanySubscriptionService | - |
+| **Load Test Script** | `scripts/load-test-inbox.sh` | - | - |
+| **Company Actions** | AdminController | CompanySubscriptionService | - |
 
 ### Limit Check Methods (Agent 1)
 - `IsWithinTokenLimitAsync()` - Check if can consume tokens

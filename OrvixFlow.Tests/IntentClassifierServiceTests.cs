@@ -79,6 +79,7 @@ public class IntentClassifierServiceTests
     [InlineData("{\"category\": \"Support\", \"confidenceScore\": 0.92}", "Support", 0.92)]
     [InlineData("{\"category\": \"Billing\", \"confidenceScore\": 0.85}", "Billing", 0.85)]
     [InlineData("{\"category\": \"Sales\"}", "Sales", 0.0)]
+    [InlineData("  {  \"category\"  :  \"Escalation\"  ,  \"confidenceScore\"  :  0.99  }  ", "Escalation", 0.99)]
     public void ParseJson_ValidJson_ReturnsCorrectValues(string json, string expectedCategory, decimal expectedScore)
     {
         var result = ParseJson(json);
@@ -103,6 +104,139 @@ public class IntentClassifierServiceTests
         
         result.category.Should().Be("Unknown");
         result.confidenceScore.Should().Be(0.0m);
+    }
+
+    [Theory]
+    [InlineData("support@irs.gov")]
+    [InlineData("contact@agency.mil")]
+    public void DetermineIfHumanReviewRequired_GovernmentDomain_ReturnsTrue(string senderDomain)
+    {
+        RequiresHumanReviewForDomain(senderDomain).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("user@gmail.com")]
+    [InlineData("test@company.com")]
+    [InlineData("help@startup.io")]
+    public void DetermineIfHumanReviewRequired_CommercialDomain_ReturnsFalse(string senderDomain)
+    {
+        RequiresHumanReviewForDomain(senderDomain).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(0.69)]
+    [InlineData(0.0)]
+    public void DetermineIfHumanReviewRequired_LowConfidence_ReturnsTrue(double confidence)
+    {
+        RequiresHumanReviewForConfidence((decimal)confidence).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0.7)]
+    [InlineData(0.85)]
+    [InlineData(1.0)]
+    public void DetermineIfHumanReviewRequired_HighConfidence_ReturnsFalse(double confidence)
+    {
+        RequiresHumanReviewForConfidence((decimal)confidence).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("invoice", true)]
+    [InlineData("urgent", true)]
+    [InlineData("asap", true)]
+    [InlineData("complaint", true)]
+    [InlineData("threat", true)]
+    [InlineData("normal email", false)]
+    [InlineData("thank you", false)]
+    public void DetermineIfHumanReviewRequired_UrgencyKeywords_ReturnsExpected(string body, bool expected)
+    {
+        RequiresHumanReviewForUrgency(body).Should().Be(expected);
+    }
+
+    [Fact]
+    public void DetermineIfHumanReviewRequired_NoTriggers_ReturnsFalse()
+    {
+        var body = "Hello, I have a question about my account.";
+        var classification = new Core.Models.EmailClassification
+        {
+            Category = "Support",
+            ConfidenceScore = 0.9m,
+            Reasoning = "Clear support request"
+        };
+
+        RequiresHumanReview(body, "user@gmail.com", classification).Should().BeFalse();
+    }
+
+    [Fact]
+    public void DetermineIfHumanReviewRequired_MultipleTriggers_ReturnsTrue()
+    {
+        var body = "I want a refund for your terrible service. This is legal matter.";
+        var classification = new Core.Models.EmailClassification
+        {
+            Category = "Escalation",
+            ConfidenceScore = 0.5m,
+            Reasoning = "Complaint with legal threat"
+        };
+
+        RequiresHumanReview(body, "user@irs.gov", classification).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void DetermineIfHumanReviewRequired_EmptyBody_ReturnsFalse(string? body)
+    {
+        var classification = new Core.Models.EmailClassification
+        {
+            Category = "Support",
+            ConfidenceScore = 0.9m
+        };
+
+        RequiresHumanReview(body ?? "", "user@gmail.com", classification).Should().BeFalse();
+    }
+
+    private bool RequiresHumanReviewForDomain(string senderDomain)
+    {
+        return senderDomain?.EndsWith(".gov") == true || senderDomain?.EndsWith(".mil") == true;
+    }
+
+    private bool RequiresHumanReviewForConfidence(decimal confidence)
+    {
+        return confidence < 0.7m;
+    }
+
+    private bool RequiresHumanReviewForUrgency(string body)
+    {
+        var lowerBody = body.ToLowerInvariant();
+        var urgencyKeywords = new[] { "invoice", "urgent", "asap", "complaint", "threat" };
+        return urgencyKeywords.Any(k => lowerBody.Contains(k));
+    }
+
+    private bool RequiresHumanReview(string body, string senderEmail, Core.Models.EmailClassification classification)
+    {
+        var lowerBody = body.ToLowerInvariant();
+        var highRiskKeywords = new[] {
+            "lawsuit", "legal", "refund", "court", "attorney",
+            "police", "fbi", "irs", "tax", "compliance",
+            "breach", "hack", "data leak", "gdpr", "ccpa",
+            "invoice", "urgent", "asap", "complaint", "threat"
+        };
+
+        foreach (var keyword in highRiskKeywords)
+        {
+            if (lowerBody.Contains(keyword))
+                return true;
+        }
+
+        var senderDomain = senderEmail.Contains('@') ? senderEmail.Split('@')[1] : null;
+        if (senderDomain?.EndsWith(".gov") == true || senderDomain?.EndsWith(".mil") == true)
+            return true;
+
+        if (classification.ConfidenceScore < 0.7m)
+            return true;
+
+        return false;
     }
 
     private bool ContainsHighRiskKeyword(string body)

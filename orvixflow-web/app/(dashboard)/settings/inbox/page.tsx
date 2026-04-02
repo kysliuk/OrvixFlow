@@ -52,6 +52,9 @@ export default function InboxSettingsPage() {
   const [persona, setPersona] = useState<AgentPersona>({ tone: "Professional", customInstructions: "", customSignOff: "" });
   const [personaSaved, setPersonaSaved] = useState(false);
 
+  // Provisioning errors
+  const [provisioningErrors, setProvisioningErrors] = useState<Map<string, string>>(new Map());
+
   const apiToken = (session as any)?.apiToken;
 
   useEffect(() => {
@@ -253,6 +256,9 @@ export default function InboxSettingsPage() {
                       <span className={`text-xs px-2 py-0.5 rounded ${c.isActive ? "bg-success/10 text-success" : "bg-muted/10 text-muted"}`}>
                         {c.isActive ? "Active" : "Inactive"}
                       </span>
+                      {c.isActive && !c.n8nWorkflowId && (
+                        <span className="block text-xs text-warning mt-1">Pending setup</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 flex gap-2">
                       <button
@@ -270,6 +276,26 @@ export default function InboxSettingsPage() {
               </tbody>
             </table>
           </div>
+
+          {connections.some(c => c.isActive && !c.n8nWorkflowId) && (
+            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-primary">Complete OAuth Setup</h3>
+                <p className="text-sm text-white/70 mt-1">
+                  Your mailbox connection is pending OAuth authentication. Complete the setup in n8n to enable email processing.
+                </p>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_N8N_URL || "http://localhost:5678"}/credentials`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
+                >
+                  Open n8n Credentials →
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -244,6 +244,11 @@ public class OrgHierarchyTests : IDisposable
     public async Task CreateOrganization_AssignsCompanyOwnerRole()
     {
         var userId = Guid.NewGuid();
+        
+        // Seed a User entity (required by CreateOrganization)
+        _db.Users.Add(new User { Id = userId, Email = "test@example.com", PasswordHash = "hashed" });
+        await _db.SaveChangesAsync();
+        
         var ctrl = BuildController(userId, null, "Operator"); 
 
         var dto = new CreateOrganizationDto("Stark Industries");
@@ -260,9 +265,10 @@ public class OrgHierarchyTests : IDisposable
         Assert.NotEqual(Guid.Empty, newCompanyId);
         Assert.Equal("CompanyOwner", role);
 
-        // Verify DB
+        // Verify DB - set tenant filter to the new company so query filter allows access
         _activeTenantId = newCompanyId;
         var membership = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == newCompanyId);
             
         Assert.NotNull(membership);
@@ -273,11 +279,18 @@ public class OrgHierarchyTests : IDisposable
     [Fact]
     public async Task CreateOrganization_ReturnsConflict_WhenNameExists()
     {
+        // Seed a User entity (required by CreateOrganization)
+        var userId = Guid.NewGuid();
+        _db.Users.Add(new User { Id = userId, Email = "test@example.com", PasswordHash = "hashed" });
+        
+        // Set tenant filter before seeding so the tenant is visible to the query
+        var existingTenantId = Guid.NewGuid();
+        _activeTenantId = existingTenantId;
+        
         // Add existing tenant
-        _db.Tenants.Add(new Tenant { Name = "Global Dynamics", Plan = "Free" });
+        _db.Tenants.Add(new Tenant { Id = existingTenantId, Name = "Global Dynamics", Plan = "Free" });
         await _db.SaveChangesAsync();
 
-        var userId = Guid.NewGuid();
         var ctrl = BuildController(userId); 
 
         var dto = new CreateOrganizationDto("global dynamics"); // test case insensitivity

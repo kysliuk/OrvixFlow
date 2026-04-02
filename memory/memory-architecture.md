@@ -179,6 +179,12 @@ CompanyOwner (full access)
 - POST/PUT/DELETE endpoints use `IsSuperAdmin()` (mutations only)
 - Policies registered in `Program.cs`: `SuperAdminOnly` and `PlatformAdmin`
 
+### Company Actions
+- `POST /api/admin/companies/{id}/cancel` — Cancel subscription
+- `POST /api/admin/companies/{id}/change-plan` — Change plan with immediate effect
+- `POST /api/admin/companies/{id}/reactivate` — Reactivate suspended subscription
+- Frontend: Action buttons on company detail page with error handling
+
 ## Webhook Security
 
 HMAC-SHA256 signature validation:

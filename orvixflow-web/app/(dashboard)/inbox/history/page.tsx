@@ -117,7 +117,16 @@ export default function InboxHistoryPage() {
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-muted">Loading...</td></tr>
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-white/5">
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-20 animate-pulse" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-32 animate-pulse" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-48 animate-pulse" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-white/5 rounded w-24 animate-pulse" /></td>
+                  </tr>
+                ))}
+              </>
             )}
             {!loading && error && (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-danger">{error}</td></tr>

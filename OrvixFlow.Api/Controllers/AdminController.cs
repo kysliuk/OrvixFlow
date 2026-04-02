@@ -196,6 +196,62 @@ public class AdminController : ControllerBase
         }
     }
 
+    [HttpPost("companies/{id}/cancel")]
+    public async Task<IActionResult> CancelCompany(Guid id)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        try
+        {
+            await _subscriptionService.CancelSubscriptionAsync(id);
+            return Ok(new { message = "Company subscription cancelled" });
+        }
+        catch (SubscriptionNotFoundException)
+        {
+            return NotFound(new { error = "Subscription not found" });
+        }
+    }
+
+    public class ChangePlanRequest
+    {
+        public Guid NewPlanTemplateId { get; set; }
+        public bool Immediate { get; set; } = true;
+    }
+
+    [HttpPost("companies/{id}/change-plan")]
+    public async Task<IActionResult> ChangeCompanyPlan(Guid id, [FromBody] ChangePlanRequest request)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        try
+        {
+            var subscription = await _subscriptionService.ChangePlanAsync(id, request.NewPlanTemplateId, request.Immediate);
+            return Ok(new
+            {
+                subscription.Id,
+                subscription.Status,
+                subscription.PlanTemplateId,
+                subscription.CurrentPeriodEnd
+            });
+        }
+        catch (SubscriptionNotFoundException)
+        {
+            return NotFound(new { error = "Subscription not found" });
+        }
+        catch (PlanNotFoundException)
+        {
+            return NotFound(new { error = "Plan not found" });
+        }
+        catch (PlanNotActiveException)
+        {
+            return BadRequest(new { error = "Plan is not active" });
+        }
+        catch (SeatLimitExceededException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("companies/{id}/suspend")]
     public async Task<IActionResult> SuspendCompany(Guid id)
     {

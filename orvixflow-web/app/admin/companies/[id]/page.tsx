@@ -104,6 +104,13 @@ export default function CompanyDetailPage() {
   });
   const [newModuleOverride, setNewModuleOverride] = useState({ moduleId: "", isEnabled: true, note: "" });
 
+  // Action state
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showPlanChange, setShowPlanChange] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [availablePlans, setAvailablePlans] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+
   const apiToken = (session as any)?.apiToken;
   const companyId = params.id as string;
 
@@ -220,6 +227,66 @@ export default function CompanyDetailPage() {
       headers: getHeaders()
     });
     loadOverrides();
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!confirm("Are you sure you want to cancel this company's subscription? This will mark it as cancelled.")) return;
+    setActionLoading("cancel");
+    setActionError(null);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/companies/${companyId}/cancel`, {
+      method: "POST",
+      headers: getHeaders()
+    });
+    setActionLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || "Failed to cancel subscription");
+    } else {
+      loadCompany();
+    }
+  };
+
+  const handleReactivate = async () => {
+    setActionLoading("reactivate");
+    setActionError(null);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/companies/${companyId}/reactivate`, {
+      method: "POST",
+      headers: getHeaders()
+    });
+    setActionLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || "Failed to reactivate subscription");
+    } else {
+      loadCompany();
+    }
+  };
+
+  const handleChangePlan = async () => {
+    if (!selectedPlanId) return;
+    setActionLoading("change-plan");
+    setActionError(null);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/companies/${companyId}/change-plan`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ newPlanTemplateId: selectedPlanId, immediate: true })
+    });
+    setActionLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || "Failed to change plan");
+    } else {
+      setShowPlanChange(false);
+      setSelectedPlanId("");
+      loadCompany();
+    }
+  };
+
+  const loadPlans = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/plans`, { headers: getHeaders() });
+      if (res.ok) setAvailablePlans(await res.json());
+    } catch { /* ignore */ }
   };
 
   const getStatusColor = (status: string) => {
@@ -406,6 +473,78 @@ export default function CompanyDetailPage() {
                 </div>
               </div>
             </div>
+
+            <div className="bg-black/40 border border-danger/20 rounded-xl p-5">
+              <h2 className="text-lg font-semibold mb-4">Actions</h2>
+              {actionError && (
+                <div className="mb-3 p-3 bg-danger/10 border border-danger/30 rounded-lg text-sm text-danger">
+                  {actionError}
+                </div>
+              )}
+              <div className="space-y-2">
+                <button
+                  onClick={() => { loadPlans(); setShowPlanChange(true); setActionError(null); }}
+                  className="w-full px-4 py-2 bg-danger/10 text-danger text-sm font-medium rounded-lg hover:bg-danger/20 transition-colors"
+                >
+                  Change Plan
+                </button>
+                <a
+                  href={`/admin/companies/${companyId}/audit`}
+                  className="block w-full px-4 py-2 bg-white/5 text-white/70 text-sm font-medium rounded-lg hover:bg-white/10 transition-colors text-center"
+                >
+                  View Audit Log
+                </a>
+                {company.subscription?.status === "Active" && (
+                  <button
+                    onClick={handleCancelSubscription}
+                    disabled={actionLoading === "cancel"}
+                    className="w-full px-4 py-2 bg-white/5 text-white/70 text-sm font-medium rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    {actionLoading === "cancel" ? "Cancelling..." : "Cancel Subscription"}
+                  </button>
+                )}
+                {company.subscription?.status === "Suspended" && (
+                  <button
+                    onClick={handleReactivate}
+                    disabled={actionLoading === "reactivate"}
+                    className="w-full px-4 py-2 bg-success/10 text-success text-sm font-medium rounded-lg hover:bg-success/20 transition-colors disabled:opacity-50"
+                  >
+                    {actionLoading === "reactivate" ? "Reactivating..." : "Reactivate"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "overview" && showPlanChange && (
+        <div className="bg-black/40 border border-danger/20 rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-4">Change Plan</h2>
+          <div className="flex gap-3">
+            <select
+              value={selectedPlanId}
+              onChange={e => setSelectedPlanId(e.target.value)}
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-danger/50"
+            >
+              <option value="">Select new plan...</option>
+              {availablePlans.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.slug})</option>
+              ))}
+            </select>
+            <button
+              onClick={handleChangePlan}
+              disabled={actionLoading === "change-plan" || !selectedPlanId}
+              className="px-4 py-2 bg-danger/20 text-danger text-sm font-medium rounded-lg hover:bg-danger/30 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === "change-plan" ? "Changing..." : "Apply"}
+            </button>
+            <button
+              onClick={() => { setShowPlanChange(false); setSelectedPlanId(""); }}
+              className="px-4 py-2 bg-white/5 text-white/70 text-sm rounded-lg hover:bg-white/10 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
