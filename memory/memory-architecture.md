@@ -167,6 +167,12 @@ CompanyOwner (full access)
 - Fetched in `InboxProcessingJob` and passed through `InboxGuardianService` → `DraftGeneratorService`
 - Injected into LLM prompt for consistent brand voice
 
+### Trial Expiration Flow
+- `TrialExpirationJob` runs every 6 hours via Hangfire recurring schedule
+- Finds all `Trialing` subscriptions where `TrialEndsAt <= now`
+- Downgrades to Free plan, syncs `Tenant.Plan`, writes `AuditTrail` entry
+- Prevents free-tier abuse by enforcing trial deadlines
+
 ## Webhook Security
 
 HMAC-SHA256 signature validation:

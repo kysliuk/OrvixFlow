@@ -159,6 +159,9 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Limit Check Methods | - | EntitlementResolver | - |
 | Change Plan | BillingController | CompanySubscriptionService | CompanySubscription |
 | Module Gate UI | module-gate.tsx | - | - |
+| **Trial Expiration** | - | TrialExpirationJob (Hangfire) | CompanySubscription |
+| **Module Definitions CRUD** | AdminController | - | ModuleDefinition |
+| **Company Audit Log** | AdminController | - | AuditTrail |
 | **Entitlement Overrides** | AdminController | EntitlementResolver | CompanyEntitlementOverride |
 | **Module Overrides** | AdminController | EntitlementResolver | CompanyModuleOverride |
 

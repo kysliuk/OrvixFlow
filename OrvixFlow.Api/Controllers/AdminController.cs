@@ -459,6 +459,229 @@ public class AdminController : ControllerBase
 
         return Ok(new { message = "Module override removed, reverting to plan default" });
     }
+
+    // --- Module Definition CRUD ---
+
+    public class ModuleDefinitionRequest
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Key { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.Required]
+        public string DisplayName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = "Utility";
+        public string Tier { get; set; } = "Utility";
+        public string Visibility { get; set; } = "UserFacing";
+        public bool IsOperational { get; set; }
+        public bool IsPremium { get; set; }
+        public string? IconKey { get; set; }
+        public string? UpgradePromptText { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class ModuleDefinitionResponse
+    {
+        public Guid Id { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Tier { get; set; } = string.Empty;
+        public string Visibility { get; set; } = string.Empty;
+        public bool IsOperational { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsPremium { get; set; }
+        public string? IconKey { get; set; }
+        public string? UpgradePromptText { get; set; }
+        public int SortOrder { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    [HttpGet("modules")]
+    public async Task<IActionResult> ListModules()
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var modules = await _db.ModuleDefinitions
+            .IgnoreQueryFilters()
+            .OrderBy(m => m.SortOrder)
+            .ThenBy(m => m.DisplayName)
+            .Select(m => new ModuleDefinitionResponse
+            {
+                Id = m.Id,
+                Key = m.Key,
+                DisplayName = m.DisplayName,
+                Description = m.Description,
+                Category = m.Category,
+                Tier = m.Tier,
+                Visibility = m.Visibility,
+                IsOperational = m.IsOperational,
+                IsActive = m.IsActive,
+                IsPremium = m.IsPremium,
+                IconKey = m.IconKey,
+                UpgradePromptText = m.UpgradePromptText,
+                SortOrder = m.SortOrder,
+                CreatedAt = m.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(modules);
+    }
+
+    [HttpPost("modules")]
+    public async Task<IActionResult> CreateModule([FromBody] ModuleDefinitionRequest request)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var existing = await _db.ModuleDefinitions
+            .IgnoreQueryFilters()
+            .AnyAsync(m => m.Key == request.Key);
+
+        if (existing)
+        {
+            return Conflict(new { error = $"Module with key '{request.Key}' already exists" });
+        }
+
+        var module = new ModuleDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = request.Key,
+            DisplayName = request.DisplayName,
+            Description = request.Description ?? string.Empty,
+            Category = request.Category ?? "Utility",
+            Tier = request.Tier ?? "Utility",
+            Visibility = request.Visibility ?? "UserFacing",
+            IsOperational = request.IsOperational,
+            IsActive = true,
+            IsPremium = request.IsPremium,
+            IconKey = request.IconKey,
+            UpgradePromptText = request.UpgradePromptText,
+            SortOrder = request.SortOrder,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.ModuleDefinitions.Add(module);
+        await _db.SaveChangesAsync();
+
+        return Ok(new ModuleDefinitionResponse
+        {
+            Id = module.Id,
+            Key = module.Key,
+            DisplayName = module.DisplayName,
+            Description = module.Description,
+            Category = module.Category,
+            Tier = module.Tier,
+            Visibility = module.Visibility,
+            IsOperational = module.IsOperational,
+            IsActive = module.IsActive,
+            IsPremium = module.IsPremium,
+            IconKey = module.IconKey,
+            UpgradePromptText = module.UpgradePromptText,
+            SortOrder = module.SortOrder,
+            CreatedAt = module.CreatedAt
+        });
+    }
+
+    [HttpPut("modules/{moduleId:guid}")]
+    public async Task<IActionResult> UpdateModule(Guid moduleId, [FromBody] ModuleDefinitionRequest request)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var module = await _db.ModuleDefinitions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == moduleId);
+
+        if (module == null)
+        {
+            return NotFound(new { error = "Module not found" });
+        }
+
+        module.Key = request.Key;
+        module.DisplayName = request.DisplayName;
+        module.Description = request.Description ?? string.Empty;
+        module.Category = request.Category ?? "Utility";
+        module.Tier = request.Tier ?? "Utility";
+        module.Visibility = request.Visibility ?? "UserFacing";
+        module.IsOperational = request.IsOperational;
+        module.IsPremium = request.IsPremium;
+        module.IconKey = request.IconKey;
+        module.UpgradePromptText = request.UpgradePromptText;
+        module.SortOrder = request.SortOrder;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new ModuleDefinitionResponse
+        {
+            Id = module.Id,
+            Key = module.Key,
+            DisplayName = module.DisplayName,
+            Description = module.Description,
+            Category = module.Category,
+            Tier = module.Tier,
+            Visibility = module.Visibility,
+            IsOperational = module.IsOperational,
+            IsActive = module.IsActive,
+            IsPremium = module.IsPremium,
+            IconKey = module.IconKey,
+            UpgradePromptText = module.UpgradePromptText,
+            SortOrder = module.SortOrder,
+            CreatedAt = module.CreatedAt
+        });
+    }
+
+    [HttpPost("modules/{moduleId:guid}/toggle")]
+    public async Task<IActionResult> ToggleModule(Guid moduleId, [FromBody] ToggleModuleRequest request)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var module = await _db.ModuleDefinitions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == moduleId);
+
+        if (module == null)
+        {
+            return NotFound(new { error = "Module not found" });
+        }
+
+        module.IsActive = request.IsActive;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { module.Id, module.Key, module.IsActive });
+    }
+
+    public class ToggleModuleRequest
+    {
+        public bool IsActive { get; set; }
+    }
+
+    // --- Company Audit Log ---
+
+    [HttpGet("companies/{id}/audit")]
+    public async Task<IActionResult> GetCompanyAudit(Guid id, [FromQuery] int limit = 50, [FromQuery] int offset = 0)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var auditEntries = await _db.AuditTrails
+            .IgnoreQueryFilters()
+            .Where(a => a.TenantId == id)
+            .OrderByDescending(a => a.Timestamp)
+            .Skip(offset)
+            .Take(limit)
+            .Select(a => new
+            {
+                a.Id,
+                a.Action,
+                a.Actor,
+                a.EntityId,
+                a.PreviousState,
+                a.NewState,
+                a.DecisionDetails,
+                a.Timestamp
+            })
+            .ToListAsync();
+
+        return Ok(auditEntries);
+    }
 }
 
 public record AssignPlanRequest(Guid PlanTemplateId, string? BillingInterval);

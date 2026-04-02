@@ -51,6 +51,7 @@
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
 | CompanyEntitlementOverrideTests | `OrvixFlow.Tests/CompanyEntitlementOverrideTests.cs` |
 | CompanyModuleOverrideTests | `OrvixFlow.Tests/CompanyModuleOverrideTests.cs` |
+| TrialExpirationTests | `OrvixFlow.Tests/TrialExpirationTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 | Load Test Script | `OrvixFlow.Api/load-test.sh` |
@@ -133,6 +134,7 @@
 | ImageFileParser | `OrvixFlow.Infrastructure/Ai/Parsers/ImageFileParser.cs` |
 | OverlapChunker | `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs` |
 | FileIngestionJob | `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` |
+| TrialExpirationJob | `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
 | LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` |
