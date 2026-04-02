@@ -34,12 +34,13 @@ public class AdminController : ControllerBase
         UserRoleExtensions.ParseRole(HttpContext.User.FindFirst("Role")?.Value);
 
     private bool IsSuperAdmin() => CurrentUserRole() == UserRole.SuperAdmin;
+    private bool IsGlobalAdmin() => CurrentUserRole().IsPlatformAdmin();
     private bool IsAdmin() => CurrentUserRole().IsCompanyAdminOrAbove();
 
     [HttpGet("metrics")]
     public async Task<IActionResult> GetGlobalMetrics()
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var totalTenants = await _db.Tenants.IgnoreQueryFilters().CountAsync();
         var totalUsers = await _db.Users.IgnoreQueryFilters().CountAsync();
@@ -66,7 +67,7 @@ public class AdminController : ControllerBase
     [HttpGet("tenants")]
     public async Task<IActionResult> ListTenants()
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var tenants = await _db.Tenants
             .IgnoreQueryFilters()
@@ -88,7 +89,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies")]
     public async Task<IActionResult> ListCompanies()
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var companies = await _db.Tenants
             .IgnoreQueryFilters()
@@ -113,7 +114,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies/{id}")]
     public async Task<IActionResult> GetCompany(Guid id)
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var company = await _db.Tenants
             .IgnoreQueryFilters()
@@ -230,7 +231,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies/{id}/usage")]
     public async Task<IActionResult> GetCompanyUsage(Guid id)
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var entitlements = await _entitlementResolver.GetEffectiveEntitlementsAsync(id);
 
@@ -269,7 +270,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies/{id}/entitlements")]
     public async Task<IActionResult> GetEntitlementOverride(Guid id)
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var overrideEntity = await _entitlementResolver.GetEntitlementOverrideAsync(id);
         if (overrideEntity == null)
@@ -374,7 +375,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies/{id}/modules")]
     public async Task<IActionResult> GetModuleOverrides(Guid id)
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var overrides = await _db.CompanyModuleOverrides
             .IgnoreQueryFilters()
@@ -500,7 +501,7 @@ public class AdminController : ControllerBase
     [HttpGet("modules")]
     public async Task<IActionResult> ListModules()
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var modules = await _db.ModuleDefinitions
             .IgnoreQueryFilters()
@@ -659,7 +660,7 @@ public class AdminController : ControllerBase
     [HttpGet("companies/{id}/audit")]
     public async Task<IActionResult> GetCompanyAudit(Guid id, [FromQuery] int limit = 50, [FromQuery] int offset = 0)
     {
-        if (!IsSuperAdmin()) return Forbid();
+        if (!IsGlobalAdmin()) return Forbid();
 
         var auditEntries = await _db.AuditTrails
             .IgnoreQueryFilters()
