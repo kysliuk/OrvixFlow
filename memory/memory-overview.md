@@ -61,10 +61,18 @@ Environment variables (or appsettings.json):
 - `Automation:N8nBaseUrl` - n8n instance URL
 - `ConnectionStrings:DefaultConnection` - PostgreSQL connection
 
-## RAG Assistant Extension (Status: Phase 3 Completed)
-Implemented multi-modal ingestion and hybrid retrieval:
-- PDF (PdfPig), DOCX (OpenXML), Image (ImageSharp) support
-- Hybrid Search (pgvector + FTS) with Reciprocal Rank Fusion (RRF)
-- Image-aware RAG: Extracting, indexing, and retrieving relevant images
-- Semantic Kernel Integration with resilient InMemory fallbacks
+- `AI:Ingestion:ChunkSize` - Default: 800
+- `AI:Ingestion:ChunkOverlap` - Default: 150
+
+## RAG Assistant Extension (Status: Phase 5 Completed — Production Ready)
+Fully instrumented, secured, and tested multi-modal ingestion and hybrid retrieval pipeline:
+- PDF (PdfPig), DOCX (OpenXML), Image (ImageSharp) parsing with background ingestion via Hangfire
+- Hybrid Search (pgvector + FTS) with Reciprocal Rank Fusion (RRF) and LLM reranking
+- Image-aware RAG: extracting, indexing, and retrieving relevant images with citation tags
+- Semantic Kernel integration with resilient InMemory fallbacks
 - Multi-tenant file storage for documents and images
+- **Phase 5 Hardening:**
+  - Native .NET 8+ rate limiting on `/api/v1/knowledge/upload` (10 req/min)
+  - MIME type & file size (10MB) validation + pluggable `IVirusScanService` hook
+  - `IRagMetricsCollector` persisting retrieval analytics to `AuditTrail`
+  - Dedicated `/health/rag` endpoint for pgvector + embedding service monitoring

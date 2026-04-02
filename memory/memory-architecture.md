@@ -94,6 +94,13 @@ CompanyOwner (full access)
 - **Contract**: `N8nEmailPayload` (A rigid JSON structure for reliable n8n workflow triggers).
 - **Citations**: AI-generated drafts are scanned for `[image:GUID]` tags to selectively attach relevant knowledge base images.
 
+**RAG Security & Observability (Phase 5):**
+- **Rate Limiting**: Native .NET 8+ `FixedWindowLimiter` on upload endpoint (10 req/min, 429 on breach).
+- **Validation**: MIME type whitelist + 10MB size cap enforced pre-ingestion.
+- **Virus Scan Hook**: `IVirusScanService` / `NoopVirusScanService` — swap for ClamAV without pipeline changes.
+- **Metrics**: `IRagMetricsCollector` records retrieval latency, chunk counts, image refs, and token usage as structured JSON in `AuditTrail`.
+- **Health Check**: `RagHealthCheck` verifies pgvector connectivity and embedding service availability via `/health/rag`.
+
 **Agent Flow:**
 1. User prompt → AgentController
 2. AgentService.ProcessInternalAsync (or InboxGuardianService)
@@ -139,10 +146,6 @@ CompanyOwner (full access)
 - `AgentPersona` entity stores per-tenant tone, custom instructions, and sign-off
 - Fetched in `InboxProcessingJob` and passed through `InboxGuardianService` → `DraftGeneratorService`
 - Injected into LLM prompt for consistent brand voice
-
-### Webhook Callback Retry
-- On callback failure: scheduled retry with exponential backoff (30s, 60s, 120s)
-- Max 3 retries, logged with correlation TraceId
 
 ## Webhook Security
 
