@@ -143,6 +143,39 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 **Critical:** Fallback MUST filter by `TenantId` manually to maintain isolation in tests.
 
+---
+
+## High: RAG Ingestion (DoS)
+
+**Location:** `OrvixFlow.Api/Controllers/FileIngestionController.cs`
+
+**Risk:** Large file uploads or high frequency can exhaust resources or incur costs.
+
+**Mitigation:** 
+- Native .NET rate limiting on `/api/v1/knowledge/upload` (fixed window).
+- Max file size (10MB) and allowed MIME types enforced.
+- Virus scanning hook (`IVirusScanService`) integrated.
+
+**When changing:**
+- Test with oversized files.
+- Verify rate limiter triggers after 10 requests/min.
+
+---
+
+## High: AI Service Connectivity
+
+**Location:** `OrvixFlow.Api/Health/RagHealthCheck.cs`
+
+**Risk:** RAG features fail silently if AI providers or pgvector are down.
+
+**Mitigation:**
+- Dedicated `/health/rag` endpoint checks DB vector ops and Embedding API.
+
+**When changing:**
+- Run `RagHealthCheck` manually.
+
+---
+
 ## Architecture Boundaries
 
 ### DO NOT CROSS

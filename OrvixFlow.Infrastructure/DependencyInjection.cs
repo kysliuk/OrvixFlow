@@ -12,6 +12,7 @@ using OrvixFlow.Infrastructure.Ai.Parsers;
 using OrvixFlow.Infrastructure.Ai.Chunking;
 using OrvixFlow.Infrastructure.Ai.Jobs;
 using OrvixFlow.Infrastructure.Storage;
+using OrvixFlow.Infrastructure.Services.Security;
 
 namespace OrvixFlow.Infrastructure;
 
@@ -128,6 +129,9 @@ public static class DependencyInjection
         // Shadow modules
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
         services.AddScoped<IUsageService, OrvixFlow.Infrastructure.Shadow.UsageService>();
+        
+        services.AddScoped<IVirusScanService, NoopVirusScanService>();
+        services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
 
         return services;
     }

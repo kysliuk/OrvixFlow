@@ -11,6 +11,8 @@ using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -25,6 +27,8 @@ public class IngestionPipelineService : IIngestionPipelineService
     private readonly IUsageService _usageService;
     private readonly IConfiguration _configuration;
     private readonly Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService _chatService;
+    private readonly IRagMetricsCollector _metrics;
+    private readonly ILogger<IngestionPipelineService> _logger;
 
 
     public IngestionPipelineService(
@@ -36,7 +40,9 @@ public class IngestionPipelineService : IIngestionPipelineService
         ITenantProvider tenantProvider,
         IUsageService usageService,
         IConfiguration configuration,
-        Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService chatService)
+        Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService chatService,
+        IRagMetricsCollector metrics,
+        ILogger<IngestionPipelineService> logger)
     {
         _dbContext = dbContext;
         _parsers = parsers;
@@ -47,6 +53,8 @@ public class IngestionPipelineService : IIngestionPipelineService
         _usageService = usageService;
         _configuration = configuration;
         _chatService = chatService;
+        _metrics = metrics;
+        _logger = logger;
     }
 
     public async Task<IngestionResult> IngestFileAsync(
@@ -56,7 +64,10 @@ public class IngestionPipelineService : IIngestionPipelineService
         Guid? userId = null,
         Guid? departmentId = null)
     {
+        var sw = Stopwatch.StartNew();
         var tenantId = _tenantProvider.GetTenantId();
+        _logger.LogInformation("Starting ingestion for file: {FileName} (Tenant: {TenantId})", fileName, tenantId);
+
         var document = new KnowledgeBaseDocument
         {
             TenantId = tenantId,
@@ -107,8 +118,7 @@ public class IngestionPipelineService : IIngestionPipelineService
                         ChunkIndex = chunkIndex++,
                         ChunkType = "text",
                         Title = parsedDoc.Title,
-                        EmbeddingVector = new Pgvector.Vector(embedding.ToArray()),
-                        StoragePath = document.StoragePath ?? string.Empty
+                        EmbeddingVector = new Pgvector.Vector(embedding.ToArray())
                     };
                     document.Chunks.Add(kbChunk);
                 }
@@ -155,11 +165,21 @@ public class IngestionPipelineService : IIngestionPipelineService
             await _usageService.RecordKnowledgeBaseAsync(tenantId, "knowledge-base", 1, userId, departmentId);
             await _usageService.RecordStorageAsync(tenantId, "knowledge-base", totalStorageMb, userId, departmentId);
 
+            sw.Stop();
+            await _metrics.RecordIngestionMetricsAsync(
+                tenantId, 
+                document.Id, 
+                document.Chunks.Count, 
+                parsedDoc.ImageChunks.Count, 
+                sw.ElapsedMilliseconds);
+
+            _logger.LogInformation("Ingestion completed for {DocumentId} in {Duration}ms", document.Id, sw.ElapsedMilliseconds);
+
             return new IngestionResult(document.Id, document.Chunks.Count, parsedDoc.ImageChunks.Count);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] Ingestion failed: {ex.Message}");
+            _logger.LogError(ex, "Ingestion failed for {FileName}", fileName);
             // If the context is dirty from a failed SaveChangesAsync (common with InMemory duplication errors),
             // trying to save again in the same context often fails with "item already added".
             _dbContext.Entry(document).State = EntityState.Modified;

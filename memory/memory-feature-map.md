@@ -81,6 +81,8 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 |---------|-----------|---------|--------|
 | RAG Orchestration | RagEmailController | RagEmailService | - |
 | Email Ingestion (Vision) | - | IngestionPipelineService | KnowledgeBaseImage |
+| RAG Health Monitoring | - | RagHealthCheck | - |
+| RAG Metrics | - | RagMetricsCollector | AuditTrail |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/AgentController.cs`
@@ -91,6 +93,9 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 - `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs`
 - `OrvixFlow.Infrastructure/Ai/Plugins/KnowledgeBaseSearchPlugin.cs`
 - `OrvixFlow.Infrastructure/Ai/Plugins/N8nAutomationPlugin.cs`
+- `OrvixFlow.Api/Health/RagHealthCheck.cs`
+- `OrvixFlow.Infrastructure/Ai/RagMetricsCollector.cs`
+- `OrvixFlow.Core/Interfaces/IRagMetricsCollector.cs`
 
 ## Knowledge Base
 
@@ -102,6 +107,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Reranking | - | IReranker (LlmScorerReranker) | KnowledgeSnippet |
 | File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
 | File Parsing | - | IDocumentParser implementations | - |
+| Virus Scanning | - | IVirusScanService | - |
 | Background Jobs| - | FileIngestionJob | - |
 
 **Files:**

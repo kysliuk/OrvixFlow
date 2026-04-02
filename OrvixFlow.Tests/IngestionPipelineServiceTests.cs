@@ -10,6 +10,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Moq;
+using Microsoft.Extensions.Logging;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
@@ -26,6 +27,8 @@ public class IngestionPipelineServiceTests
     private readonly Mock<IFileStorage> _storageMock;
     private readonly Mock<IChunker> _chunkerMock;
     private readonly Mock<IChatCompletionService> _chatCompletionMock;
+    private readonly Mock<IRagMetricsCollector> _metricsMock;
+    private readonly Mock<ILogger<IngestionPipelineService>> _loggerMock;
     private readonly IConfiguration _configuration;
 
 
@@ -37,6 +40,8 @@ public class IngestionPipelineServiceTests
         _storageMock = new Mock<IFileStorage>();
         _chunkerMock = new Mock<IChunker>();
         _chatCompletionMock = new Mock<IChatCompletionService>();
+        _metricsMock = new Mock<IRagMetricsCollector>();
+        _loggerMock = new Mock<ILogger<IngestionPipelineService>>();
 
         
         var inMemoryConfig = new Dictionary<string, string> {
@@ -53,6 +58,9 @@ public class IngestionPipelineServiceTests
 
         _chatCompletionMock.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), It.IsAny<Kernel>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { new ChatMessageContent(AuthorRole.Assistant, "Mock Caption") });
+
+        _storageMock.Setup(x => x.SaveFileAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>()))
+            .ReturnsAsync("mock/path");
     }
 
     [Fact]
@@ -86,7 +94,9 @@ public class IngestionPipelineServiceTests
                 _tenantProviderMock.Object,
                 _usageServiceMock.Object,
                 _configuration,
-                _chatCompletionMock.Object
+                _chatCompletionMock.Object,
+                _metricsMock.Object,
+                _loggerMock.Object
             );
             result = await service.IngestFileAsync(stream, "test.txt", "text/plain");
         }

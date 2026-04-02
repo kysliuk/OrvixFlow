@@ -49,6 +49,9 @@
 | MailboxConnectionTests | `OrvixFlow.Tests/MailboxConnectionTests.cs` |
 | AgentPersonaTests | `OrvixFlow.Tests/AgentPersonaTests.cs` |
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
+| RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
+| RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
+| Load Test Script | `OrvixFlow.Api/load-test.sh` |
 
 ## Core Interfaces
 
@@ -74,6 +77,8 @@
 | ICompanySubscriptionService | `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` |
 | CompanyEntitlements | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 | LimitCheckResult | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
+| IVirusScanService | `OrvixFlow.Core/Interfaces/IVirusScanService.cs` |
+| IRagMetricsCollector| `OrvixFlow.Core/Interfaces/IRagMetricsCollector.cs` |
 
 ## Controllers
 
@@ -100,6 +105,7 @@
 | PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
 | FileIngestionController | `OrvixFlow.Api/Controllers/FileIngestionController.cs` |
 | RagEmailController | `OrvixFlow.Api/Controllers/RagEmailController.cs` |
+| RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 
 ## Infrastructure Services
 
@@ -136,6 +142,8 @@
 | CompanySubscriptionService | `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` |
 | AuditService (Shadow) | `OrvixFlow.Infrastructure/Shadow/AuditService.cs` |
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
+| NoopVirusScanService | `OrvixFlow.Infrastructure/Services/Security/NoopVirusScanService.cs` |
+| RagMetricsCollector | `OrvixFlow.Infrastructure/Ai/RagMetricsCollector.cs` |
 
 ## API Middleware & Filters
 

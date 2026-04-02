@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using OrvixFlow.Api.Services;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +68,23 @@ builder.Services.AddOpenApiDocument(config =>
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddCheck<OrvixFlow.Api.Health.RagHealthCheck>("rag");
+
+// Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter(policyName: "upload", options =>
+    {
+        options.PermitLimit = 10;
+        options.Window = TimeSpan.FromMinutes(1);
+        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        options.QueueLimit = 2;
+    });
+});
 builder.Services.AddScoped<ITenantProvider, TenantProvider>(); 
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -95,8 +114,10 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseMiddleware<OrvixFlow.Api.Middleware.HmacSignatureMiddleware>();
 app.MapControllers();
+app.MapHealthChecks("/health/rag");
 app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
 {
     Authorization = new[] { new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter() }

@@ -17,6 +17,7 @@ public class RagEmailServiceTests
     private readonly Mock<IIntentClassifierService> _classifierMock;
     private readonly Mock<IHybridVectorSearchService> _vectorSearchMock;
     private readonly Mock<IDraftGeneratorService> _draftGeneratorMock;
+    private readonly Mock<IRagMetricsCollector> _metricsMock;
     private readonly Mock<ILogger<RagEmailService>> _loggerMock;
     private readonly RagEmailService _service;
 
@@ -25,12 +26,14 @@ public class RagEmailServiceTests
         _classifierMock = new Mock<IIntentClassifierService>();
         _vectorSearchMock = new Mock<IHybridVectorSearchService>();
         _draftGeneratorMock = new Mock<IDraftGeneratorService>();
+        _metricsMock = new Mock<IRagMetricsCollector>();
         _loggerMock = new Mock<ILogger<RagEmailService>>();
 
         _service = new RagEmailService(
             _classifierMock.Object,
             _vectorSearchMock.Object,
             _draftGeneratorMock.Object,
+            _metricsMock.Object,
             _loggerMock.Object);
     }
 

@@ -15,17 +15,20 @@ public class RagEmailService : IRagEmailService
     private readonly IIntentClassifierService _classifier;
     private readonly IHybridVectorSearchService _vectorSearch;
     private readonly IDraftGeneratorService _draftGenerator;
+    private readonly IRagMetricsCollector _metrics;
     private readonly ILogger<RagEmailService> _logger;
 
     public RagEmailService(
         IIntentClassifierService classifier,
         IHybridVectorSearchService vectorSearch,
         IDraftGeneratorService draftGenerator,
+        IRagMetricsCollector metrics,
         ILogger<RagEmailService> logger)
     {
         _classifier = classifier;
         _vectorSearch = vectorSearch;
         _draftGenerator = draftGenerator;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -59,7 +62,7 @@ public class RagEmailService : IRagEmailService
             if (classification.RequiresHumanReview) action = "human_review_required";
             if (draftResult.IsInsufficientContext) action = "insufficient_context";
 
-            return new N8nEmailPayload
+            var result = new N8nEmailPayload
             {
                 TenantId = tenantId,
                 MessageId = messageId,
@@ -97,6 +100,16 @@ public class RagEmailService : IRagEmailService
                     Model = "gpt-4o"
                 }
             };
+
+            await _metrics.RecordRetrievalMetricsAsync(
+                tenantId, 
+                currentTraceId, 
+                context.Count, 
+                draftResult.RelevantImages.Count, 
+                sw.ElapsedMilliseconds, 
+                "gpt-4o");
+
+            return result;
         }
         catch (Exception ex)
         {
