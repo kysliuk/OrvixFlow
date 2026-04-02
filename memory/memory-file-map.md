@@ -43,6 +43,7 @@
 | OverlapChunkerTests | `OrvixFlow.Tests/OverlapChunkerTests.cs` |
 | IngestionPipelineServiceTests | `OrvixFlow.Tests/IngestionPipelineServiceTests.cs` |
 | RagImageSupportTests | `OrvixFlow.Tests/RagImageSupportTests.cs` |
+| RagEmailServiceTests | `OrvixFlow.Tests/RagEmailServiceTests.cs` |
 | PlainTextParserTests | `OrvixFlow.Tests/PlainTextParserTests.cs` |
 | DraftFeedbackServiceTests | `OrvixFlow.Tests/DraftFeedbackServiceTests.cs` |
 | MailboxConnectionTests | `OrvixFlow.Tests/MailboxConnectionTests.cs` |
@@ -98,6 +99,7 @@
 | OrganizationController | `OrvixFlow.Api/Controllers/OrganizationController.cs` |
 | PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
 | FileIngestionController | `OrvixFlow.Api/Controllers/FileIngestionController.cs` |
+| RagEmailController | `OrvixFlow.Api/Controllers/RagEmailController.cs` |
 
 ## Infrastructure Services
 
@@ -111,6 +113,7 @@
 | InboxGuardianService | `OrvixFlow.Infrastructure/Ai/InboxGuardianService.cs` |
 | IntentClassifierService | `OrvixFlow.Infrastructure/Ai/IntentClassifierService.cs` |
 | DraftGeneratorService | `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs` |
+| RagEmailService | `OrvixFlow.Infrastructure/Ai/RagEmailService.cs` |
 | N8nProvisioningService | `OrvixFlow.Infrastructure/Ai/N8nProvisioningService.cs` |
 | HybridVectorSearchService | `OrvixFlow.Infrastructure/Ai/HybridVectorSearchService.cs` |
 | IngestionPipelineService | `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs` |

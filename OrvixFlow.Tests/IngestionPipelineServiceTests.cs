@@ -50,6 +50,9 @@ public class IngestionPipelineServiceTests
         _tenantProviderMock.Setup(x => x.GetTenantId()).Returns(Guid.NewGuid());
         _embeddingMock.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ReadOnlyMemory<float>> { new float[1536] });
+
+        _chatCompletionMock.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), It.IsAny<Kernel>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ChatMessageContent> { new ChatMessageContent(AuthorRole.Assistant, "Mock Caption") });
     }
 
     [Fact]
@@ -89,6 +92,7 @@ public class IngestionPipelineServiceTests
         }
 
         // Assert
+        Assert.Null(result.ErrorMessage);
         Assert.NotEqual(Guid.Empty, result.DocumentId);
         Assert.Equal(1, result.ChunkCount);
         

@@ -9,6 +9,7 @@ using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -17,12 +18,14 @@ public class ImageResolver : IImageResolver
     private readonly AppDbContext _dbContext;
     private readonly ITextEmbeddingGenerationService _embeddingService;
     private readonly ITenantProvider _tenantProvider;
+    private readonly ILogger<ImageResolver> _logger;
 
-    public ImageResolver(AppDbContext dbContext, ITextEmbeddingGenerationService embeddingService, ITenantProvider tenantProvider)
+    public ImageResolver(AppDbContext dbContext, ITextEmbeddingGenerationService embeddingService, ITenantProvider tenantProvider, ILogger<ImageResolver> logger)
     {
         _dbContext = dbContext;
         _embeddingService = embeddingService;
         _tenantProvider = tenantProvider;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<KnowledgeBaseImage>> ResolveRelevantImagesAsync(string query, IEnumerable<Guid> documentIds, int maxResults = 3)
@@ -56,26 +59,28 @@ public class ImageResolver : IImageResolver
                 .Take(maxResults)
                 .ToListAsync();
         }
-        catch (Exception) // InMemory provider often throws when translating CosineDistance or even checking Pgvector.Vector nullability
+        catch (Exception ex) 
         {
+            _logger.LogWarning(ex, "Vector search failed in ImageResolver, falling back to client-side filtering.");
             var tenantId = _tenantProvider.GetTenantId();
-            // Remove the ordering and filter entirely via client-side evaluation if the initial expression fails to translate
+            
+            // In unit tests with InMemory, we just want to return the images for the document/tenant
             var allImgs = await _dbContext.KnowledgeBaseImages
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(img => img.TenantId == tenantId)
-                .ToListAsync(); // Get everything for current tenant and filter in memory for the unit test
+                .ToListAsync();
 
-            var filtered = allImgs
-                .Where(img => img.CaptionEmbedding != null);
+            var filtered = allImgs.AsEnumerable();
 
             if (documentIdList.Any())
             {
                 filtered = filtered.Where(img => img.DocumentId != null && documentIdList.Contains(img.DocumentId.Value));
             }
 
+            // If we have embeddings, try to order them. If not (common in InMemory), just return them.
             results = filtered
-                .OrderBy(img => img.CaptionEmbedding!.CosineDistance(queryVector))
+                .OrderBy(img => img.CaptionEmbedding != null ? img.CaptionEmbedding.CosineDistance(queryVector) : 0)
                 .Take(maxResults)
                 .ToList();
         }

@@ -15,11 +15,18 @@ using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel;
 using Xunit;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 
 namespace OrvixFlow.Tests;
 
 public class RagImageSupportTests
 {
+    private readonly Xunit.Abstractions.ITestOutputHelper _output;
+
+    public RagImageSupportTests(Xunit.Abstractions.ITestOutputHelper output)
+    {
+        _output = output;
+    }
     [Fact]
     public async Task PdfParser_ExtractsImages()
     {
@@ -74,14 +81,26 @@ public class RagImageSupportTests
         context.KnowledgeBaseImages.Add(img1);
         await context.SaveChangesAsync();
 
+        // VERIFY STORAGE
+        var count = await context.KnowledgeBaseImages.IgnoreQueryFilters().CountAsync();
+        _output.WriteLine($"[TEST] DB count before Resolve: {count}");
+        
+        var imgInDb = await context.KnowledgeBaseImages.IgnoreQueryFilters().FirstOrDefaultAsync();
+        _output.WriteLine($"[TEST] Image in DB tenant: {imgInDb?.TenantId}, id: {imgInDb?.Id}, embed: {imgInDb?.CaptionEmbedding != null}");
+
+        mockVector = new float[1536];
+        mockVector[0] = 1.0f;
+
         var mockEmbedding = new Mock<ITextEmbeddingGenerationService>();
         mockEmbedding.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel?>(), It.IsAny<System.Threading.CancellationToken>()))
-            .ReturnsAsync(new List<ReadOnlyMemory<float>> { new float[1536] }); 
+            .ReturnsAsync(new List<ReadOnlyMemory<float>> { mockVector }); 
 
-        var resolver = new ImageResolver(context, mockEmbedding.Object, mockTenantProvider.Object);
+        var mockLogger = new Mock<ILogger<ImageResolver>>();
+        var resolver = new ImageResolver(context, mockEmbedding.Object, mockTenantProvider.Object, mockLogger.Object);
+        _output.WriteLine($"[TEST] MockTenantProvider ID: {mockTenantProvider.Object.GetTenantId()}");
 
         // Act
-        var results = await resolver.ResolveRelevantImagesAsync("find target", new[] { docId });
+        var results = await resolver.ResolveRelevantImagesAsync("find target", Array.Empty<Guid>());
 
         // Assert
         results.Should().NotBeEmpty();

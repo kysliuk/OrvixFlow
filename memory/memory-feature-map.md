@@ -79,13 +79,14 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
-| Chat | AgentController | AgentService | - |
-| Intent Classification | AgentController | IntentClassifierService | - |
-| Draft Generation | AgentController | DraftGeneratorService | - |
+| RAG Orchestration | RagEmailController | RagEmailService | - |
+| Email Ingestion (Vision) | - | IngestionPipelineService | KnowledgeBaseImage |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/AgentController.cs`
+- `OrvixFlow.Api/Controllers/RagEmailController.cs`
 - `OrvixFlow.Infrastructure/Ai/AgentService.cs`
+- `OrvixFlow.Infrastructure/Ai/RagEmailService.cs`
 - `OrvixFlow.Infrastructure/Ai/IntentClassifierService.cs`
 - `OrvixFlow.Infrastructure/Ai/DraftGeneratorService.cs`
 - `OrvixFlow.Infrastructure/Ai/Plugins/KnowledgeBaseSearchPlugin.cs`

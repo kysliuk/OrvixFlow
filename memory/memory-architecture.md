@@ -88,6 +88,12 @@ CompanyOwner (full access)
 - **Reranker**: `LlmScorerReranker` (Semantic Kernel scoring).
 - **Image Resolution**: `ImageResolver` (Retrieves top relevant images based on snippet context).
 
+**RAG Orchestration Flow (Phase 4):**
+- **Service**: `RagEmailService` (The main entry point for automated RAG responses).
+- **Logic**: Intent Classify → Hybrid Search → Rerank → Draft Gen → Image Citation Extraction → N8n Payload Assembly.
+- **Contract**: `N8nEmailPayload` (A rigid JSON structure for reliable n8n workflow triggers).
+- **Citations**: AI-generated drafts are scanned for `[image:GUID]` tags to selectively attach relevant knowledge base images.
+
 **Agent Flow:**
 1. User prompt → AgentController
 2. AgentService.ProcessInternalAsync (or InboxGuardianService)

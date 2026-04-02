@@ -49,7 +49,7 @@ public class InboxGuardianService : IInboxGuardianService
             var searchQuery = $"{message.Subject} {message.Body}";
             var knowledgeContext = await _vectorSearch.SearchAsync(searchQuery, maxResults: 5);
 
-            var draftResponse = await _draftGenerator.GenerateDraftAsync(
+            var draftResult = await _draftGenerator.GenerateDraftAsync(
                 message.SenderEmail,
                 message.Subject,
                 message.Body,
@@ -73,7 +73,7 @@ public class InboxGuardianService : IInboxGuardianService
             return new AgentResponse
             {
                 IsSuccess = true,
-                Message = draftResponse,
+                Message = draftResult.DraftBody,
                 Metadata = metadata
             };
         }

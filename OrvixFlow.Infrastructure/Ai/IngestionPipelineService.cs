@@ -9,6 +9,8 @@ using Microsoft.SemanticKernel.Embeddings;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -105,7 +107,8 @@ public class IngestionPipelineService : IIngestionPipelineService
                         ChunkIndex = chunkIndex++,
                         ChunkType = "text",
                         Title = parsedDoc.Title,
-                        EmbeddingVector = new Pgvector.Vector(embedding.ToArray())
+                        EmbeddingVector = new Pgvector.Vector(embedding.ToArray()),
+                        StoragePath = document.StoragePath ?? string.Empty
                     };
                     document.Chunks.Add(kbChunk);
                 }
@@ -122,10 +125,8 @@ public class IngestionPipelineService : IIngestionPipelineService
                 var caption = imageChunk.Caption;
                 if (string.IsNullOrWhiteSpace(caption))
                 {
-                    // Generate a generic caption or use Vision if available
-                    caption = $"Image from {fileName} (Index: {imageChunk.Index})";
-                    
-                    // TODO: In Phase 4, use _chatService with Vision if supported by the provider
+                    // Generate descriptive caption using Vision
+                    caption = await GenerateImageCaptionAsync(imageChunk.Data, imageChunk.ContentType, fileName);
                 }
 
                 var captionEmbeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { caption });
@@ -158,6 +159,7 @@ public class IngestionPipelineService : IIngestionPipelineService
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DEBUG] Ingestion failed: {ex.Message}");
             // If the context is dirty from a failed SaveChangesAsync (common with InMemory duplication errors),
             // trying to save again in the same context often fails with "item already added".
             _dbContext.Entry(document).State = EntityState.Modified;
@@ -172,6 +174,27 @@ public class IngestionPipelineService : IIngestionPipelineService
                 // Last resort if context is totally corrupted
             }
             return new IngestionResult(document.Id, 0, 0, ex.Message);
+        }
+    }
+
+    private async Task<string> GenerateImageCaptionAsync(byte[] imageData, string contentType, string fileName)
+    {
+        try
+        {
+            var chatHistory = new Microsoft.SemanticKernel.ChatCompletion.ChatHistory();
+            chatHistory.AddSystemMessage("You are a vision-capable assistant. Describe the provided image concisely for a RAG knowledge base. Focus on technical details, text visible, and context.");
+            
+            var message = new ChatMessageContent(AuthorRole.User, "Describe this image.");
+            message.Items.Add(new ImageContent(new ReadOnlyMemory<byte>(imageData), contentType));
+            chatHistory.Add(message);
+
+            var result = await _chatService.GetChatMessageContentAsync(chatHistory, kernel: null);
+            return result.Content ?? $"Image from {fileName}";
+        }
+        catch (Exception)
+        {
+            // Fallback if vision is not supported or fails
+            return $"Image from {fileName}";
         }
     }
 }

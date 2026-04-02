@@ -11,7 +11,7 @@ namespace OrvixFlow.Infrastructure.Ai;
 
 public interface IDraftGeneratorService
 {
-    Task<string> GenerateDraftAsync(
+    Task<EmailDraftResult> GenerateDraftAsync(
         string senderEmail,
         string subject,
         string body,
@@ -30,7 +30,7 @@ public class DraftGeneratorService : IDraftGeneratorService
         _kernel = kernel;
     }
 
-    public async Task<string> GenerateDraftAsync(
+    public async Task<EmailDraftResult> GenerateDraftAsync(
         string senderEmail,
         string subject,
         string body,
@@ -62,13 +62,46 @@ public class DraftGeneratorService : IDraftGeneratorService
             kernel: _kernel);
 
         var draft = result.Content ?? "";
+        bool insufficientContext = draft.Contains(InsufficientContextMarker, StringComparison.OrdinalIgnoreCase);
 
-        if (draft.Contains(InsufficientContextMarker, StringComparison.OrdinalIgnoreCase))
+        if (insufficientContext)
         {
             draft = GenerateFallbackResponse(senderEmail, classification);
         }
 
-        return draft.Trim();
+        var relevantImages = ExtractRelevantImages(draft, knowledgeContext);
+
+        return new EmailDraftResult(
+            draft.Trim(),
+            insufficientContext,
+            relevantImages
+        );
+    }
+
+    private IReadOnlyList<KnowledgeImageRef> ExtractRelevantImages(string draft, IReadOnlyList<KnowledgeSnippet> knowledgeContext)
+    {
+        var relevantImages = new List<KnowledgeImageRef>();
+        var allPossibleImages = knowledgeContext.SelectMany(s => s.RelatedImages).ToList();
+
+        if (!allPossibleImages.Any()) return relevantImages;
+
+        // Regex to find [image:GUID]
+        var regex = new System.Text.RegularExpressions.Regex(@"\[image:([a-fA-F0-9-]{36})\]");
+        var matches = regex.Matches(draft);
+
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            if (Guid.TryParse(match.Groups[1].Value, out var imageId))
+            {
+                var img = allPossibleImages.FirstOrDefault(i => i.ImageId == imageId);
+                if (img != null && !relevantImages.Any(r => r.ImageId == imageId))
+                {
+                    relevantImages.Add(img);
+                }
+            }
+        }
+
+        return relevantImages;
     }
 
     private static string SanitizeForXml(string content)
