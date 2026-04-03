@@ -14,6 +14,7 @@ public interface IN8nProvisioningService
     Task<bool> DeleteWorkflowAsync(string workflowId);
     Task<string> CreateCredentialAsync(string provider, string email, object credentials);
     Task<bool> DeleteCredentialAsync(string credentialId);
+    Task<bool> TestConnectionAsync();
 }
 
 public class N8nProvisioningService : IN8nProvisioningService
@@ -132,6 +133,21 @@ public class N8nProvisioningService : IN8nProvisioningService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete n8n credential {CredentialId}", credentialId);
+            return false;
+        }
+    }
+
+    public async Task<bool> TestConnectionAsync()
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("n8n");
+            var response = await client.GetAsync("/api/v1/credentials");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "n8n connection test failed");
             return false;
         }
     }

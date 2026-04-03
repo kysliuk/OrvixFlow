@@ -111,12 +111,66 @@ export default function InboxSettingsPage() {
   };
 
   const handleToggleConnection = async (id: string, isActive: boolean) => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections/${id}/activate`, {
+    if (isActive) {
+      setProvisioningIds(prev => new Set(prev).add(id));
+      setProvisioningErrors(prev => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections/${id}/activate`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ isActive }),
     });
-    await loadConnections();
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.isActive) {
+        const pollInterval = setInterval(async () => {
+          const checkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections`, { headers: getHeaders() });
+          if (checkRes.ok) {
+            const connections = await checkRes.json();
+            const conn = connections.find((c: any) => c.id === id);
+            if (conn?.isActive) {
+              clearInterval(pollInterval);
+              setProvisioningIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+              setConnections(connections);
+            } else if (conn && !conn.isActive && !conn.n8nWorkflowId) {
+              clearInterval(pollInterval);
+              setProvisioningIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+              setProvisioningErrors(prev => {
+                const next = new Map(prev);
+                next.set(id, "Provisioning failed. Please try again or contact support.");
+                return next;
+              });
+              setConnections(connections);
+            }
+          }
+        }, 3000);
+      }
+      setConnections(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    } else {
+      setProvisioningIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      const errorData = await res.json().catch(() => ({}));
+      setProvisioningErrors(prev => {
+        const next = new Map(prev);
+        next.set(id, errorData.error || "Failed to activate connection");
+        return next;
+      });
+    }
   };
 
   const handleDeleteConnection = async (id: string) => {
@@ -253,11 +307,20 @@ export default function InboxSettingsPage() {
                     <td className="px-4 py-3">{c.emailAddress}</td>
                     <td className="px-4 py-3">{c.provider}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded ${c.isActive ? "bg-success/10 text-success" : "bg-muted/10 text-muted"}`}>
-                        {c.isActive ? "Active" : "Inactive"}
-                      </span>
-                      {c.isActive && !c.n8nWorkflowId && (
-                        <span className="block text-xs text-warning mt-1">Pending setup</span>
+                      {provisioningErrors.has(c.id) ? (
+                        <div>
+                          <span className="text-xs px-2 py-0.5 rounded bg-danger/10 text-danger">Error</span>
+                          <span className="block text-xs text-danger mt-1">{provisioningErrors.get(c.id)}</span>
+                        </div>
+                      ) : c.isActive ? (
+                        <div>
+                          <span className="text-xs px-2 py-0.5 rounded bg-success/10 text-success">Active</span>
+                          {!c.n8nWorkflowId && (
+                            <span className="block text-xs text-warning mt-1">Pending setup</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded bg-muted/10 text-muted">Inactive</span>
                       )}
                     </td>
                     <td className="px-4 py-3 flex gap-2">

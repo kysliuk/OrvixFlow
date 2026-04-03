@@ -187,6 +187,13 @@ public class MailboxConnectionsController : ControllerBase
         public bool IsActive { get; set; }
     }
 
+    [HttpPost("test")]
+    public async Task<IActionResult> TestN8nConnection()
+    {
+        var result = await _n8nProvisioning.TestConnectionAsync();
+        return Ok(new { success = result, message = result ? "n8n connection successful" : "n8n connection failed" });
+    }
+
     [HttpDelete("{connectionId:guid}")]
     public async Task<IActionResult> DeleteConnection(Guid connectionId)
     {
@@ -215,6 +222,7 @@ public class MailboxConnectionsController : ControllerBase
     }
 
     [Hangfire.JobDisplayName("Provision n8n Workflow for Mailbox")]
+    [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })]
     public async Task ProvisionN8nWorkflowJob(Guid connectionId, Guid tenantId)
     {
         using var scope = _serviceProvider.CreateScope();
@@ -223,15 +231,27 @@ public class MailboxConnectionsController : ControllerBase
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<MailboxConnectionsController>>();
 
         var connection = await dbContext.MailboxConnections.FindAsync(connectionId);
-        if (connection == null) return;
+        if (connection == null)
+        {
+            logger.LogWarning("Connection {ConnectionId} not found for provisioning", connectionId);
+            return;
+        }
 
         try
         {
             var templateWorkflowId = Environment.GetEnvironmentVariable("N8N_TEMPLATE_WORKFLOW_ID") ?? "default-email-sync";
 
-            var credentialId = await n8nProvisioning.CreateCredentialAsync(connection.Provider, connection.EmailAddress, new { });
-            connection.N8nCredentialId = credentialId;
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                var credentialId = await n8nProvisioning.CreateCredentialAsync(connection.Provider, connection.EmailAddress, new { });
+                connection.N8nCredentialId = credentialId;
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Created n8n credential {CredentialId} for connection {ConnectionId}", credentialId, connectionId);
+            }
+            catch (Exception credEx)
+            {
+                logger.LogWarning(credEx, "Failed to create n8n credential for connection {ConnectionId}, continuing without credential", connectionId);
+            }
 
             var workflowId = await n8nProvisioning.ProvisionWorkflowAsync(templateWorkflowId, connection.EmailAddress, tenantId);
             connection.N8nWorkflowId = workflowId;
@@ -241,13 +261,14 @@ public class MailboxConnectionsController : ControllerBase
             await dbContext.SaveChangesAsync();
 
             logger.LogInformation("Provisioned n8n credential {CredentialId} and workflow {WorkflowId} for connection {ConnectionId}",
-                credentialId, workflowId, connectionId);
+                connection.N8nCredentialId, workflowId, connectionId);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to provision n8n workflow for connection {ConnectionId}", connectionId);
             connection.IsActive = false;
             await dbContext.SaveChangesAsync();
+            throw;
         }
     }
 
