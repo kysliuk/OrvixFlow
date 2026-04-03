@@ -88,4 +88,40 @@ public class AuthControllerTests
         objectResult.Should().NotBeNull();
         objectResult!.StatusCode.Should().Be(500);
     }
+
+    [Fact]
+    public async Task Login_WithValidInput_ShouldReturnOk()
+    {
+        // Arrange
+        _authServiceMock.Setup(x => x.LoginAsync("test@example.com", "password"))
+            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), System.Guid.NewGuid(), System.Guid.NewGuid(), "test@example.com", "Test User", "CompanyOwner", "Trialing", new System.Collections.Generic.List<CompanyMembershipSummary>())));
+
+        var req = new LoginRequest("test@example.com", "password");
+
+        // Act
+        var result = await _controller.Login(req);
+
+        // Assert
+        var okResult = result as OkObjectResult;
+        okResult.Should().NotBeNull();
+        okResult!.StatusCode.Should().Be(200);
+    }
+
+    [Fact]
+    public async Task Login_WithInvalidCredentials_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        _authServiceMock.Setup(x => x.LoginAsync("test@example.com", "wrong"))
+            .ReturnsAsync(new AuthResult(false, Error: "Invalid email or password."));
+
+        var req = new LoginRequest("test@example.com", "wrong");
+
+        // Act
+        var result = await _controller.Login(req);
+
+        // Assert
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult.Should().NotBeNull();
+        unauthorizedResult!.StatusCode.Should().Be(401);
+    }
 }

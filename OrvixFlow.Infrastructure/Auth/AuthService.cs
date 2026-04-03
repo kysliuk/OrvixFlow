@@ -50,7 +50,6 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = "local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Role = UserRole.CompanyOwner.ToClaimValue()
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -69,8 +68,17 @@ public class AuthService : IAuthService
             .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail && u.OAuthProvider == "local");
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        if (user == null)
+        {
+            _logger.LogDebug("Login failed: no local user found for email {Email}", normalizedEmail);
             return new AuthResult(false, Error: "Invalid email or password.");
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            _logger.LogDebug("Login failed: password mismatch for email {Email}", normalizedEmail);
+            return new AuthResult(false, Error: "Invalid email or password.");
+        }
 
         var activeCompanyId = user.TenantId;
         var token = await MintJwtAsync(user, activeCompanyId);
@@ -125,7 +133,6 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = provider,
             ExternalId = externalId,
-            Role = UserRole.CompanyOwner.ToClaimValue()
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -176,12 +183,24 @@ public class AuthService : IAuthService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
-        // Parse role at boundary; emit canonical string into JWT claim
-        var roleString = await _db.UserCompanyMemberships
-            .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
-            .Select(m => m.CompanyRole)
-            .FirstOrDefaultAsync() ?? user.Role;
-        var parsedRole = UserRoleExtensions.ParseRole(roleString);
+
+        // Global roles (platform-level) always override company-level roles.
+        // A SuperAdmin or InternalOperator should have their global role in the JWT
+        // regardless of what their UserCompanyMembership.CompanyRole says.
+        var parsedUserRole = UserRoleExtensions.ParseRole(user.Role);
+        string roleClaimValue;
+        if (parsedUserRole.IsPlatformAdmin())
+        {
+            roleClaimValue = parsedUserRole.ToClaimValue();
+        }
+        else
+        {
+            var roleString = await _db.UserCompanyMemberships
+                .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
+                .Select(m => m.CompanyRole)
+                .FirstOrDefaultAsync() ?? user.Role;
+            roleClaimValue = UserRoleExtensions.ParseRole(roleString).ToClaimValue();
+        }
 
         var claims = new List<Claim>
         {
@@ -190,7 +209,7 @@ public class AuthService : IAuthService
             new("TenantId", activeCompanyId.ToString()),
             new("ActiveCompanyId", activeCompanyId.ToString()),
             new("Plan", company.Plan),
-            new("Role", parsedRole.ToClaimValue()),
+            new("Role", roleClaimValue),
             new("DisplayName", user.DisplayName)
         };
 
@@ -354,8 +373,6 @@ public class AuthService : IAuthService
                 PasswordHash = string.IsNullOrWhiteSpace(password)
                                ? null
                                : BCrypt.Net.BCrypt.HashPassword(password),
-                Role         = invitation.AssignedRole,
-                // Assign a TenantId - use the invited company as primary tenant
                 TenantId     = invitation.CompanyId,
             };
             _db.Users.Add(user);

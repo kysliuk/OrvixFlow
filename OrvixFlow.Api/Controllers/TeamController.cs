@@ -83,13 +83,6 @@ public class TeamController : ControllerBase
             return Forbid("Cannot modify the role of a user with a role equal to or higher than your own.");
 
         membership.CompanyRole = newRole.ToClaimValue();
-        
-        // Also update the User's global role if this is their primary tenant
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user != null && user.TenantId == companyId)
-        {
-            user.Role = newRole.ToClaimValue();
-        }
 
         await _db.SaveChangesAsync();
 

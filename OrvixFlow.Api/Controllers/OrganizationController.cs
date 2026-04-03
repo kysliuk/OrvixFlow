@@ -241,7 +241,6 @@ public class OrganizationController : ControllerBase
                 Email = req.Email.ToLowerInvariant(),
                 DisplayName = req.DisplayName,
                 OAuthProvider = "invited",
-                Role = req.CompanyRole,
                 TenantId = req.CompanyId
             };
             _db.Users.Add(user);

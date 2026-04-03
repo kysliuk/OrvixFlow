@@ -142,7 +142,10 @@ app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrvixFlow.Infrastructure.Data.AppDbContext>();
-    db.Database.Migrate(); // Apply pending migrations on startup
+    db.Database.Migrate();
+
+    var logger = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Program>>();
+    await OrvixFlow.Infrastructure.Data.DbInitializer.SeedAsync(db, logger);
 }
 
 app.Run();

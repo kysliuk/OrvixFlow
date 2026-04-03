@@ -20,8 +20,8 @@ public class User
     /// <summary>BCrypt hash (null for OAuth accounts)</summary>
     public string? PasswordHash { get; set; }
 
-    /// <summary>"Owner" | "Member"</summary>
-    public string Role { get; set; } = "Owner";
+    /// <summary>Global platform role (SuperAdmin / InternalOperator). Empty for normal users.</summary>
+    public string Role { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

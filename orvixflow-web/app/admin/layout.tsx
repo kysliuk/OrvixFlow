@@ -12,7 +12,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   const role = session?.user?.role;
-  const isSuperAdmin = role === "SuperAdmin" || role === "Admin" || role === "Owner";
+  const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
 
   useEffect(() => {
     // Only redirect if we KNOW the user is fully loaded and still not an admin

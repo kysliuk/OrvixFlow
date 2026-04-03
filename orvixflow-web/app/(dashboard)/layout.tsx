@@ -25,20 +25,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [modulesLoaded, setModulesLoaded] = useState(false);
 
   useEffect(() => {
-    if ((session as any)?.apiToken) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/modules/visible`, {
-        headers: { "Authorization": `Bearer ${(session as any).apiToken}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        setVisibleModules(data.modules || []);
-        setModulesLoaded(true);
-      })
-      .catch(err => {
-        console.error("Failed to load visible modules", err);
-        setModulesLoaded(true);
-      });
+    if (!session) {
+      setModulesLoaded(true);
+      return;
     }
+
+    const token = (session as any)?.apiToken;
+    if (!token) {
+      setModulesLoaded(true);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/modules/visible`, {
+      headers: { "Authorization": `Bearer ${token}` },
+      signal: controller.signal
+    })
+    .then(res => res.json())
+    .then(data => {
+      setVisibleModules(data.modules || []);
+      setModulesLoaded(true);
+    })
+    .catch(err => {
+      console.error("Failed to load visible modules", err);
+      setModulesLoaded(true);
+    })
+    .finally(() => clearTimeout(timeoutId));
   }, [session]);
 
   const allLinks = [

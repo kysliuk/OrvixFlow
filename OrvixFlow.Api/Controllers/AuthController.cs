@@ -33,8 +33,8 @@ public class AuthController : ControllerBase
         }
         catch (System.Exception ex)
         {
-            System.Console.WriteLine($"REGISTRATION ERROR: {ex}");
-            return StatusCode(500, new { error = "An unexpected error occurred during the registration process.", details = ex.ToString() });
+            _logger.LogError(ex, "Registration failed for email {Email}", req.Email);
+            return StatusCode(500, new { error = "An unexpected error occurred during the registration process." });
         }
     }
 

@@ -34,7 +34,7 @@ public class AccessResolverTests
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Tenants.Add(new Tenant { Id = companyId, Name = "C1" });
-            db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "u@x.com", Role = "Operator" });
+            db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "u@x.com" });
             db.Departments.AddRange(
                 new Department { Id = departmentA, CompanyId = companyId, Name = "A", Code = "a" },
                 new Department { Id = departmentB, CompanyId = companyId, Name = "B", Code = "b" }
