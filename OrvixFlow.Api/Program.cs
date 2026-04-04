@@ -108,12 +108,6 @@ builder.Services.AddHangfire(config => config
     .UsePostgreSqlStorage(connectionString));
 builder.Services.AddHangfireServer();
 
-// Schedule recurring jobs
-RecurringJob.AddOrUpdate<OrvixFlow.Api.Jobs.TrialExpirationJob>(
-    "trial-expiration-check",
-    job => job.ExecuteAsync(),
-    "0 */6 * * *"); // Every 6 hours
-
 var app = builder.Build();
 
 app.UseCors("Frontend");
@@ -147,5 +141,12 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Program>>();
     await OrvixFlow.Infrastructure.Data.DbInitializer.SeedAsync(db, logger);
 }
+
+// Register recurring jobs using service-based API
+var recurringJobManager = app.Services.GetRequiredService<Hangfire.IRecurringJobManager>();
+recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.TrialExpirationJob>(
+    "trial-expiration-check",
+    job => job.ExecuteAsync(),
+    "0 */6 * * *");
 
 app.Run();

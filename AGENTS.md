@@ -97,6 +97,9 @@ Enter Plan Mode for 3+ step tasks. Use subagents to keep context clean. Verify b
 **L3 — Task Management**
 Simplicity first, minimal impact. No laziness — find root causes, no temporary fixes.
 
+**L4 — Global Roles vs Company Roles Are Separate Layers**
+`User.Role` is for global/platform roles only (`SuperAdmin`, `InternalOperator`, or empty). Company roles (`CompanyOwner`, `CompanyAdmin`, `DepartmentManager`, `Operator`, `Viewer`) live in `UserCompanyMembership.CompanyRole`. The JWT `Role` claim contains the global role for platform admins, otherwise the company role. Never set `User.Role` to a company role value. Never compare `User.Role` against company role values.
+
 ---
 
 ## Project References

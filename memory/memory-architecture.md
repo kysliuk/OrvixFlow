@@ -185,6 +185,43 @@ CompanyOwner (full access)
 - `POST /api/admin/companies/{id}/reactivate` — Reactivate suspended subscription
 - Frontend: Action buttons on company detail page with error handling
 
+## Role System (Two-Layer)
+
+### Global (platform-level) — `User.Role`
+Stored in `User.Role`. Only for platform staff. Normal users have `User.Role = ""`.
+
+| Role | Description |
+|------|-------------|
+| `SuperAdmin` | Full platform control |
+| `InternalOperator` | Platform support, read-only admin |
+| `""` (empty) | Normal users — no global role |
+
+### Company (organization-level) — `UserCompanyMembership.CompanyRole`
+Stored in `UserCompanyMembership.CompanyRole`. One per user-company relationship.
+
+| Role | Description |
+|------|-------------|
+| `CompanyOwner` | Full control within their company |
+| `CompanyAdmin` | Delegated company management |
+| `DepartmentManager` | Manages within assigned department(s) |
+| `Operator` | Performs work within assigned modules |
+| `Viewer` | Read-only within assigned modules |
+
+### JWT `Role` Claim
+- Platform admins (`SuperAdmin`, `InternalOperator`): JWT contains the global role from `User.Role`
+- Normal users: JWT contains their `UserCompanyMembership.CompanyRole`
+- Logic in `MintJwtAsync`: if `User.Role` is a platform admin role, use it; otherwise use `CompanyRole`
+
+### Access Resolution
+- `AccessResolver` reads `UserCompanyMembership.CompanyRole` for permission checks
+- `ScopeContext` reads JWT `Role` claim — works because platform roles pass `IsCompanyAdminOrAbove()`
+- User's effective access = company plan modules + company module overrides, filtered by role permissions
+
+### Critical Rules
+- Never set `User.Role` to a company role value (e.g., `CompanyOwner`, `Operator`)
+- Never compare `User.Role` against company roles
+- `User.Role` defaults to `string.Empty` — only populated for platform admins
+
 ## Webhook Security
 
 HMAC-SHA256 signature validation:

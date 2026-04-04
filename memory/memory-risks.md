@@ -112,6 +112,41 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
+## Critical: Global Roles vs Company Roles — Two Separate Layers
+
+**Location:** `OrvixFlow.Core/Authorization/Roles.cs`, `OrvixFlow.Infrastructure/Auth/AuthService.cs:MintJwtAsync`, `OrvixFlow.Core/Entities/User.cs`
+
+**Risk:** Conflating global roles with company roles causes authorization failures
+
+**Two distinct role layers:**
+
+### Global (platform-level) — stored in `User.Role`
+- `SuperAdmin` — full platform control
+- `InternalOperator` — platform support, read-only admin access
+- Empty (`""`) — normal users (no global role)
+
+### Company (organization-level) — stored in `UserCompanyMembership.CompanyRole`
+- `CompanyOwner` — full control within their company
+- `CompanyAdmin` — delegated company management
+- `DepartmentManager` — manages within assigned department(s)
+- `Operator` — performs work within assigned modules
+- `Viewer` — read-only within assigned modules
+
+**JWT `Role` claim:**
+- For users with a global role (`SuperAdmin`, `InternalOperator`): JWT contains the global role
+- For normal users: JWT contains their `UserCompanyMembership.CompanyRole`
+- Determined in `MintJwtAsync`: checks `User.Role` first, if it's a platform admin role, uses it; otherwise falls back to `CompanyRole`
+
+**Critical rule:** `User.Role` should ONLY be set for platform admins. Normal users should have `User.Role = ""`. The company role is stored in `UserCompanyMembership.CompanyRole`, NOT in `User.Role`.
+
+**When changing role logic:**
+- Never set `User.Role` to a company role (e.g., `CompanyOwner`, `Operator`)
+- Never compare `User.Role` against company roles
+- `AccessResolver` reads from `UserCompanyMembership.CompanyRole` — this is correct
+- `ScopeContext` reads from JWT `Role` claim — works because platform roles pass `IsCompanyAdminOrAbove()`
+
+---
+
 ## Medium: Role Parsing
 
 **Location:** `OrvixFlow.Core/Authorization/Roles.cs`

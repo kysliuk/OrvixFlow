@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Core.Models;
+using OrvixFlow.Infrastructure.Ai.Plugins;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -16,8 +17,8 @@ public class AgentService : IAgentService
 
     public AgentService(
         Kernel kernel,
-        OrvixFlow.Infrastructure.Ai.Plugins.KnowledgeBaseSearchPlugin searchPlugin,
-        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin,
+        KnowledgeBaseSearchPlugin searchPlugin,
+        N8nAutomationPlugin automationPlugin,
         IAuditService audit,
         IUsageService usage,
         IScopeContext scope)

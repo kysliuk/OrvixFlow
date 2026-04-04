@@ -5,6 +5,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Core.Models;
+using OrvixFlow.Infrastructure.Ai.Plugins;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -21,7 +22,7 @@ public class InboxGuardianService : IInboxGuardianService
         IIntentClassifierService classifier,
         IHybridVectorSearchService vectorSearch,
         IDraftGeneratorService draftGenerator,
-        OrvixFlow.Infrastructure.Ai.Plugins.N8nAutomationPlugin automationPlugin,
+        N8nAutomationPlugin automationPlugin,
         IUsageService usageService)
     {
         _kernel = kernel;

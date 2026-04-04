@@ -22,6 +22,18 @@ public class AccessResolver : IAccessResolver
 
     public async Task<ModulePermissionResult> GetEffectivePermissionsAsync(Guid userId, Guid companyId, string moduleKey)
     {
+        // Check global role first — platform admins always have full access
+        var user = await _db.Users
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(u => u.Id == userId)
+            .Select(u => u.Role)
+            .FirstOrDefaultAsync();
+
+        var globalRole = UserRoleExtensions.ParseRole(user);
+        if (globalRole.IsPlatformAdmin())
+            return FullAccess();
+
         // Resolve company role and parse at boundary
         var userRoleString = await _db.UserCompanyMemberships
             .Where(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active")
@@ -30,7 +42,7 @@ public class AccessResolver : IAccessResolver
 
         var role = UserRoleExtensions.ParseRole(userRoleString);
 
-        // Company-admins and platform roles have full access to all modules
+        // Company-admins and above have full access to all modules
         if (role.IsCompanyAdminOrAbove())
             return FullAccess();
 
