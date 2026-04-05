@@ -58,6 +58,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
     public async Task<CompanySubscription?> GetSubscriptionAsync(Guid companyId)
     {
         return await _dbContext.CompanySubscriptions
+            .IgnoreQueryFilters()
             .Include(s => s.PlanTemplate)
                 .ThenInclude(p => p!.Entitlements)
             .Include(s => s.PlanTemplate)
@@ -79,6 +80,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         }
 
         var existingSubscription = await _dbContext.CompanySubscriptions
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(s => s.CompanyId == companyId);
 
         var memberCount = await _dbContext.UserCompanyMemberships

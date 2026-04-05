@@ -21,6 +21,7 @@ public class EntitlementResolver : IEntitlementResolver
     public async Task<CompanySubscription?> GetSubscriptionAsync(Guid companyId)
     {
         return await _dbContext.CompanySubscriptions
+            .IgnoreQueryFilters()
             .Include(s => s.PlanTemplate)
                 .ThenInclude(p => p.Entitlements)
             .Include(s => s.PlanTemplate)
@@ -200,12 +201,14 @@ public class EntitlementResolver : IEntitlementResolver
     public async Task<CompanyEntitlementOverride?> GetEntitlementOverrideAsync(Guid companyId)
     {
         return await _dbContext.CompanyEntitlementOverrides
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(o => o.CompanyId == companyId);
     }
 
     public async Task<IEnumerable<CompanyModuleOverride>> GetModuleOverridesAsync(Guid companyId)
     {
         return await _dbContext.CompanyModuleOverrides
+            .IgnoreQueryFilters()
             .Where(o => o.CompanyId == companyId)
             .ToListAsync();
     }
