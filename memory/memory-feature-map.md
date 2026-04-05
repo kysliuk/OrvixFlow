@@ -267,6 +267,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 |------|-------|---------|
 | Admin Dashboard | `/admin` | Global platform metrics |
 | Plan Templates | `/admin/plans` | Plan CRUD, module assignments |
+| Plan Detail | `/admin/plans/[id]` | Plan detail with module assignments and entitlements |
 | Companies List | `/admin/tenants` | Company listing, plan assignment |
 | Company Detail | `/admin/companies/[id]` | 3 tabs: Overview, Entitlements (overrides), Modules (overrides) |
 | Company Audit Log | `/admin/companies/[id]/audit` | Paginated audit trail per company |

@@ -173,6 +173,18 @@ CompanyOwner (full access)
 - Downgrades to Free plan, syncs `Tenant.Plan`, writes `AuditTrail` entry
 - Prevents free-tier abuse by enforcing trial deadlines
 
+### Query Filter Bypass for Admin Operations
+When admin endpoints need to query data across companies, services must use `.IgnoreQueryFilters()` on EF Core queries. The global query filter `s.CompanyId == _tenantProvider.GetTenantId()` returns the admin's own company ID, not the target company's ID.
+
+**Required `.IgnoreQueryFilters()` in admin-facing service methods:**
+- `CompanySubscriptionService.GetSubscriptionAsync()`
+- `CompanySubscriptionService.AssignPlanAsync()` (existing subscription check)
+- `EntitlementResolver.GetSubscriptionAsync()`
+- `EntitlementResolver.GetEntitlementOverrideAsync()`
+- `EntitlementResolver.GetModuleOverridesAsync()`
+
+This is safe because admin endpoints enforce their own authorization (`IsSuperAdmin()`, `IsGlobalAdmin()`).
+
 ### InternalOperator Enforcement
 - `IsGlobalAdmin()` allows both `SuperAdmin` and `InternalOperator`
 - GET endpoints use `IsGlobalAdmin()` (read-only access)

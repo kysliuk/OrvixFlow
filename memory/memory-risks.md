@@ -180,6 +180,29 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
+## High: Query Filter Bypass Required for Admin Operations
+
+**Location:** `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs`, `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs`
+
+**Risk:** Admin queries for other companies' subscriptions, entitlement overrides, and module overrides are silently blocked by tenant query filters. The filter `s.CompanyId == _tenantProvider.GetTenantId()` returns the admin's own company ID (or `Guid.Empty`), not the target company's ID.
+
+**Symptoms:**
+- `GetSubscriptionAsync()` returns `null` for any company the admin doesn't belong to → "No Subscription" shown in UI
+- `AssignPlanAsync()` fails to find existing subscription → attempts INSERT → **unique constraint violation** → 500 error
+
+**Pattern:** All admin-facing service methods that query `CompanySubscription`, `CompanyEntitlementOverride`, or `CompanyModuleOverride` by `companyId` must use `.IgnoreQueryFilters()`.
+
+**Fixed methods (must maintain this pattern):**
+- `CompanySubscriptionService.GetSubscriptionAsync()`
+- `CompanySubscriptionService.AssignPlanAsync()` (existing subscription check)
+- `EntitlementResolver.GetSubscriptionAsync()`
+- `EntitlementResolver.GetEntitlementOverrideAsync()`
+- `EntitlementResolver.GetModuleOverridesAsync()`
+
+**When adding new admin queries:** Always check if the entity has a query filter in `AppDbContext`. If yes, use `.IgnoreQueryFilters()` — safe because admin endpoints enforce their own authorization (`IsSuperAdmin()`, `IsGlobalAdmin()`).
+
+---
+
 ## High: RAG Ingestion (DoS)
 
 **Location:** `OrvixFlow.Api/Controllers/FileIngestionController.cs`

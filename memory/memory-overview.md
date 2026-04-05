@@ -76,3 +76,32 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
   - MIME type & file size (10MB) validation + pluggable `IVirusScanService` hook
   - `IRagMetricsCollector` persisting retrieval analytics to `AuditTrail`
   - Dedicated `/health/rag` endpoint for pgvector + embedding service monitoring
+
+## Recent Development Activity (Last 7 Days)
+
+### Plan & Subscription System (Completed)
+- Full billing/subscription system with 5-tier plan catalog (Free → Enterprise)
+- Plan entitlements (tokens, API requests, storage, KBs) with per-company overrides
+- Module access control via plan inclusions with per-company grant/suppress overrides
+- Trial expiration job (Hangfire, every 6 hours) — auto-downgrades to Free
+- Seat limit enforcement on plan changes and user invites
+- Admin panel: company detail with 3 tabs (Overview, Entitlements, Modules), audit log, module definitions CRUD
+- Company actions: cancel subscription, change plan, reactivate
+- **Bug fix:** Added `IgnoreQueryFilters()` to `CompanySubscriptionService` and `EntitlementResolver` — admin queries were blocked by tenant query filter when viewing other companies
+
+### n8n Provisioning (Completed)
+- `N8nProvisioningService` — auto-provisions workflows and credentials in n8n
+- OAuth setup alert and provisioning status tracking in inbox settings UI
+- Background jobs for provisioning and cleanup
+
+### UI/UX Improvements
+- Dark mode support for select/option elements in global CSS
+- Company name editing in settings
+- Global role field conditionally rendered only when user has a non-empty global role
+- Admin plan detail page with full plan management modal
+
+### Database & Auth
+- Database initialization with seeded plan catalog, entitlements, module inclusions
+- Global vs company role formalization — `User.Role` only for platform admins, company roles in `UserCompanyMembership.CompanyRole`
+- Profile update endpoint (`UpdateProfile`)
+- Improved auth error handling and configuration

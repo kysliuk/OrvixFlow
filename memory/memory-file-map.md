@@ -52,6 +52,9 @@
 | CompanyEntitlementOverrideTests | `OrvixFlow.Tests/CompanyEntitlementOverrideTests.cs` |
 | CompanyModuleOverrideTests | `OrvixFlow.Tests/CompanyModuleOverrideTests.cs` |
 | TrialExpirationTests | `OrvixFlow.Tests/TrialExpirationTests.cs` |
+| CompanySubscriptionTests | `OrvixFlow.Tests/CompanySubscriptionTests.cs` |
+| GlobalRoleTests | `OrvixFlow.Tests/GlobalRoleTests.cs` |
+| SeatLimitTests | `OrvixFlow.Tests/SeatLimitTests.cs` |
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
