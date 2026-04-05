@@ -37,6 +37,15 @@
     background-color: var(--bg-base);
     color: var(--text-primary);
   }
+
+  select {
+    color-scheme: dark;
+  }
+
+  option {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+  }
 }
 
 * {
