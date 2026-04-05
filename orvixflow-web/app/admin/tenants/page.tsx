@@ -117,6 +117,12 @@ export default function TenantDirectoryPage() {
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <a 
+                        href={`/admin/companies/${t.id}`}
+                        className="px-3 py-1.5 border border-white/10 rounded-md text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                      >
+                        Manage
+                      </a>
+                      <a 
                         href={`/admin/companies/${t.id}/inbox`}
                         className="px-3 py-1.5 border border-white/10 rounded-md text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all"
                       >

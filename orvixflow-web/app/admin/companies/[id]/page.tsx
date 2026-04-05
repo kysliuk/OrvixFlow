@@ -266,15 +266,15 @@ export default function CompanyDetailPage() {
     if (!selectedPlanId) return;
     setActionLoading("change-plan");
     setActionError(null);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/companies/${companyId}/change-plan`, {
-      method: "POST",
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/companies/${companyId}/plan`, {
+      method: "PUT",
       headers: getHeaders(),
-      body: JSON.stringify({ newPlanTemplateId: selectedPlanId, immediate: true })
+      body: JSON.stringify({ planTemplateId: selectedPlanId })
     });
     setActionLoading(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setActionError(data.error || "Failed to change plan");
+      setActionError(data.error || "Failed to assign plan");
     } else {
       setShowPlanChange(false);
       setSelectedPlanId("");
@@ -284,8 +284,11 @@ export default function CompanyDetailPage() {
 
   const loadPlans = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/plans`, { headers: getHeaders() });
-      if (res.ok) setAvailablePlans(await res.json());
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/plans`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAvailablePlans((data || []).filter((p: any) => p.isActive));
+      }
     } catch { /* ignore */ }
   };
 

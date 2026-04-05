@@ -131,7 +131,7 @@ export default function PlansPage() {
     })
       .then(res => res.json())
       .then(data => {
-        setAvailableModules((data.modules || []).filter((m: ModuleDef) => m.isActive));
+        setAvailableModules((Array.isArray(data) ? data : []).filter((m: ModuleDef) => m.isActive));
       })
       .catch(() => {});
   };
