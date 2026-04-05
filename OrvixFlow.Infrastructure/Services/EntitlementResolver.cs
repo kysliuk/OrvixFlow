@@ -79,7 +79,8 @@ public class EntitlementResolver : IEntitlementResolver
         var periodStart = subscription?.CurrentPeriodStart ?? DateTime.UtcNow.AddMonths(-1);
 
         var usageSummary = await _dbContext.UsageEvents
-            .Where(e => e.CompanyId == companyId)
+            .IgnoreQueryFilters()
+            .Where(e => e.CompanyId == companyId && e.OccurredAt >= periodStart)
             .GroupBy(e => e.MetricType)
             .Select(g => new
             {
@@ -96,11 +97,13 @@ public class EntitlementResolver : IEntitlementResolver
 
         var kbUsage = usageSummary.FirstOrDefault(u => u.MetricType == "knowledge-bases");
         var kbCountFromDb = await _dbContext.KnowledgeBases
+            .IgnoreQueryFilters()
             .Where(k => k.TenantId == companyId)
             .CountAsync();
         entitlements.KnowledgeBasesCount = Math.Max((int)(kbUsage?.Total ?? 0), kbCountFromDb);
 
         entitlements.ApiRequestsUsedToday = (int)await _dbContext.UsageEvents
+            .IgnoreQueryFilters()
             .Where(e => e.CompanyId == companyId && e.OccurredAt >= today)
             .SumAsync(e => e.Quantity);
 

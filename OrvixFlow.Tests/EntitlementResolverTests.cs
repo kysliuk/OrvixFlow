@@ -282,6 +282,114 @@ public class EntitlementResolverTests : IDisposable
         entitlements.MaxApiRequestsPerDay.Should().Be(1000);
     }
 
+    [Fact]
+    public async Task GetEntitlements_ReturnsUsageData_WithIgnoreQueryFilters()
+    {
+        var subscription = new CompanySubscription
+        {
+            CompanyId = _tenantId,
+            PlanTemplateId = Guid.NewGuid(),
+            Status = "Active",
+            CurrentPeriodStart = DateTime.UtcNow.AddMonths(-1),
+            CurrentPeriodEnd = DateTime.UtcNow.AddMonths(1)
+        };
+        _dbContext.CompanySubscriptions.Add(subscription);
+
+        var usageEvent = new UsageEvent
+        {
+            CompanyId = _tenantId,
+            ModuleKey = "inbox-guardian",
+            MetricType = "ai-tokens",
+            Quantity = 5000,
+            OccurredAt = DateTime.UtcNow.AddDays(-5)
+        };
+        _dbContext.UsageEvents.Add(usageEvent);
+
+        var apiUsage = new UsageEvent
+        {
+            CompanyId = _tenantId,
+            ModuleKey = "inbox-guardian",
+            MetricType = "api-requests",
+            Quantity = 100,
+            OccurredAt = DateTime.UtcNow
+        };
+        _dbContext.UsageEvents.Add(apiUsage);
+
+        await _dbContext.SaveChangesAsync();
+
+        var entitlements = await _resolver.GetEntitlementsAsync(_tenantId);
+
+        entitlements.TokensUsedThisPeriod.Should().Be(5000);
+        entitlements.ApiRequestsUsedToday.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task GetEntitlements_FiltersUsageByBillingPeriod()
+    {
+        var subscription = new CompanySubscription
+        {
+            CompanyId = _tenantId,
+            PlanTemplateId = Guid.NewGuid(),
+            Status = "Active",
+            CurrentPeriodStart = DateTime.UtcNow.AddMonths(-1),
+            CurrentPeriodEnd = DateTime.UtcNow.AddMonths(1)
+        };
+        _dbContext.CompanySubscriptions.Add(subscription);
+
+        var currentEvent = new UsageEvent
+        {
+            CompanyId = _tenantId,
+            ModuleKey = "inbox-guardian",
+            MetricType = "ai-tokens",
+            Quantity = 5000,
+            OccurredAt = DateTime.UtcNow.AddDays(-5)
+        };
+        _dbContext.UsageEvents.Add(currentEvent);
+
+        var oldEvent = new UsageEvent
+        {
+            CompanyId = _tenantId,
+            ModuleKey = "doc-intel",
+            MetricType = "ai-tokens",
+            Quantity = 999999,
+            OccurredAt = DateTime.UtcNow.AddYears(-1)
+        };
+        _dbContext.UsageEvents.Add(oldEvent);
+
+        await _dbContext.SaveChangesAsync();
+
+        var entitlements = await _resolver.GetEntitlementsAsync(_tenantId);
+
+        entitlements.TokensUsedThisPeriod.Should().Be(5000);
+    }
+
+    [Fact]
+    public async Task GetEffectiveEntitlements_AppliesOverrides()
+    {
+        var subscription = new CompanySubscription
+        {
+            CompanyId = _tenantId,
+            PlanTemplateId = Guid.NewGuid(),
+            Status = "Active"
+        };
+        _dbContext.CompanySubscriptions.Add(subscription);
+
+        var overrideEntity = new CompanyEntitlementOverride
+        {
+            CompanyId = _tenantId,
+            MaxMonthlyTokens = 999999,
+            Note = "Custom deal"
+        };
+        _dbContext.CompanyEntitlementOverrides.Add(overrideEntity);
+
+        await _dbContext.SaveChangesAsync();
+
+        var entitlements = await _resolver.GetEffectiveEntitlementsAsync(_tenantId);
+
+        entitlements.MaxMonthlyTokens.Should().Be(999999);
+        entitlements.HasEntitlementOverride.Should().BeTrue();
+    }
+
     private class MockTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;

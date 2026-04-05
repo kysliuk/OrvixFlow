@@ -230,6 +230,7 @@ public class BillingController : ControllerBase
         var subscription = await _subscriptionService.GetSubscriptionAsync(companyId.Value);
         var currentPlanId = subscription?.PlanTemplateId;
         var currentPlanName = subscription?.PlanTemplate?.Name ?? "Free";
+        var currentPriceCents = subscription?.PlanTemplate?.MonthlyPriceCents ?? 0;
 
         var plans = await _planService.GetActivePlansAsync();
         var planDtos = plans.Select(p => new
@@ -243,9 +244,9 @@ public class BillingController : ControllerBase
             billingInterval = p.BillingInterval,
             maxSeats = p.MaxSeats,
             isFree = p.IsFree,
-            isUpgrade = currentPlanId != null && p.MonthlyPriceCents > (subscription?.PlanTemplate?.MonthlyPriceCents ?? 0),
-            isDowngrade = currentPlanId != null && p.MonthlyPriceCents < (subscription?.PlanTemplate?.MonthlyPriceCents ?? 0),
-            isCurrentPlan = p.Id == currentPlanId,
+            isUpgrade = p.MonthlyPriceCents > currentPriceCents,
+            isDowngrade = p.MonthlyPriceCents < currentPriceCents,
+            isCurrentPlan = p.Id == (currentPlanId ?? Guid.Empty),
             entitlements = new
             {
                 maxMonthlyTokens = p.Entitlements?.MaxMonthlyTokens ?? 50000,
