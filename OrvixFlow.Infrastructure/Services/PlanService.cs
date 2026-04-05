@@ -210,6 +210,35 @@ public class PlanService : IPlanService
         await _dbContext.SaveChangesAsync();
     }
 
+    public async Task SyncModulesForPlanAsync(Guid planId, IEnumerable<Guid> moduleIds)
+    {
+        var plan = await _dbContext.PlanTemplates
+            .Include(p => p.ModuleInclusions)
+            .FirstOrDefaultAsync(p => p.Id == planId)
+            ?? throw new PlanNotFoundException(planId);
+
+        var currentModuleIds = plan.ModuleInclusions.Select(m => m.ModuleDefinitionId).ToHashSet();
+        var newModuleIds = moduleIds.ToHashSet();
+
+        var toRemove = plan.ModuleInclusions.Where(m => !newModuleIds.Contains(m.ModuleDefinitionId)).ToList();
+        foreach (var m in toRemove)
+            _dbContext.PlanModuleInclusions.Remove(m);
+
+        foreach (var moduleId in newModuleIds)
+        {
+            if (!currentModuleIds.Contains(moduleId))
+            {
+                _dbContext.PlanModuleInclusions.Add(new PlanModuleInclusion
+                {
+                    PlanTemplateId = planId,
+                    ModuleDefinitionId = moduleId
+                });
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+    }
+
     public async Task SetEntitlementsAsync(Guid planId, PlanEntitlements entitlements)
     {
         var plan = await _dbContext.PlanTemplates

@@ -142,6 +142,12 @@ public class PlansController : ControllerBase
         {
             var result = await _planService.UpdatePlanAsync(existing);
             
+            if (request.ModuleIds != null)
+            {
+                await _planService.SyncModulesForPlanAsync(id, request.ModuleIds);
+                result = await _planService.GetPlanByIdAsync(id);
+            }
+            
             if (request.Entitlements != null)
             {
                 var entitlements = new Core.Entities.PlanEntitlements
@@ -312,6 +318,7 @@ public record UpdatePlanRequest(
     bool IsTrialAllowed,
     int TrialDays,
     bool LegacyLocked,
+    IEnumerable<Guid>? ModuleIds,
     EntitlementsInput? Entitlements
 );
 

@@ -30,6 +30,23 @@ interface Plan {
   } | null;
 }
 
+interface ModuleDef {
+  id: string;
+  key: string;
+  displayName: string;
+  description: string;
+  category: string;
+  isActive: boolean;
+  isPremium: boolean;
+}
+
+interface PlanModuleEntry {
+  moduleId: string;
+  maxUsagePerMonth: string;
+  maxItemsTotal: string;
+  limitDescription: string;
+}
+
 interface PlanFormData {
   name: string;
   slug: string;
@@ -48,6 +65,7 @@ interface PlanFormData {
     maxStorageMb: number;
     maxKnowledgeBases: number;
   };
+  moduleIds: PlanModuleEntry[];
 }
 
 const initialFormData: PlanFormData = {
@@ -68,6 +86,7 @@ const initialFormData: PlanFormData = {
     maxStorageMb: 100,
     maxKnowledgeBases: 1,
   },
+  moduleIds: [],
 };
 
 export default function PlansPage() {
@@ -79,9 +98,10 @@ export default function PlansPage() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [formData, setFormData] = useState<PlanFormData>(initialFormData);
   const [saving, setSaving] = useState(false);
+  const [availableModules, setAvailableModules] = useState<ModuleDef[]>([]);
 
   const apiToken = (session as any)?.apiToken;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   const fetchPlans = () => {
     if (!apiToken) return;
@@ -103,8 +123,22 @@ export default function PlansPage() {
       });
   };
 
+  const fetchModules = () => {
+    if (!apiToken) return;
+    
+    fetch(`${apiUrl}/api/admin/modules`, {
+      headers: { Authorization: `Bearer ${apiToken}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setAvailableModules((data.modules || []).filter((m: ModuleDef) => m.isActive));
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     fetchPlans();
+    fetchModules();
   }, [apiToken]);
 
   const handleCreateClick = () => {
@@ -115,6 +149,12 @@ export default function PlansPage() {
 
   const handleEditClick = (plan: Plan) => {
     setEditingPlan(plan);
+    const moduleEntries: PlanModuleEntry[] = plan.moduleIds.map((id: string) => ({
+      moduleId: id,
+      maxUsagePerMonth: "",
+      maxItemsTotal: "",
+      limitDescription: "",
+    }));
     setFormData({
       name: plan.name,
       slug: plan.slug,
@@ -133,6 +173,7 @@ export default function PlansPage() {
         maxStorageMb: 100,
         maxKnowledgeBases: 1,
       },
+      moduleIds: moduleEntries,
     });
     setShowModal(true);
   };
@@ -158,7 +199,7 @@ export default function PlansPage() {
       billingInterval: formData.billingInterval,
       legacyLocked: formData.legacyLocked,
       entitlements: formData.entitlements,
-      moduleIds: [],
+      moduleIds: formData.moduleIds.map(m => m.moduleId),
     };
 
     try {
@@ -187,6 +228,30 @@ export default function PlansPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleModule = (moduleId: string) => {
+    const exists = formData.moduleIds.find(m => m.moduleId === moduleId);
+    if (exists) {
+      setFormData({
+        ...formData,
+        moduleIds: formData.moduleIds.filter(m => m.moduleId !== moduleId),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        moduleIds: [...formData.moduleIds, { moduleId, maxUsagePerMonth: "", maxItemsTotal: "", limitDescription: "" }],
+      });
+    }
+  };
+
+  const updateModuleLimit = (moduleId: string, field: keyof Omit<PlanModuleEntry, 'moduleId'>, value: string) => {
+    setFormData({
+      ...formData,
+      moduleIds: formData.moduleIds.map(m =>
+        m.moduleId === moduleId ? { ...m, [field]: value } : m
+      ),
+    });
   };
 
   const handleArchive = async (planId: string) => {
@@ -312,6 +377,27 @@ export default function PlansPage() {
               </div>
             </div>
 
+            {plan.moduleIds.length > 0 && (
+              <div className="mb-4">
+                <div className="text-xs text-white/50 mb-1">{plan.moduleIds.length} module(s) included</div>
+                <div className="flex flex-wrap gap-1">
+                  {plan.moduleIds.slice(0, 3).map((id: string) => {
+                    const mod = availableModules.find(m => m.id === id);
+                    return (
+                      <span key={id} className="px-2 py-0.5 bg-white/5 text-white/60 text-[10px] rounded font-mono">
+                        {mod ? mod.displayName : id.slice(0, 8)}
+                      </span>
+                    );
+                  })}
+                  {plan.moduleIds.length > 3 && (
+                    <span className="px-2 py-0.5 bg-white/5 text-white/40 text-[10px] rounded font-mono">
+                      +{plan.moduleIds.length - 3}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 pt-4 border-t border-white/10">
               <button 
                 onClick={() => handleEditClick(plan)}
@@ -343,7 +429,7 @@ export default function PlansPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">
                 {editingPlan ? "Edit Plan" : "Create New Plan"}
@@ -356,7 +442,7 @@ export default function PlansPage() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="flex flex-col max-h-[70vh]">
+            <form onSubmit={handleSubmit} className="flex flex-col max-h-[75vh]">
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -524,6 +610,74 @@ export default function PlansPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="border-t border-white/10 pt-4">
+                  <label className="block text-xs font-medium text-white/70 mb-3">Modules Included in This Plan</label>
+                  <div className="space-y-2">
+                    {availableModules.length === 0 && (
+                      <div className="text-xs text-white/40">No active modules available</div>
+                    )}
+                    {availableModules.map(mod => {
+                      const entry = formData.moduleIds.find(m => m.moduleId === mod.id);
+                      const isChecked = !!entry;
+                      return (
+                        <div key={mod.id} className={`p-3 rounded-lg border transition-colors ${isChecked ? "border-danger/30 bg-danger/5" : "border-white/5 bg-black/20"}`}>
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleModule(mod.id)}
+                              className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-white font-medium">{mod.displayName}</div>
+                              <div className="text-xs text-white/40">{mod.description}</div>
+                            </div>
+                            {mod.isPremium && (
+                              <span className="px-2 py-0.5 bg-primary/20 text-primary text-[10px] rounded font-bold uppercase">Premium</span>
+                            )}
+                          </label>
+                          {isChecked && (
+                            <div className="mt-3 grid grid-cols-3 gap-2 pl-7">
+                              <div>
+                                <label className="block text-[10px] text-white/40 mb-1">Max Usage/Month</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={entry?.maxUsagePerMonth || ""}
+                                  onChange={e => updateModuleLimit(mod.id, "maxUsagePerMonth", e.target.value)}
+                                  placeholder="Unlimited"
+                                  className="w-full px-2 py-1.5 bg-background border border-white/10 rounded text-white text-xs focus:outline-none focus:border-danger"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-white/40 mb-1">Max Total Items</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={entry?.maxItemsTotal || ""}
+                                  onChange={e => updateModuleLimit(mod.id, "maxItemsTotal", e.target.value)}
+                                  placeholder="Unlimited"
+                                  className="w-full px-2 py-1.5 bg-background border border-white/10 rounded text-white text-xs focus:outline-none focus:border-danger"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-white/40 mb-1">Limit Description</label>
+                                <input
+                                  type="text"
+                                  value={entry?.limitDescription || ""}
+                                  onChange={e => updateModuleLimit(mod.id, "limitDescription", e.target.value)}
+                                  placeholder="e.g., 100 docs/day"
+                                  className="w-full px-2 py-1.5 bg-background border border-white/10 rounded text-white text-xs focus:outline-none focus:border-danger"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {error && (
@@ -553,3 +707,4 @@ export default function PlansPage() {
     </div>
   );
 }
+

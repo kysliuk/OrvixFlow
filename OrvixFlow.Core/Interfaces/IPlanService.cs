@@ -18,6 +18,7 @@ public interface IPlanService
     Task AddModuleToPlanAsync(Guid planId, Guid moduleId);
     Task RemoveModuleFromPlanAsync(Guid planId, Guid moduleId);
     Task SetEntitlementsAsync(Guid planId, PlanEntitlements entitlements);
+    Task SyncModulesForPlanAsync(Guid planId, IEnumerable<Guid> moduleIds);
 }
 
 public class PlanSlugAlreadyExistsException : SubscriptionException
