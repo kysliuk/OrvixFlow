@@ -350,12 +350,14 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1.5 pt-4">
-                    <label className="text-xs font-medium text-muted">Global Role</label>
-                    <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-white w-fit font-semibold">
-                      {(session?.user as any)?.role || "Operator"}
+                  {(session?.user as any)?.role && (
+                    <div className="flex flex-col gap-1.5 pt-4">
+                      <label className="text-xs font-medium text-muted">Global Role</label>
+                      <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-white w-fit font-semibold">
+                        {(session?.user as any)?.role}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="border-t border-white/5 pt-6 mt-4">
                     {profileError && (
