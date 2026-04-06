@@ -3003,7 +3003,7 @@
           "lib/netstandard2.0/SimMetrics.Net.dll": {}
         }
       },
-      "SixLabors.ImageSharp/3.1.5": {
+      "SixLabors.ImageSharp/3.1.12": {
         "type": "package",
         "compile": {
           "lib/net6.0/SixLabors.ImageSharp.dll": {
@@ -4027,7 +4027,7 @@
           "OrvixFlow.Core": "1.0.0",
           "PdfPig": "0.1.9",
           "Pgvector.EntityFrameworkCore": "0.3.0",
-          "SixLabors.ImageSharp": "3.1.5",
+          "SixLabors.ImageSharp": "3.1.12",
           "System.IdentityModel.Tokens.Jwt": "8.16.0"
         },
         "compile": {
@@ -8657,10 +8657,10 @@
         "simmetrics.net.nuspec"
       ]
     },
-    "SixLabors.ImageSharp/3.1.5": {
-      "sha512": "lNtlq7dSI/QEbYey+A0xn48z5w4XHSffF8222cC4F4YwTXfEImuiBavQcWjr49LThT/pRmtWJRcqA/PlL+eJ6g==",
+    "SixLabors.ImageSharp/3.1.12": {
+      "sha512": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A==",
       "type": "package",
-      "path": "sixlabors.imagesharp/3.1.5",
+      "path": "sixlabors.imagesharp/3.1.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -8669,7 +8669,7 @@
         "lib/net6.0/SixLabors.ImageSharp.dll",
         "lib/net6.0/SixLabors.ImageSharp.xml",
         "sixlabors.imagesharp.128.png",
-        "sixlabors.imagesharp.3.1.5.nupkg.sha512",
+        "sixlabors.imagesharp.3.1.12.nupkg.sha512",
         "sixlabors.imagesharp.nuspec"
       ]
     },

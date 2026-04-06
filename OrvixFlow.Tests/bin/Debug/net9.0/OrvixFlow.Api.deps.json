@@ -1178,11 +1178,11 @@
           }
         }
       },
-      "SixLabors.ImageSharp/3.1.5": {
+      "SixLabors.ImageSharp/3.1.12": {
         "runtime": {
           "lib/net6.0/SixLabors.ImageSharp.dll": {
             "assemblyVersion": "3.0.0.0",
-            "fileVersion": "3.1.5.0"
+            "fileVersion": "3.1.12.0"
           }
         }
       },
@@ -1414,7 +1414,7 @@
           "OrvixFlow.Core": "1.0.0",
           "PdfPig": "0.1.9",
           "Pgvector.EntityFrameworkCore": "0.3.0",
-          "SixLabors.ImageSharp": "3.1.5",
+          "SixLabors.ImageSharp": "3.1.12",
           "System.IdentityModel.Tokens.Jwt": "8.16.0"
         },
         "runtime": {
@@ -2006,12 +2006,12 @@
       "path": "pgvector.entityframeworkcore/0.3.0",
       "hashPath": "pgvector.entityframeworkcore.0.3.0.nupkg.sha512"
     },
-    "SixLabors.ImageSharp/3.1.5": {
+    "SixLabors.ImageSharp/3.1.12": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-lNtlq7dSI/QEbYey+A0xn48z5w4XHSffF8222cC4F4YwTXfEImuiBavQcWjr49LThT/pRmtWJRcqA/PlL+eJ6g==",
-      "path": "sixlabors.imagesharp/3.1.5",
-      "hashPath": "sixlabors.imagesharp.3.1.5.nupkg.sha512"
+      "sha512": "sha512-iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A==",
+      "path": "sixlabors.imagesharp/3.1.12",
+      "hashPath": "sixlabors.imagesharp.3.1.12.nupkg.sha512"
     },
     "System.ClientModel/1.8.1": {
       "type": "package",

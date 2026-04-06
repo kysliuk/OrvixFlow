@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Moq;
 using OrvixFlow.Api.Controllers;
 using OrvixFlow.Core.Entities;
@@ -67,7 +68,7 @@ public class OrgHierarchyTests : IDisposable
         var identity = new ClaimsIdentity(claims, "Test");
         var principal = new ClaimsPrincipal(identity);
 
-        var controller = new OrganizationController(_db);
+        var controller = new OrganizationController(_db, Mock.Of<ILogger<OrganizationController>>());
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = principal }

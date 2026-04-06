@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Core.Authorization;
 
@@ -15,10 +16,12 @@ namespace OrvixFlow.Api.Controllers;
 public class OrganizationController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<OrganizationController> _logger;
 
-    public OrganizationController(AppDbContext db)
+    public OrganizationController(AppDbContext db, ILogger<OrganizationController> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     [HttpGet("companies")]
@@ -74,12 +77,12 @@ public class OrganizationController : ControllerBase
     public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationDto dto)
     {
         var claimsDump = string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}"));
-        Console.WriteLine($"[DEBUG] Claims: {claimsDump}");
+        _logger.LogDebug("Claims: {Claims}", claimsDump);
 
         var userId = ParseGuid("sub");
         if (userId == null) 
         {
-            Console.WriteLine("[DEBUG] ParseGuid failed to find valid sub or NameIdentifier");
+            _logger.LogDebug("ParseGuid failed to find valid sub or NameIdentifier");
             return Unauthorized();
         }
 
@@ -292,28 +295,28 @@ public class OrganizationController : ControllerBase
         var roleClaim = User.FindFirst("Role")?.Value;
         var role = UserRoleExtensions.ParseRole(roleClaim);
         
-        Console.WriteLine($"[DEBUG] UpdateCompanyName - UserId: {userId}, CompanyId: {companyId}, Role claim: '{roleClaim}', Parsed role: {role}");
+        _logger.LogDebug("UpdateCompanyName - UserId: {UserId}, CompanyId: {CompanyId}, Role claim: '{RoleClaim}', Parsed role: {Role}", userId, companyId, roleClaim, role);
 
         if (role != UserRole.CompanyOwner)
         {
-            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: role {role} != CompanyOwner");
+            _logger.LogDebug("UpdateCompanyName - Failed: role {Role} != CompanyOwner", role);
             return StatusCode(403, new { error = $"Access denied: CompanyOwner role required. Your role: {roleClaim}" });
         }
 
         var membership = await _db.UserCompanyMemberships
             .FirstOrDefaultAsync(m => m.UserId == userId.Value && m.CompanyId == companyId && m.Status == "Active");
         
-        Console.WriteLine($"[DEBUG] UpdateCompanyName - Membership found: {membership != null}, CompanyRole: {membership?.CompanyRole}");
+        _logger.LogDebug("UpdateCompanyName - Membership found: {Found}, CompanyRole: {CompanyRole}", membership != null, membership?.CompanyRole);
         
         if (membership == null)
         {
-            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: membership not found");
+            _logger.LogDebug("UpdateCompanyName - Failed: membership not found");
             return StatusCode(403, new { error = "You are not a member of this company." });
         }
             
         if (membership.CompanyRole != UserRole.CompanyOwner.ToClaimValue())
         {
-            Console.WriteLine($"[DEBUG] UpdateCompanyName - Failed: CompanyRole {membership.CompanyRole} != {UserRole.CompanyOwner.ToClaimValue()}");
+            _logger.LogDebug("UpdateCompanyName - Failed: CompanyRole {CompanyRole} != {Expected}", membership.CompanyRole, UserRole.CompanyOwner.ToClaimValue());
             return StatusCode(403, new { error = $"You are not the owner of this company. Your role: {membership.CompanyRole}" });
         }
 
@@ -328,7 +331,7 @@ public class OrganizationController : ControllerBase
         var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == companyId);
         if (company == null) return NotFound(new { error = "Company not found." });
 
-        Console.WriteLine($"[DEBUG] UpdateCompanyName - Updating company {companyId} name from '{company.Name}' to '{dto.Name}'");
+        _logger.LogDebug("UpdateCompanyName - Updating company {CompanyId} name from '{OldName}' to '{NewName}'", companyId, company.Name, dto.Name);
         var oldName = company.Name;
         company.Name = dto.Name;
         await _db.SaveChangesAsync();

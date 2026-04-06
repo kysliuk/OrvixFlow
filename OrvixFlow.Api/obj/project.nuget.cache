@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ktuFCOlG3Ck=",
+  "dgSpecHash": "DrE2BZ6ZXjw=",
   "success": true,
   "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj",
   "expectedPackageFiles": [
@@ -86,7 +86,7 @@
     "/home/kysliuk/.nuget/packages/pdfpig/0.1.9/pdfpig.0.1.9.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/pgvector/0.3.2/pgvector.0.3.2.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/pgvector.entityframeworkcore/0.3.0/pgvector.entityframeworkcore.0.3.0.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.5/sixlabors.imagesharp.3.1.5.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.12/sixlabors.imagesharp.3.1.12.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.clientmodel/1.8.1/system.clientmodel.1.8.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.codedom/6.0.0/system.codedom.6.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.collections.immutable/7.0.0/system.collections.immutable.7.0.0.nupkg.sha512",

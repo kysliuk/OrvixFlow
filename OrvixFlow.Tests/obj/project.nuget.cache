@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "MewXewmlA7s=",
+  "dgSpecHash": "r4RmdHFmNQs=",
   "success": true,
   "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/OrvixFlow.Tests.csproj",
   "expectedPackageFiles": [
@@ -181,7 +181,7 @@
     "/home/kysliuk/.nuget/packages/scriban.signed/5.5.0/scriban.signed.5.5.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/sharpyaml/2.1.3/sharpyaml.2.1.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/simmetrics.net/1.0.5/simmetrics.net.1.0.5.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.5/sixlabors.imagesharp.3.1.5.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.12/sixlabors.imagesharp.3.1.12.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/stef.validation/0.2.0/stef.validation.0.2.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.buffers/4.6.0/system.buffers.4.6.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.clientmodel/1.8.1/system.clientmodel.1.8.1.nupkg.sha512",
