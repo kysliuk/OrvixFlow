@@ -55,6 +55,7 @@
 | CompanySubscriptionTests | `OrvixFlow.Tests/CompanySubscriptionTests.cs` |
 | GlobalRoleTests | `OrvixFlow.Tests/GlobalRoleTests.cs` |
 | SeatLimitTests | `OrvixFlow.Tests/SeatLimitTests.cs` |
+| EmbeddingMigrationSmokeTests | `OrvixFlow.Tests/EmbeddingMigrationSmokeTests.cs` |
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |

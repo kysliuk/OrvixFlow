@@ -15,8 +15,9 @@
 - **Phase 3** — Multi-modal image support (extract captions, embed, resolve)
 - **Phase 4** — RAG email orchestration (classify → search → draft → n8n payload)
 - **Phase 5** — Security/observability hardening (rate limiting, virus scan hook, metrics, health check)
+- **Phase A** — Quick wins: Console.WriteLine cleanup, ImageSharp CVE fix, MockEmbeddingGenerator prep
 
-Test baseline: **226 passed / 2 pre-existing failures** in `OrgHierarchyTests`.
+Test baseline: **278 passed / 0 failures**.
 
 ---
 

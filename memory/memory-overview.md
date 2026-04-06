@@ -105,3 +105,9 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - Global vs company role formalization — `User.Role` only for platform admins, company roles in `UserCompanyMembership.CompanyRole`
 - Profile update endpoint (`UpdateProfile`)
 - Improved auth error handling and configuration
+
+### RAG Cleanup & Maintenance (Completed)
+- Removed all `Console.WriteLine` debug noise from `OrganizationController.cs` (8 instances → `ILogger<OrganizationController>.LogDebug`)
+- Bumped `SixLabors.ImageSharp` from 3.1.5 → 3.1.12, resolving CVE warnings (NU1903/NU1902)
+- Created `MockEmbeddingGenerator` implementing `IEmbeddingGenerator<string, Embedding<float>>` for Phase C migration prep
+- Test count increased to 278 (277 + 1 new `EmbeddingMigrationSmokeTests`)
