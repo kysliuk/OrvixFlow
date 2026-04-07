@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Moq;
@@ -21,7 +22,7 @@ namespace OrvixFlow.Tests;
 
 public class IngestionPipelineServiceTests
 {
-    private readonly Mock<ITextEmbeddingGenerationService> _embeddingMock;
+    private readonly Mock<IEmbeddingGenerator<string, Embedding<float>>> _embeddingMock;
     private readonly Mock<ITenantProvider> _tenantProviderMock;
     private readonly Mock<IUsageService> _usageServiceMock;
     private readonly Mock<IFileStorage> _storageMock;
@@ -34,7 +35,7 @@ public class IngestionPipelineServiceTests
 
     public IngestionPipelineServiceTests()
     {
-        _embeddingMock = new Mock<ITextEmbeddingGenerationService>();
+        _embeddingMock = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
         _tenantProviderMock = new Mock<ITenantProvider>();
         _usageServiceMock = new Mock<IUsageService>();
         _storageMock = new Mock<IFileStorage>();
@@ -53,8 +54,8 @@ public class IngestionPipelineServiceTests
             .Build();
 
         _tenantProviderMock.Setup(x => x.GetTenantId()).Returns(Guid.NewGuid());
-        _embeddingMock.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<ReadOnlyMemory<float>> { new float[1536] });
+        _embeddingMock.Setup(x => x.GenerateAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new Embedding<float>(new float[1536])]));
 
         _chatCompletionMock.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), It.IsAny<Kernel>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { new ChatMessageContent(AuthorRole.Assistant, "Mock Caption") });
@@ -80,8 +81,10 @@ public class IngestionPipelineServiceTests
             .Returns(new List<string> { "content_chunk1" });
 
         var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("content"));
+        var testTenantId = Guid.NewGuid();
+        _tenantProviderMock.Setup(x => x.GetTenantId()).Returns(testTenantId);
 
-        // Act
+        // Act - single context for InMemory compatibility
         IngestionResult result;
         using (var dbContext = new AppDbContext(options, _tenantProviderMock.Object))
         {
@@ -98,7 +101,8 @@ public class IngestionPipelineServiceTests
                 _metricsMock.Object,
                 _loggerMock.Object
             );
-            result = await service.IngestFileAsync(stream, "test.txt", "text/plain");
+            var docId = Guid.NewGuid();
+            result = await service.IngestFileAsync(stream, "test.txt", "text/plain", docId, testTenantId);
         }
 
         // Assert

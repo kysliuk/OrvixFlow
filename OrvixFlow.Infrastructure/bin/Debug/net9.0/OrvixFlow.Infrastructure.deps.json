@@ -19,7 +19,8 @@
           "PdfPig": "0.1.9",
           "Pgvector.EntityFrameworkCore": "0.3.0",
           "SixLabors.ImageSharp": "3.1.12",
-          "System.IdentityModel.Tokens.Jwt": "8.16.0"
+          "System.IdentityModel.Tokens.Jwt": "8.16.0",
+          "nClam": "9.0.0"
         },
         "runtime": {
           "OrvixFlow.Infrastructure.dll": {}
@@ -489,6 +490,14 @@
           "lib/net8.0/Microsoft.SemanticKernel.Core.dll": {
             "assemblyVersion": "1.73.0.0",
             "fileVersion": "1.73.0.0"
+          }
+        }
+      },
+      "nClam/9.0.0": {
+        "runtime": {
+          "lib/netstandard2.1/nClam.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.0.0"
           }
         }
       },
@@ -1040,6 +1049,13 @@
       "sha512": "sha512-RvhFdtZ3G7t50PmJwGixK4nnp3JlIZb2+jQONTCW/mVOuOW8Rwd0pOKlQKKozU7ue5QNEdKJnEjCWLai+ObtDA==",
       "path": "microsoft.semantickernel.core/1.73.0",
       "hashPath": "microsoft.semantickernel.core.1.73.0.nupkg.sha512"
+    },
+    "nClam/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kjJ9W3TJOl0VIS2lCpblfDHDZTUG7oejwx2PkjKxu6r+XSmcgBGJUMsrx2c8Utm4EfNDhjtKbJqwIzDpgog0Bw==",
+      "path": "nclam/9.0.0",
+      "hashPath": "nclam.9.0.0.nupkg.sha512"
     },
     "Newtonsoft.Json/11.0.1": {
       "type": "package",

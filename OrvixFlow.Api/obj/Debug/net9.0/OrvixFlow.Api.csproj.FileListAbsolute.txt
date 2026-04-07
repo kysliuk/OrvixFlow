@@ -211,3 +211,4 @@
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/OrvixFlow.Api.pdb
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/OrvixFlow.Api.genruntimeconfig.cache
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/ref/OrvixFlow.Api.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/nClam.dll

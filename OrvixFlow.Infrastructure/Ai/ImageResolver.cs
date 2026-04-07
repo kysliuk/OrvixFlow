@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel.Embeddings;
+using Microsoft.Extensions.AI;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -16,14 +16,14 @@ namespace OrvixFlow.Infrastructure.Ai;
 public class ImageResolver : IImageResolver
 {
     private readonly AppDbContext _dbContext;
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<ImageResolver> _logger;
 
-    public ImageResolver(AppDbContext dbContext, ITextEmbeddingGenerationService embeddingService, ITenantProvider tenantProvider, ILogger<ImageResolver> logger)
+    public ImageResolver(AppDbContext dbContext, IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator, ITenantProvider tenantProvider, ILogger<ImageResolver> logger)
     {
         _dbContext = dbContext;
-        _embeddingService = embeddingService;
+        _embeddingGenerator = embeddingGenerator;
         _tenantProvider = tenantProvider;
         _logger = logger;
     }
@@ -34,9 +34,9 @@ public class ImageResolver : IImageResolver
             return Array.Empty<KnowledgeBaseImage>();
 
         // 1. Generate embedding for the query
-        var embeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { query });
+        var embeddings = await _embeddingGenerator.GenerateAsync(new[] { query });
         var embedding = embeddings[0];
-        var queryVector = new Vector(embedding.ToArray());
+        var queryVector = new Vector(embedding.Vector.Span.ToArray());
 
         // 2. Search for relevant images
         // We filter by documentIds if provided, otherwise search all for the tenant (handled by global filter)

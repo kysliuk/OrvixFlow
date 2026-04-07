@@ -1,6 +1,6 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.SemanticKernel.Embeddings;
+using Microsoft.Extensions.AI;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -10,18 +10,18 @@ namespace OrvixFlow.Infrastructure.Ai;
 public class IngestionService : IIngestionService
 {
     private readonly AppDbContext _dbContext;
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private readonly ITenantProvider _tenantProvider;
     private readonly IUsageService _usageService;
 
     public IngestionService(
         AppDbContext dbContext,
-        ITextEmbeddingGenerationService embeddingService,
+        IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator,
         ITenantProvider tenantProvider,
         IUsageService usageService)
     {
         _dbContext = dbContext;
-        _embeddingService = embeddingService;
+        _embeddingGenerator = embeddingGenerator;
         _tenantProvider = tenantProvider;
         _usageService = usageService;
     }
@@ -34,8 +34,9 @@ public class IngestionService : IIngestionService
     public async Task IngestTextAsync(string content, Guid? userId = null, Guid? departmentId = null)
     {
         // 1. Generate the embedding vector using OpenAI
-        var embedding = await _embeddingService.GenerateEmbeddingAsync(content);
-        var vector = new Pgvector.Vector(embedding.ToArray());
+        var embeddings = await _embeddingGenerator.GenerateAsync(new[] { content });
+        var embedding = embeddings[0];
+        var vector = new Pgvector.Vector(embedding.Vector.Span.ToArray());
 
         // 2. Get the current tenant scope
         var tenantId = _tenantProvider.GetTenantId();

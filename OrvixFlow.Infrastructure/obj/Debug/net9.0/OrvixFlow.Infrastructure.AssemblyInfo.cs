@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OrvixFlow.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d2a3354d0b1a86f47b5e983a756e1cec26f9af38")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a3af2679548b182575916266e3d62d06d8761038")]
 [assembly: System.Reflection.AssemblyProductAttribute("OrvixFlow.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OrvixFlow.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

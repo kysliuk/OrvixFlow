@@ -975,7 +975,7 @@ git commit -m "docs: add n8n RAG email workflow template"
 |---|------|-------|--------|
 | 1 | Frontend file upload UI | D | ⬜ Todo |
 | 2 | Fix OrgHierarchyTests | B | ⬜ Todo |
-| 3 | Migrate ITextEmbeddingGenerationService | C | ⬜ Todo |
+| 3 | Migrate ITextEmbeddingGenerationService | C | ✅ Done |
 | 4 | Bump ImageSharp | A | ⬜ Todo |
 | 5 | ClamAV virus scanning | E | ⬜ Todo |
 | 6 | Remove Console.WriteLine | A | ⬜ Todo |

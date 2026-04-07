@@ -3,21 +3,21 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OrvixFlow.Infrastructure.Data;
-using Microsoft.SemanticKernel.Embeddings;
 
 namespace OrvixFlow.Api.Health;
 
 public class RagHealthCheck : IHealthCheck
 {
     private readonly AppDbContext _dbContext;
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
 
-    public RagHealthCheck(AppDbContext dbContext, ITextEmbeddingGenerationService embeddingService)
+    public RagHealthCheck(AppDbContext dbContext, IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator)
     {
         _dbContext = dbContext;
-        _embeddingService = embeddingService;
+        _embeddingGenerator = embeddingGenerator;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
@@ -30,7 +30,7 @@ public class RagHealthCheck : IHealthCheck
                 "SELECT '[1,1,1]'::vector <=> '[1,1,1]'::vector", cancellationToken) == -1; // ExecuteSqlRaw returns -1 for SELECT
 
             // 2. Check Embedding Service (Connectivity)
-            var testEmbedding = await _embeddingService.GenerateEmbeddingsAsync(new[] { "healthcheck" }, kernel: null, cancellationToken);
+            var testEmbedding = await _embeddingGenerator.GenerateAsync(new[] { "healthcheck" }, cancellationToken: cancellationToken);
             var canEmbed = testEmbedding.Count > 0;
 
             if (canEmbed)

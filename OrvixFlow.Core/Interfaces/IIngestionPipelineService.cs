@@ -17,6 +17,8 @@ public interface IIngestionPipelineService
         Stream fileStream,
         string fileName,
         string contentType,
+        Guid documentId,
+        Guid tenantId,
         Guid? userId = null,
         Guid? departmentId = null);
 }

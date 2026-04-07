@@ -149,6 +149,23 @@ public class DraftGeneratorService : IDraftGeneratorService
 
         if (knowledgeContext.Count > 0)
         {
+            // First, list source documents if available
+            var docsWithTitles = knowledgeContext
+                .Where(k => !string.IsNullOrEmpty(k.Title))
+                .GroupBy(k => k.DocumentId)
+                .Select(g => g.First())
+                .ToList();
+            
+            if (docsWithTitles.Count > 0)
+            {
+                sb.AppendLine("SOURCE DOCUMENT(S):");
+                foreach (var doc in docsWithTitles)
+                {
+                    sb.AppendLine($"- {doc.Title}");
+                }
+                sb.AppendLine();
+            }
+
             sb.AppendLine("KNOWLEDGE BASE CONTEXT:");
             sb.AppendLine("---");
             var allImages = new List<KnowledgeImageRef>();
@@ -156,6 +173,10 @@ public class DraftGeneratorService : IDraftGeneratorService
             {
                 var snippet = knowledgeContext[i];
                 sb.AppendLine($"[{i + 1}] (relevance: {snippet.SimilarityScore:P0})");
+                if (!string.IsNullOrEmpty(snippet.Title))
+                {
+                    sb.AppendLine($"Source: {snippet.Title}");
+                }
                 sb.AppendLine(snippet.Content);
                 if (snippet.RelatedImages.Any())
                 {
@@ -185,6 +206,7 @@ public class DraftGeneratorService : IDraftGeneratorService
             }
 
             sb.AppendLine("MANDATORY CONSTRAINT: You MUST base your response ONLY on information from the knowledge base above.");
+            sb.AppendLine("CRITICAL: Do NOT provide generic industry summaries or assumptions. Cite specific details, facts, or definitions from the source document(s) above.");
             sb.AppendLine("If the knowledge base does not contain sufficient information to answer the customer's question,");
             sb.AppendLine($"you MUST respond with exactly this marker: {InsufficientContextMarker}");
         }

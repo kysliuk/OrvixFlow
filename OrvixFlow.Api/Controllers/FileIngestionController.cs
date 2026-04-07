@@ -1,10 +1,12 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Api.Filters;
 using OrvixFlow.Api.Jobs;
 using OrvixFlow.Infrastructure.Ai.Jobs;
@@ -17,7 +19,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace OrvixFlow.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/knowledge/upload")]
+[Route("api/v1/knowledge")]
 [Authorize]
 [EnableRateLimiting("upload")]
 public class FileIngestionController : ControllerBase
@@ -48,7 +50,7 @@ public class FileIngestionController : ControllerBase
         _virusScanService = virusScanService;
     }
 
-    [HttpPost]
+    [HttpPost("upload")]
     [RequireModule("knowledge-base")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
@@ -111,7 +113,8 @@ public class FileIngestionController : ControllerBase
             document.FileName, 
             document.ContentType, 
             _scope.UserId == Guid.Empty ? null : _scope.UserId, 
-            null));
+            null,
+            tenantId));
 
         return Ok(new
         {
@@ -119,5 +122,75 @@ public class FileIngestionController : ControllerBase
             status = "Processing",
             message = "File uploaded successfully and queued for indexing."
         });
+    }
+
+    [HttpGet("documents")]
+    [RequireModule("knowledge-base")]
+    public async Task<IActionResult> GetDocuments([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var tenantId = _tenantProvider.GetTenantId();
+
+        var query = _dbContext.KnowledgeBaseDocuments
+            .Where(d => d.TenantId == tenantId)
+            .OrderByDescending(d => d.CreatedAtUtc);
+
+        var total = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(d => new
+            {
+                id = d.Id,
+                fileName = d.FileName,
+                contentType = d.ContentType,
+                fileSizeBytes = d.FileSizeBytes,
+                status = d.Status,
+                createdAtUtc = d.CreatedAtUtc,
+                indexedAtUtc = d.IndexedAtUtc,
+                errorMessage = d.ErrorMessage
+            })
+            .ToListAsync();
+
+        return Ok(new { total, page, pageSize, items });
+    }
+
+    [HttpDelete("documents/{id:guid}")]
+    [RequireModule("knowledge-base")]
+    public async Task<IActionResult> DeleteDocument(Guid id)
+    {
+        var tenantId = _tenantProvider.GetTenantId();
+
+        var document = await _dbContext.KnowledgeBaseDocuments
+            .FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId);
+
+        if (document == null)
+        {
+            return NotFound(new { message = "Document not found." });
+        }
+
+        if (!string.IsNullOrEmpty(document.StoragePath))
+        {
+            try
+            {
+                await _storage.DeleteFileAsync(document.StoragePath);
+            }
+            catch
+            {
+            }
+        }
+
+        _dbContext.KnowledgeBases.RemoveRange(
+            _dbContext.KnowledgeBases.Where(k => k.DocumentId == id));
+        _dbContext.KnowledgeBaseImages.RemoveRange(
+            _dbContext.KnowledgeBaseImages.Where(i => i.DocumentId == id));
+        _dbContext.KnowledgeBaseDocuments.Remove(document);
+
+        await _dbContext.SaveChangesAsync();
+
+        return NoContent();
     }
 }

@@ -106,8 +106,10 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Image Resolution| - | ImageResolver | KnowledgeBaseImage |
 | Reranking | - | IReranker (LlmScorerReranker) | KnowledgeSnippet |
 | File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
+| File Listing | FileIngestionController | - | KnowledgeBaseDocument |
+| File Delete | FileIngestionController | LocalFileStorage | KnowledgeBaseDocument |
 | File Parsing | - | IDocumentParser implementations | - |
-| Virus Scanning | - | IVirusScanService | - |
+| Virus Scanning | - | IVirusScanService (ClamAv, Noop) | - |
 | Background Jobs| - | FileIngestionJob | - |
 
 **Files:**

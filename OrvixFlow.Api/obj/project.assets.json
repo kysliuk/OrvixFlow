@@ -1365,6 +1365,15 @@
           }
         }
       },
+      "nClam/9.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.1/nClam.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/nClam.dll": {}
+        }
+      },
       "Newtonsoft.Json/13.0.3": {
         "type": "package",
         "compile": {
@@ -2134,7 +2143,8 @@
           "PdfPig": "0.1.9",
           "Pgvector.EntityFrameworkCore": "0.3.0",
           "SixLabors.ImageSharp": "3.1.12",
-          "System.IdentityModel.Tokens.Jwt": "8.16.0"
+          "System.IdentityModel.Tokens.Jwt": "8.16.0",
+          "nClam": "9.0.0"
         },
         "compile": {
           "bin/placeholder/OrvixFlow.Infrastructure.dll": {}
@@ -4587,6 +4597,20 @@
         "lib/netstandard2.0/Namotion.Reflection.xml",
         "namotion.reflection.3.4.3.nupkg.sha512",
         "namotion.reflection.nuspec"
+      ]
+    },
+    "nClam/9.0.0": {
+      "sha512": "kjJ9W3TJOl0VIS2lCpblfDHDZTUG7oejwx2PkjKxu6r+XSmcgBGJUMsrx2c8Utm4EfNDhjtKbJqwIzDpgog0Bw==",
+      "type": "package",
+      "path": "nclam/9.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/netstandard2.0/nClam.dll",
+        "lib/netstandard2.1/nClam.dll",
+        "nclam.9.0.0.nupkg.sha512",
+        "nclam.nuspec"
       ]
     },
     "Newtonsoft.Json/13.0.3": {

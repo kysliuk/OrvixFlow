@@ -1,5 +1,6 @@
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
@@ -50,7 +51,7 @@ public static class DependencyInjection
         if (provider == "Mock")
         {
             kernelBuilder.Services.AddSingleton<Microsoft.SemanticKernel.ChatCompletion.IChatCompletionService, OrvixFlow.Infrastructure.Ai.Mock.MockChatCompletionService>();
-            kernelBuilder.Services.AddSingleton<Microsoft.SemanticKernel.Embeddings.ITextEmbeddingGenerationService, OrvixFlow.Infrastructure.Ai.Mock.MockTextEmbeddingGenerationService>();
+            kernelBuilder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>, OrvixFlow.Infrastructure.Ai.Mock.MockEmbeddingGenerator>();
         }
         else
         {
@@ -72,17 +73,21 @@ public static class DependencyInjection
                 // Groq does not host embedding models. Fallback to mock generation for testing.
                 if (baseUrl?.Contains("groq", System.StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    kernelBuilder.Services.AddSingleton<Microsoft.SemanticKernel.Embeddings.ITextEmbeddingGenerationService, OrvixFlow.Infrastructure.Ai.Mock.MockTextEmbeddingGenerationService>();
+                    kernelBuilder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>, OrvixFlow.Infrastructure.Ai.Mock.MockEmbeddingGenerator>();
                 }
                 else
                 {
-                    kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", apiKey, httpClient: customHttpClient);
+#pragma warning disable SKEXP0010
+                    kernelBuilder.Services.AddOpenAIEmbeddingGenerator("text-embedding-3-small", apiKey, httpClient: customHttpClient);
+#pragma warning restore SKEXP0010
                 }
             }
             else
             {
                 kernelBuilder.AddOpenAIChatCompletion(modelId, apiKey);
-                kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", apiKey);
+#pragma warning disable SKEXP0010
+                kernelBuilder.Services.AddOpenAIEmbeddingGenerator("text-embedding-3-small", apiKey);
+#pragma warning restore SKEXP0010
             }
         }
             
@@ -125,6 +130,19 @@ public static class DependencyInjection
         services.AddScoped<IDocumentParser, ImageFileParser>();
         services.AddScoped<IImageResolver, ImageResolver>();
         services.AddScoped<FileIngestionJob>();
+
+        // Virus scanning (configurable)
+        var virusScanProvider = configuration["Security:VirusScan:Provider"] ?? "Noop";
+        if (virusScanProvider == "ClamAv")
+        {
+            services.Configure<ClamAvOptions>(configuration.GetSection("Security:VirusScan:ClamAv"));
+            services.AddScoped<IClamAvClient, NclamClient>();
+            services.AddScoped<IVirusScanService, ClamAvVirusScanService>();
+        }
+        else
+        {
+            services.AddScoped<IVirusScanService, NoopVirusScanService>();
+        }
 
         // Shadow modules
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();

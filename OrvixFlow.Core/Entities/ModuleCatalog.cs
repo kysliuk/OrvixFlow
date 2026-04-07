@@ -5,6 +5,7 @@ namespace OrvixFlow.Core.Entities;
 
 public static class ModuleCatalog
 {
+    public static readonly Guid KnowledgeBaseId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid DocIntelId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid FinanceFlowId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid InboxGuardianId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -19,6 +20,7 @@ public static class ModuleCatalog
     {
         return
         [
+            new ModuleDefinition { Id = KnowledgeBaseId, Key = "knowledge-base", DisplayName = "Knowledge Base", Tier = "Utility", Visibility = "UserFacing", IsOperational = true, IsActive = true },
             new ModuleDefinition { Id = DocIntelId, Key = "doc-intel", DisplayName = "Doc-Intel", Tier = "Utility", Visibility = "UserFacing", IsOperational = false, IsActive = true },
             new ModuleDefinition { Id = FinanceFlowId, Key = "finance-flow", DisplayName = "Finance-Flow", Tier = "Utility", Visibility = "UserFacing", IsOperational = false, IsActive = true },
             new ModuleDefinition { Id = InboxGuardianId, Key = "inbox-guardian", DisplayName = "Inbox-Guardian", Tier = "Utility", Visibility = "UserFacing", IsOperational = false, IsActive = true },

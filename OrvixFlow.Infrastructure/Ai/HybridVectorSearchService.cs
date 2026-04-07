@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel.Embeddings;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Core.Models;
 using OrvixFlow.Infrastructure.Data;
@@ -20,31 +22,40 @@ public interface IHybridVectorSearchService
 public class HybridVectorSearchService : IHybridVectorSearchService
 {
     private readonly AppDbContext _dbContext;
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private readonly IReranker? _reranker;
     private readonly IImageResolver? _imageResolver;
+    private readonly IConfiguration? _configuration;
+    private readonly ILogger<HybridVectorSearchService> _logger;
     
     // We can tune RRF constant k
     private const int RrfK = 60;
 
     public HybridVectorSearchService(
         AppDbContext dbContext,
-        ITextEmbeddingGenerationService embeddingService,
+        IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator,
         IReranker? reranker = null,
-        IImageResolver? imageResolver = null)
+        IImageResolver? imageResolver = null,
+        IConfiguration? configuration = null,
+        ILogger<HybridVectorSearchService>? logger = null)
     {
         _dbContext = dbContext;
-        _embeddingService = embeddingService;
+        _embeddingGenerator = embeddingGenerator;
         _reranker = reranker;
         _imageResolver = imageResolver;
+        _configuration = configuration;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<HybridVectorSearchService>.Instance;
     }
 
     public async Task<IReadOnlyList<KnowledgeSnippet>> SearchAsync(string query, int maxResults = 5)
     {
+        _logger.LogInformation("[RAG] Search query: {Query}", query);
+
         // 1. Semantic Search (Dense Vector) - Use Cosine Distance
-        var embeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { query });
+        var embeddings = await _embeddingGenerator.GenerateAsync(new[] { query });
         var embedding = embeddings[0];
-        var queryVector = new Vector(embedding.ToArray());
+        var queryVector = new Vector(embedding.Vector.Span.ToArray());
+        _logger.LogInformation("[RAG] Generated embedding, vector dims: {Dims}", embedding.Vector.Span.Length);
 
         // We fetch more results initially to perform RRF and reranking
         var fetchCount = maxResults * 10;
@@ -65,6 +76,9 @@ public class HybridVectorSearchService : IHybridVectorSearchService
                 SimilarityScore = 1.0 - k.EmbeddingVector!.CosineDistance(queryVector) 
             })
             .ToListAsync();
+
+        _logger.LogInformation("[RAG] Vector search: {Count} results, top score: {Score}", 
+            vectorQuery.Count, vectorQuery.Any() ? vectorQuery.Max(v => v.SimilarityScore) : 0);
 
         // 2. Full-Text Search (Sparse)
         // EF Core 9 pgvector + Npgsql allows simple raw SQL or using EF.Functions for plain_to_tsquery
@@ -123,7 +137,21 @@ public class HybridVectorSearchService : IHybridVectorSearchService
             dict[ftsQuery[i].Id].SimilarityScore += (float)(1.0 / (RrfK + rank));
         }
 
+        // RRF scores are typically very small (0.01-0.05 range), so threshold needs to be much lower
+        // Default to 0.0 to return results unless explicitly configured higher
+        var minThreshold = _configuration?.GetValue("AI:Search:MinSimilarityThreshold", 0.0) ?? 0.0;
+        
+        // Apply document specificity boost: prioritize chunks from uploaded documents
+        foreach (var snippet in dict.Values)
+        {
+            if (!string.IsNullOrEmpty(snippet.Title) && snippet.DocumentId.HasValue)
+            {
+                snippet.SimilarityScore *= 1.5f; // 50% boost for document-sourced chunks
+            }
+        }
+
         var topRrfResults = dict.Values
+            .Where(s => s.SimilarityScore > minThreshold)
             .OrderByDescending(s => s.SimilarityScore)
             .Take(maxResults * 3) // Give reranker some candidates
             .ToList();
@@ -133,6 +161,15 @@ public class HybridVectorSearchService : IHybridVectorSearchService
             : topRrfResults;
 
         var topFinal = finalResults.Take(maxResults).ToList();
+
+        _logger.LogInformation("[RAG] Final results: {Count} snippets returned", topFinal.Count);
+        for (int i = 0; i < topFinal.Count; i++)
+        {
+            var s = topFinal[i];
+            var preview = s.Content.Length > 100 ? s.Content[..100] + "..." : s.Content;
+            _logger.LogInformation("[RAG] Result {Index}: Title='{Title}', Score={Score}, DocumentId={DocId}, ContentPreview='{Preview}'", 
+                i + 1, s.Title, s.SimilarityScore, s.DocumentId, preview);
+        }
 
         // 5. Resolve related images
         if (_imageResolver != null && topFinal.Count > 0)

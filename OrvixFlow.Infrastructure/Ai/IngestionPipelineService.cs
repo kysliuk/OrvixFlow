@@ -4,8 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
-using Microsoft.SemanticKernel.Embeddings;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -21,7 +21,7 @@ public class IngestionPipelineService : IIngestionPipelineService
     private readonly AppDbContext _dbContext;
     private readonly IEnumerable<IDocumentParser> _parsers;
     private readonly IChunker _chunker;
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private readonly IFileStorage _storage;
     private readonly ITenantProvider _tenantProvider;
     private readonly IUsageService _usageService;
@@ -35,7 +35,7 @@ public class IngestionPipelineService : IIngestionPipelineService
         AppDbContext dbContext,
         IEnumerable<IDocumentParser> parsers,
         IChunker chunker,
-        ITextEmbeddingGenerationService embeddingService,
+        IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator,
         IFileStorage storage,
         ITenantProvider tenantProvider,
         IUsageService usageService,
@@ -47,7 +47,7 @@ public class IngestionPipelineService : IIngestionPipelineService
         _dbContext = dbContext;
         _parsers = parsers;
         _chunker = chunker;
-        _embeddingService = embeddingService;
+        _embeddingGenerator = embeddingGenerator;
         _storage = storage;
         _tenantProvider = tenantProvider;
         _usageService = usageService;
@@ -61,42 +61,55 @@ public class IngestionPipelineService : IIngestionPipelineService
         Stream fileStream,
         string fileName,
         string contentType,
+        Guid documentId,
+        Guid tenantId,
         Guid? userId = null,
         Guid? departmentId = null)
     {
         var sw = Stopwatch.StartNew();
-        var tenantId = _tenantProvider.GetTenantId();
-        _logger.LogInformation("Starting ingestion for file: {FileName} (Tenant: {TenantId})", fileName, tenantId);
+        _logger.LogInformation("Starting ingestion for file: {FileName} (DocID: {DocumentId}, Tenant: {TenantId})", fileName, documentId, tenantId);
 
-        var document = new KnowledgeBaseDocument
+        // Fetch existing document created by controller, or create new if not found
+        var document = await _dbContext.KnowledgeBaseDocuments.FindAsync(documentId);
+        
+        if (document == null)
         {
-            TenantId = tenantId,
-            FileName = fileName,
-            ContentType = contentType,
-            FileSizeBytes = fileStream.Length,
-            Status = "Processing"
-        };
-
-        _dbContext.KnowledgeBaseDocuments.Add(document);
+            // Create new document (either backward-compat mode or document not yet created)
+            document = new KnowledgeBaseDocument
+            {
+                Id = documentId,
+                TenantId = tenantId,
+                FileName = fileName,
+                ContentType = contentType,
+                FileSizeBytes = fileStream.Length,
+                Status = "Processing"
+            };
+            _dbContext.KnowledgeBaseDocuments.Add(document);
+            await _dbContext.SaveChangesAsync();
+        }
+        else
+        {
+            // Update existing document created by controller
+            document.Status = "Processing";
+            document.ContentType = contentType;
+            document.FileSizeBytes = fileStream.Length;
+            await _dbContext.SaveChangesAsync();
+        }
 
         try
         {
-            // 1. Save raw file
-            var storagePath = await _storage.SaveFileAsync(tenantId, document.Id, fileName, fileStream);
-            document.StoragePath = storagePath;
-
-            // 2. Resolve parser
+            // 1. Resolve parser
             var parser = _parsers.FirstOrDefault(p => p.CanParse(contentType));
             if (parser == null)
             {
                 throw new NotSupportedException($"No parser found for content type: {contentType}");
             }
 
-            // 3. Parse
+            // 2. Parse
             fileStream.Position = 0; // Reset for parsing
             var parsedDoc = await parser.ParseAsync(fileStream, fileName);
 
-            // 4. Chunk
+            // 3. Chunk
             var chunkSize = _configuration.GetValue("AI:Ingestion:ChunkSize", 800);
             var overlapSize = _configuration.GetValue("AI:Ingestion:ChunkOverlap", 150);
             int chunkIndex = 0;
@@ -106,27 +119,32 @@ public class IngestionPipelineService : IIngestionPipelineService
                 var chunks = _chunker.Chunk(textChunk.Content, chunkSize, overlapSize);
                 foreach (var chunkText in chunks)
                 {
-                    // 5. Embed
-                    var embeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { chunkText });
-                    var embedding = embeddings[0];
+                    // 4. Embed with retry
+                    var embedding = await ExecuteWithRetryAsync(
+                        async () =>
+                        {
+                            var embeddings = await _embeddingGenerator.GenerateAsync(new[] { chunkText });
+                            return embeddings[0];
+                        },
+                        $"embedding for chunk {chunkIndex}");
                     
                     var kbChunk = new KnowledgeBase
                     {
                         TenantId = tenantId,
-                        DocumentId = document.Id, // Use explicit ID
+                        DocumentId = document.Id,
                         RawContent = chunkText,
                         ChunkIndex = chunkIndex++,
                         ChunkType = "text",
                         Title = parsedDoc.Title,
-                        EmbeddingVector = new Pgvector.Vector(embedding.ToArray())
+                        EmbeddingVector = new Pgvector.Vector(embedding.Vector.Span.ToArray())
                     };
                     document.Chunks.Add(kbChunk);
                 }
             }
 
-            // 6. Save chunks - they are in document.Chunks and document is already tracked.
+            // 5. Save chunks
 
-            // 7. Process Images
+            // 6. Process Images
             foreach (var imageChunk in parsedDoc.ImageChunks)
             {
                 using var imageMs = new MemoryStream(imageChunk.Data);
@@ -135,22 +153,29 @@ public class IngestionPipelineService : IIngestionPipelineService
                 var caption = imageChunk.Caption;
                 if (string.IsNullOrWhiteSpace(caption))
                 {
-                    // Generate descriptive caption using Vision
-                    caption = await GenerateImageCaptionAsync(imageChunk.Data, imageChunk.ContentType, fileName);
+                    // Generate descriptive caption using Vision with retry
+                    caption = await ExecuteWithRetryAsync(
+                        async () => await GenerateImageCaptionAsync(imageChunk.Data, imageChunk.ContentType, fileName),
+                        $"image caption for {fileName}");
                 }
 
-                var captionEmbeddings = await _embeddingService.GenerateEmbeddingsAsync(new[] { caption });
-                var captionEmbedding = captionEmbeddings[0];
+                var captionEmbedding = await ExecuteWithRetryAsync(
+                    async () =>
+                    {
+                        var embeddings = await _embeddingGenerator.GenerateAsync(new[] { caption });
+                        return embeddings[0];
+                    },
+                    $"caption embedding for {fileName}");
 
                 var kbImage = new KnowledgeBaseImage
                 {
                     TenantId = tenantId,
-                    DocumentId = document.Id, // Use explicit ID
+                    DocumentId = document.Id,
                     StoragePath = imagePath,
                     ContentType = imageChunk.ContentType,
                     AltText = caption,
-                    Caption = caption, // For now original and alt are same
-                    CaptionEmbedding = new Pgvector.Vector(captionEmbedding.ToArray())
+                    Caption = caption,
+                    CaptionEmbedding = new Pgvector.Vector(captionEmbedding.Vector.Span.ToArray())
                 };
 
                 _dbContext.KnowledgeBaseImages.Add(kbImage);
@@ -180,13 +205,15 @@ public class IngestionPipelineService : IIngestionPipelineService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ingestion failed for {FileName}", fileName);
-            // If the context is dirty from a failed SaveChangesAsync (common with InMemory duplication errors),
-            // trying to save again in the same context often fails with "item already added".
-            _dbContext.Entry(document).State = EntityState.Modified;
             document.Status = "Failed";
             document.ErrorMessage = ex.Message;
             try 
             {
+                if (_dbContext.Entry(document).State == EntityState.Detached)
+                {
+                    _dbContext.KnowledgeBaseDocuments.Attach(document);
+                }
+                _dbContext.Entry(document).State = EntityState.Modified;
                 await _dbContext.SaveChangesAsync();
             }
             catch
@@ -195,6 +222,27 @@ public class IngestionPipelineService : IIngestionPipelineService
             }
             return new IngestionResult(document.Id, 0, 0, ex.Message);
         }
+    }
+
+    private async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation, string operationName, int maxRetries = 3, int baseDelaySeconds = 2)
+    {
+        var lastException = new Exception("Operation failed");
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                return await operation();
+            }
+            catch (Exception ex) when (ex.Message.Contains("429") || ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
+            {
+                lastException = ex;
+                var delay = TimeSpan.FromSeconds(baseDelaySeconds * Math.Pow(2, attempt - 1));
+                _logger.LogWarning("Rate limited on {OperationName} (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s", operationName, attempt, maxRetries, delay.TotalSeconds);
+                await Task.Delay(delay);
+            }
+        }
+        _logger.LogError(lastException, "All retries exhausted for {OperationName}", operationName);
+        throw lastException;
     }
 
     private async Task<string> GenerateImageCaptionAsync(byte[] imageData, string contentType, string fileName)

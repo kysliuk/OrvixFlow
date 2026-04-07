@@ -2,12 +2,21 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { ShieldAlert, Send, Activity, Users, RotateCw, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, Send, Activity, Users, RotateCw, CheckCircle2, Search, Database } from "lucide-react";
 
 interface Tenant {
   id: string;
   name: string;
   plan: string;
+}
+
+interface DebugResult {
+  id: string;
+  title: string;
+  similarityScore: number;
+  documentId: string | null;
+  chunkType: string;
+  preview: string;
 }
 
 export default function AdminTestPage() {
@@ -17,6 +26,12 @@ export default function AdminTestPage() {
   const [emailBody, setEmailBody] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+
+  // KB Debug state
+  const [kbQuery, setKbQuery] = useState("");
+  const [kbResults, setKbResults] = useState<DebugResult[]>([]);
+  const [kbLoading, setKbLoading] = useState(false);
+  const [kbError, setKbError] = useState<string | null>(null);
 
   const apiToken = (session as any)?.apiToken;
 
@@ -63,6 +78,33 @@ export default function AdminTestPage() {
       setResult(`Error: ${e.message}`);
     } finally {
       setIsRunning(false);
+    }
+  };
+
+  const handleKbSearch = async () => {
+    if (!kbQuery || !selectedTenant) return;
+    setKbLoading(true);
+    setKbError(null);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge/debug-search?q=${encodeURIComponent(kbQuery)}&maxResults=10`,
+        {
+          headers: {
+            "Authorization": `Bearer ${apiToken}`,
+            "X-Impersonate-Tenant": selectedTenant,
+          },
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        setKbResults(data.results || []);
+      } else {
+        setKbError(data.detail || `Error: ${res.status}`);
+      }
+    } catch (e: any) {
+      setKbError(e.message);
+    } finally {
+      setKbLoading(false);
     }
   };
 
@@ -159,10 +201,80 @@ export default function AdminTestPage() {
               >
                 CLEAR // NEW TEST
               </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        {/* Knowledge Base Debug Section */}
+        <div className="bg-black/40 border border-primary/20 rounded-xl p-6">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-primary/80 flex items-center gap-2 mb-4">
+            <Database className="w-4 h-4" /> Knowledge Base Retrieval Debug
+          </h2>
+          
+          <div className="flex flex-col gap-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter search query..."
+                value={kbQuery}
+                onChange={(e) => setKbQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleKbSearch()}
+                className="flex-1 bg-black/60 border border-primary/20 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/60"
+              />
+              <button
+                onClick={handleKbSearch}
+                disabled={kbLoading || !kbQuery || !selectedTenant}
+                className="flex items-center gap-2 bg-primary hover:bg-primary/80 disabled:opacity-40 text-white font-semibold rounded-lg px-4 py-2 text-sm"
+              >
+                {kbLoading ? <RotateCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                Search
+              </button>
+            </div>
+
+            {kbError && (
+              <div className="text-danger text-sm font-mono p-2 bg-danger/10 rounded">
+                {kbError}
+              </div>
+            )}
+
+            {kbResults.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs text-white/50 font-mono">
+                  Found {kbResults.length} results
+                </p>
+                {kbResults.map((item, idx) => (
+                  <div key={idx} className="bg-[#050202] border border-primary/15 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-medium text-sm truncate flex-1" title={item.title}>
+                        {item.title || "(No title)"}
+                      </span>
+                      <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                        item.similarityScore > 0.7 ? "bg-success/20 text-success" :
+                        item.similarityScore > 0.5 ? "bg-warning/20 text-warning" :
+                        "bg-danger/20 text-danger"
+                      }`}>
+                        Score: {item.similarityScore.toFixed(2)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/60 font-mono whitespace-pre-wrap">
+                      {item.preview}
+                    </p>
+                    <div className="text-[10px] text-white/30 font-mono mt-2">
+                      ID: {item.id.slice(0, 8)}... | DocID: {item.documentId?.slice(0, 8) || "null"} | Type: {item.chunkType}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!kbLoading && !kbError && kbResults.length === 0 && kbQuery && (
+              <p className="text-white/30 text-sm font-mono text-center py-4">
+                No results found for this query
+              </p>
+            )}
+          </div>
+        </div>
     </div>
   );
 }

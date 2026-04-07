@@ -654,3 +654,4 @@ D:/Antigravity/OrvixFlow/OrvixFlow.Tests/obj/Debug/net9.0/ref/OrvixFlow.Tests.dl
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/UglyToad.PdfPig.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/SixLabors.ImageSharp.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/System.IO.Packaging.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/bin/Debug/net9.0/nClam.dll

@@ -11,6 +11,7 @@ using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
 using OrvixFlow.Infrastructure.Ai.Parsers;
 using OrvixFlow.Infrastructure.Data;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel;
 using Xunit;
@@ -91,9 +92,9 @@ public class RagImageSupportTests
         mockVector = new float[1536];
         mockVector[0] = 1.0f;
 
-        var mockEmbedding = new Mock<ITextEmbeddingGenerationService>();
-        mockEmbedding.Setup(x => x.GenerateEmbeddingsAsync(It.IsAny<IList<string>>(), It.IsAny<Kernel?>(), It.IsAny<System.Threading.CancellationToken>()))
-            .ReturnsAsync(new List<ReadOnlyMemory<float>> { mockVector }); 
+        var mockEmbedding = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
+        mockEmbedding.Setup(x => x.GenerateAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions?>(), It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new Embedding<float>(mockVector)])); 
 
         var mockLogger = new Mock<ILogger<ImageResolver>>();
         var resolver = new ImageResolver(context, mockEmbedding.Object, mockTenantProvider.Object, mockLogger.Object);
