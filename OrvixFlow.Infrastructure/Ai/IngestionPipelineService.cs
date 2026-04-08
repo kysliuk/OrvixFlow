@@ -280,11 +280,16 @@ public class IngestionPipelineService : IIngestionPipelineService
             {
                 return await operation();
             }
-            catch (Exception ex) when (ex.Message.Contains("429") || ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex) when (
+                ex.Message.Contains("429") || 
+                ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("rate_limit_exceeded") ||
+                ex.Message.Contains("TPM"))
             {
                 lastException = ex;
                 var delay = TimeSpan.FromSeconds(baseDelaySeconds * Math.Pow(2, attempt - 1));
-                _logger.LogWarning("Rate limited on {OperationName} (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s", operationName, attempt, maxRetries, delay.TotalSeconds);
+                _logger.LogWarning("Rate limited on {OperationName} (attempt {Attempt}/{MaxRetries}). Retrying in {Delay}s. Error: {Error}", 
+                    operationName, attempt, maxRetries, delay.TotalSeconds, ex.Message);
                 await Task.Delay(delay);
             }
         }
