@@ -1,5 +1,7 @@
 # OrvixFlow Security Review
-**Date:** 2026-04-08 | **Reviewer:** AI Security Audit (Senior Architect Role) | **Severity Key:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
+**Date:** 2026-04-08 | **Primary Reviewer:** Claude (Senior Architect role) | **Cross-reviewed by:** OpenCode Security Agent | **Last updated:** 2026-04-08 | **Severity Key:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
+
+> **Note:** This document incorporates findings from two independent AI security reviews. Findings F-01 through F-30 were identified by Claude from direct source-code inspection. Findings F-31, F-32, and F-33 were identified by OpenCode and verified by manual source inspection before inclusion. One OpenCode finding (CORS misconfiguration) was rejected as factually incorrect after code verification. See `tasks/opencode-security-review-08-04.md` for the original OpenCode report.
 
 ---
 
@@ -515,54 +517,154 @@ This is a type-safety workaround. More importantly, if the Next.js frontend is c
 
 ---
 
+### Area 11 — Additional Findings from Cross-Review (OpenCode)
+
+#### 🔴 CRITICAL | F-31 | Groq API Key Committed to Git in `appsettings.Development.json`
+**Location:** `OrvixFlow.Api/appsettings.Development.json:23` *(verified)*
+**Source:** OpenCode review
+
+**Issue:** A real, live Groq API key is hardcoded in `appsettings.Development.json`:
+```json
+"ApiKey": "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"
+```
+This file is almost certainly tracked in git. Anyone with repository access can use this key to make requests against the Groq LLM API, potentially incurring unbounded cost.
+
+**Risk:** API key abuse, cost attacks, exfiltration of any prompt data sent to the model.
+
+**Impact:** Financial damage via runaway API usage; potential data exposure if the key is used for further API enumeration.
+
+**Abuse:** Clone repo → extract key → run unlimited LLM inference calls billed to your account.
+
+**Fix:**
+- **Immediately rotate** the Groq API key in the Groq console.
+- Remove the value from `appsettings.Development.json`. Replace with a placeholder: `"ApiKey": ""`.
+- Load via environment variable: `AI__OpenAI__ApiKey=<value>` (already done in docker-compose pattern — apply same to local dev).
+- Add `appsettings.Development.json` to `.gitignore` or ensure it never contains live secrets.
+- Run `git log -S "gsk_8bAgiTnd"` to confirm no historical exposure in git history, and if found, use `git filter-repo` to scrub.
+
+---
+
+#### 🟠 HIGH | F-32 | No HTTP Security Headers on API or Frontend
+**Location:** `OrvixFlow.Api/Program.cs` | `orvixflow-web/next.config.ts` *(verified — both files confirmed empty of any header configuration)*
+**Source:** OpenCode review
+
+**Issue:** Neither the ASP.NET Core API nor the Next.js frontend set any HTTP security headers:
+- `Content-Security-Policy` — missing, enables XSS
+- `X-Frame-Options` — missing, enables clickjacking
+- `X-Content-Type-Options` — missing, enables MIME sniffing
+- `Strict-Transport-Security` — missing, no HTTPS enforcement signal to browsers
+- `Referrer-Policy` — missing
+
+**Risk:** Without these headers, a successful XSS attack (e.g., via an injected script in email body rendered in the inbox UI) can exfiltrate the `apiToken` from the session. Clickjacking enables UI redress attacks.
+
+**Fix — API (`Program.cs`):** Add after `app.UseRateLimiter()`:
+```csharp
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    // X-XSS-Protection is legacy but harmless:
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    await next();
+});
+// HSTS — add in production only:
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
+```
+
+**Fix — Frontend (`next.config.ts`):**
+```typescript
+const nextConfig: NextConfig = {
+  async headers() {
+    return [{
+      source: "/:path*",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "X-XSS-Protection", value: "1; mode=block" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        // Tighten CSP once inline scripts are audited:
+        // { key: "Content-Security-Policy", value: "default-src 'self'; ..." },
+      ],
+    }];
+  },
+};
+```
+
+---
+
+#### 🟡 MEDIUM | F-33 | No Email Verification Required on Registration
+**Location:** `AuthService.cs:32-60` — `RegisterAsync` *(verified)*
+**Source:** OpenCode review
+
+**Issue:** After `RegisterAsync` completes, the account is immediately active and a JWT is returned — there is no email verification step. This means:
+- Anyone can register with any email address (including email addresses they do not own)
+- Fake/spam accounts can be created at will
+- There is no way to prove email ownership, which weakens the phishing risk around invitations and OAuth linking
+
+**Risk:** Account enumeration, spam accounts, weakened identity assurance for invited users.
+
+**Fix:**
+- On registration, mark account as `EmailVerified = false`.
+- Send a verification email with a signed token (similar to the existing `Invitation.Token` pattern — reuse that infrastructure).
+- Block login for unverified accounts (or restrict access to a verification-only landing page).
+- Set a TTL on the verification token (24–48 hours).
+
+---
+
 ## 3. Critical Vulnerabilities Summary
 
-| ID | Title | Severity |
-|----|-------|----------|
-| F-09 | `X-Tenant-ID` header fallback allows cross-tenant access | 🔴 Critical |
-| F-10 | Admin impersonation has no audit trail | 🔴 Critical |
-| F-15 | Real OAuth/JWT secrets in git-tracked docker-compose.yml | 🔴 Critical |
-| F-02 | Silent OAuth email-link account takeover | 🟠 High |
+| ID | Title | Severity | Source |
+|----|-------|----------|--------|
+| F-09 | `X-Tenant-ID` header fallback allows cross-tenant access | 🔴 Critical | Claude |
+| F-10 | Admin impersonation has no audit trail | 🔴 Critical | Claude |
+| F-15 | Real OAuth/JWT secrets in git-tracked `docker-compose.yml` | 🔴 Critical | Both |
+| F-31 | Groq API key hardcoded in `appsettings.Development.json` | 🔴 Critical | OpenCode |
+| F-02 | Silent OAuth email-link account takeover | 🟠 High | Both |
 
 ---
 
 ## 4. High-Priority Risks (Acting Critical in the Right Conditions)
 
-| ID | Title | Severity |
-|----|-------|----------|
-| F-01 | No JWT revocation mechanism — 7-day stale access | 🟠 High |
-| F-11 | MIME type validation uses client-supplied value (bypass) | 🟠 High |
-| F-12 | Path traversal risk in uploaded filename | 🟠 High |
-| F-16 | AutomationKey weak, static, non-constant-time comparison | 🟠 High |
-| F-17 | Known-placeholder JWT secret in appsettings.json | 🟠 High |
-| F-19 | WebhookSecret exposed in plaintext in admin API response | 🟠 High |
-| F-22 | Hangfire dashboard accessible to any local network user | 🟠 High |
-| F-23 | n8n has unrestricted access to internal DB and API network | 🟠 High |
-| F-25 | Admin panel frontend route protection may be client-side only | 🟠 High |
+| ID | Title | Severity | Source |
+|----|-------|----------|--------|
+| F-01 | No JWT revocation mechanism — 7-day stale access | 🟠 High | Both |
+| F-11 | MIME type validation uses client-supplied value (bypass) | 🟠 High | Claude |
+| F-12 | Path traversal risk in uploaded filename | 🟠 High | Claude |
+| F-16 | AutomationKey weak, static, non-constant-time comparison | 🟠 High | Claude |
+| F-17 | Known-placeholder JWT secret in appsettings.json | 🟠 High | Claude |
+| F-19 | WebhookSecret exposed in plaintext in admin API response | 🟠 High | Claude |
+| F-22 | Hangfire dashboard accessible to any local network user | 🟠 High | Claude |
+| F-23 | n8n has unrestricted access to internal DB and API network | 🟠 High | Claude |
+| F-25 | Admin panel frontend route protection may be client-side only | 🟠 High | Claude |
+| F-32 | No HTTP security headers on API or frontend | 🟠 High | OpenCode |
 
 ---
 
 ## 5. Medium/Low-Priority Issues
 
-| ID | Title | Severity |
-|----|-------|----------|
-| F-03 | No login brute-force protection | 🟡 Medium |
-| F-04 | No password complexity enforcement | 🟡 Medium |
-| F-06 | RequireModule uses blocking `.GetAwaiter().GetResult()` | 🟡 Medium |
-| F-07 | RequireModule skips user-level permission check | 🟡 Medium |
-| F-08 | CompanyAdmin can invite as CompanyOwner (priv escalation) | 🟡 Medium |
-| F-13 | No size limit on text ingestion | 🟡 Medium |
-| F-14 | Silent storage error swallow in DeleteDocument | 🟡 Medium |
-| F-18 | Virus scan is Noop by default (including production) | 🟡 Medium |
-| F-20 | Uploaded files on local disk, no access control, no encryption | 🟡 Medium |
-| F-21 | PII in AuditTrail, indefinite retention | 🟡 Medium |
-| F-24 | Auto-execute workflow has no per-tenant rate limit | 🟡 Medium |
-| F-26 | Destructive admin actions lack audit trail and confirmation | 🟡 Medium |
-| F-27 | Rate limiting only on file upload, not AI endpoints | 🟡 Medium |
-| F-28 | Security events at Debug log level or missing entirely | 🟡 Medium |
-| F-29 | Backend JWT accessible to client-side JS via session | 🟡 Medium |
-| F-05 | Invite token returned in API response body | 🟢 Low |
-| F-30 | Frontend admin role check relies on stale token role | 🟢 Low |
+| ID | Title | Severity | Source |
+|----|-------|----------|--------|
+| F-03 | No login brute-force protection | 🟡 Medium | Both |
+| F-04 | No password complexity enforcement | 🟡 Medium | Both |
+| F-06 | RequireModule uses blocking `.GetAwaiter().GetResult()` | 🟡 Medium | Claude |
+| F-07 | RequireModule skips user-level permission check | 🟡 Medium | Claude |
+| F-08 | CompanyAdmin can invite as CompanyOwner (priv escalation) | 🟡 Medium | Claude |
+| F-13 | No size limit on text ingestion | 🟡 Medium | Claude |
+| F-14 | Silent storage error swallow in DeleteDocument | 🟡 Medium | Claude |
+| F-18 | Virus scan is Noop by default (including production) | 🟡 Medium | Claude |
+| F-20 | Uploaded files on local disk, no access control, no encryption | 🟡 Medium | Claude |
+| F-21 | PII in AuditTrail, indefinite retention | 🟡 Medium | Claude |
+| F-24 | Auto-execute workflow has no per-tenant rate limit | 🟡 Medium | Claude |
+| F-26 | Destructive admin actions lack audit trail and confirmation | 🟡 Medium | Claude |
+| F-27 | Rate limiting only on file upload, not AI endpoints | 🟡 Medium | Claude |
+| F-28 | Security events at Debug log level or missing entirely | 🟡 Medium | Claude |
+| F-29 | Backend JWT accessible to client-side JS via session | 🟡 Medium | Claude |
+| F-33 | No email verification required on registration | 🟡 Medium | OpenCode |
+| F-05 | Invite token returned in API response body | 🟢 Low | Claude |
+| F-30 | Frontend admin role check relies on stale token role | 🟢 Low | Claude |
 
 ---
 
@@ -621,11 +723,12 @@ This is a type-safety workaround. More importantly, if the Next.js frontend is c
 > [!CAUTION]
 > These must be resolved before the application handles any real users or real data.
 
-1. **F-15 — Rotate all secrets in docker-compose.yml.** Revoke Google OAuth secret and Azure AD secret in their respective consoles. Move all secrets to `.env` file (gitignored). Create `.env.example`.
-2. **F-09 — Remove `X-Tenant-ID` fallback from `TenantProvider`.** Tenant must always come from JWT claim. Create a separate webhook-only provider for HMAC routes.
-3. **F-02 — Fix OAuth email linking.** Return an error when email conflicts with an existing account, do not silently link.
-4. **F-17 — Remove JWT secret placeholder from `appsettings.json`.** Must be supplied via environment variable only.
-5. **F-10 — Add audit trail for admin impersonation.** Every `X-Impersonate-Tenant` use must produce an `AuditTrail` entry.
+1. **F-15 — Rotate all secrets in `docker-compose.yml`.** Revoke Google OAuth secret and Azure AD secret in their respective consoles. Move all secrets to `.env` file (gitignored). Create `.env.example`.
+2. **F-31 — Rotate Groq API key and remove from `appsettings.Development.json`.** Run `git log -S "gsk_8bAgi"` to check history; scrub with `git filter-repo` if found. Set via environment variable.
+3. **F-09 — Remove `X-Tenant-ID` fallback from `TenantProvider`.** Tenant must always come from JWT claim. Create a separate webhook-only provider for HMAC routes.
+4. **F-02 — Fix OAuth email linking.** Return an error when email conflicts with an existing account, do not silently link.
+5. **F-17 — Remove JWT secret placeholder from `appsettings.json`.** Must be supplied via environment variable only.
+6. **F-10 — Add audit trail for admin impersonation.** Every `X-Impersonate-Tenant` use must produce an `AuditTrail` entry.
 
 ---
 
@@ -634,40 +737,42 @@ This is a type-safety workaround. More importantly, if the Next.js frontend is c
 > [!IMPORTANT]
 > High-severity risks that should be addressed before launch.
 
-6. **F-19 — Stop returning WebhookSecret in admin API.** Treat it like a password — never transmit after creation.
-7. **F-11 — Validate MIME type by magic bytes**, not client `Content-Type`.
-8. **F-12 — Sanitize uploaded filenames** before file system writes. Use `Path.GetFileName()` at minimum; ideally generate a random internal name.
-9. **F-22 — Protect Hangfire dashboard with SuperAdmin JWT auth** instead of localhost-only filter.
-10. **F-01 — Shorten JWT lifetime to 30–60 minutes**, add refresh token flow or re-login requirement on sensitive operations.
-11. **F-03 — Add rate limiting to login endpoint**: per-IP and per-account, with backoff.
-12. **F-08 — Fix invitation role ceiling**: callers cannot assign roles higher than their own.
-13. **F-16 — Fix AutomationKey comparison to use `FixedTimeEquals`** and rotate the key out of git.
+7. **F-32 — Add HTTP security headers to API and frontend.** Add middleware in `Program.cs` for `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. Add `headers()` config in `next.config.ts`. Enable HSTS in production.
+8. **F-19 — Stop returning WebhookSecret in admin API.** Treat it like a password — never transmit after creation.
+9. **F-11 — Validate MIME type by magic bytes**, not client `Content-Type`.
+10. **F-12 — Sanitize uploaded filenames** before file system writes. Use `Path.GetFileName()` at minimum; ideally generate a random internal name.
+11. **F-22 — Protect Hangfire dashboard with SuperAdmin JWT auth** instead of localhost-only filter.
+12. **F-01 — Shorten JWT lifetime to 30–60 minutes**, add refresh token flow or re-login requirement on sensitive operations.
+13. **F-03 — Add rate limiting to login endpoint**: per-IP and per-account, with backoff.
+14. **F-08 — Fix invitation role ceiling**: callers cannot assign roles higher than their own.
+15. **F-16 — Fix AutomationKey comparison to use `FixedTimeEquals`** and rotate the key out of git.
 
 ---
 
 ### Phase 3 — Medium-Term Architecture Improvements (Next Month)
 
-14. **F-23 — Segment n8n network** away from DB and API. Apply egress restrictions.
-15. **F-20 — Migrate file storage to cloud object storage** (S3/Azure Blob) with pre-signed URLs and server-side encryption.
-16. **F-07 — Extend `RequireModule` to check user-level permissions** not just company plan entitlements.
-17. **F-06 — Convert `RequireModule` to `IAsyncAuthorizationFilter`**.
-18. **F-27 — Add rate limiting to AI-consuming endpoints** (inbox process, text ingest, knowledge search).
-19. **F-04 — Enforce password complexity** (min 12 chars, character requirements).
-20. **F-21 — Implement AuditTrail data retention policy** with automated periodic purging.
-21. **F-25 — Verify all admin pages have server-side auth guards** via `auth()` in `layout.tsx`.
-22. **F-28 — Promote security event logging to `LogWarning`** and add dedicated audit entries for: login failures, impersonation, admin destructive actions.
+16. **F-23 — Segment n8n network** away from DB and API. Apply egress restrictions.
+17. **F-20 — Migrate file storage to cloud object storage** (S3/Azure Blob) with pre-signed URLs and server-side encryption.
+18. **F-07 — Extend `RequireModule` to check user-level permissions** not just company plan entitlements.
+19. **F-06 — Convert `RequireModule` to `IAsyncAuthorizationFilter`**.
+20. **F-27 — Add rate limiting to AI-consuming endpoints** (inbox process, text ingest, knowledge search).
+21. **F-04 — Enforce password complexity** (min 12 chars, character requirements).
+22. **F-33 — Add email verification on registration.** Mark accounts as unverified on creation, send verification token, restrict login until verified. Reuse the existing `Invitation.Token` pattern.
+23. **F-21 — Implement AuditTrail data retention policy** with automated periodic purging.
+24. **F-25 — Verify all admin pages have server-side auth guards** via `auth()` in `layout.tsx`.
+25. **F-28 — Promote security event logging to `LogWarning`** and add dedicated audit entries for: login failures, impersonation, admin destructive actions.
 
 ---
 
 ### Phase 4 — Lower-Priority / Nice-To-Have
 
-23. **F-05 — Remove invite token from API response** — send exclusively by email.
-24. **F-18 — Enable virus scanning in production configs** (ClamAV) and warn on startup if Noop is active in non-dev.
-25. **F-24 — Add per-tenant workflow auto-execute rate limit**.
-26. **F-26 — Add confirmation tokens and AuditTrail writes** to destructive admin actions.
-27. **F-29 — Move API calls to server-side Next.js Route Handlers** to eliminate raw JWT exposure in client-side JS.
-28. **F-13 — Add max length validation to text ingestion** endpoint.
-29. **F-14 — Replace silent storage error swallow** with logged warning and background cleanup job.
+26. **F-05 — Remove invite token from API response** — send exclusively by email.
+27. **F-18 — Enable virus scanning in production configs** (ClamAV) and warn on startup if Noop is active in non-dev.
+28. **F-24 — Add per-tenant workflow auto-execute rate limit**.
+29. **F-26 — Add confirmation tokens and AuditTrail writes** to destructive admin actions.
+30. **F-29 — Move API calls to server-side Next.js Route Handlers** to eliminate raw JWT exposure in client-side JS.
+31. **F-13 — Add max length validation to text ingestion** endpoint.
+32. **F-14 — Replace silent storage error swallow** with logged warning and background cleanup job.
 
 ---
 
@@ -708,12 +813,28 @@ This is a type-safety workaround. More importantly, if the Next.js frontend is c
 - [ ] Confirm `AuditTrail` entry created when SuperAdmin uses `X-Impersonate-Tenant`
 - [ ] Confirm plan cancel/suspend creates an `AuditTrail` entry
 
+### HTTP Security Headers (F-32)
+- [ ] `curl -I http://localhost:8080/health/rag` — verify `X-Content-Type-Options: nosniff` present
+- [ ] `curl -I http://localhost:3000` — verify `X-Frame-Options: DENY` present
+- [ ] Confirm no `Content-Security-Policy` violations in browser console for the dashboard
+
+### Secrets (additional — F-31)
+- [ ] Confirm `appsettings.Development.json` contains NO live API key value
+- [ ] Run `git log -S "gsk_8bAgi"` — verify no commit in git history contains the key
+- [ ] Confirm Groq key rotated by verifying old key is rejected by Groq API
+
+### Registration / Email Verification (F-33)
+- [ ] Register a new account — verify email is sent
+- [ ] Attempt to log in before clicking verification link — verify access is denied (after F-33 implemented)
+
 ---
 
 ## 11. Final Verdict
 
 > [!WARNING]
 > **OrvixFlow is NOT production-ready from a security standpoint without addressing the Critical and High findings.**
+
+**Total findings: 33** (4 Critical · 10 High · 16 Medium · 3 Low)
 
 **What is well-built:**
 - The two-layer role system (global vs company) is correctly designed and consistently enforced at the API layer.
@@ -725,10 +846,13 @@ This is a type-safety workaround. More importantly, if the Next.js frontend is c
 - The `AccessResolver` platform-admin bypass is logical and documented.
 
 **What is not acceptable for production:**
-1. Real OAuth and session secrets committed to git in `docker-compose.yml` (**F-15**).
-2. Any authenticated user can access any tenant's data by spoofing `X-Tenant-ID` header (**F-09** — defeats the entire multi-tenancy model).
-3. Automatic silent account takeover via OAuth email matching (**F-02**).
-4. Admin impersonation of any tenant with zero audit trail (**F-10**).
+1. Real OAuth and session secrets committed to git in `docker-compose.yml` (**F-15**) — rotate immediately.
+2. Live Groq API key in `appsettings.Development.json` (**F-31**) — rotate immediately.
+3. Any authenticated user can access any tenant's data by spoofing `X-Tenant-ID` header (**F-09** — defeats the entire multi-tenancy model).
+4. Automatic silent account takeover via OAuth email matching (**F-02**).
+5. Admin impersonation of any tenant with zero audit trail (**F-10**).
+
+**Two independently agreed-upon critical blockers (confirmed by both reviewers):** secrets in git (F-15/F-31), OAuth account linking without verification (F-02), brute-force on login (F-03), weak password requirements (F-04), 7-day JWT lifetime (F-01).
 
 **Risk Classification:** `HIGH RISK` — Do not expose to the internet or onboard real customer data until Phase 1 and Phase 2 remediations are complete.
 
