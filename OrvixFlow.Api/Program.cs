@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using OrvixFlow.Api.Services;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure;
+using OrvixFlow.Infrastructure.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -95,7 +96,8 @@ builder.Services.AddRateLimiter(options =>
         options.QueueLimit = 2;
     });
 });
-builder.Services.AddScoped<ITenantProvider, TenantProvider>(); 
+builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+builder.Services.AddSingleton<ITenantProviderFactory, TenantProviderFactory>(); 
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 

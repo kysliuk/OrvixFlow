@@ -69,8 +69,12 @@ public class IngestionPipelineService : IIngestionPipelineService
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("Starting ingestion for file: {FileName} (DocID: {DocumentId}, Tenant: {TenantId})", fileName, documentId, tenantId);
 
-        // Fetch existing document created by controller, or create new if not found
-        var document = await _dbContext.KnowledgeBaseDocuments.FindAsync(documentId);
+        // Fetch existing document created by controller (bypass tenant filter since we have the ID)
+        var document = await _dbContext.KnowledgeBaseDocuments
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.Id == documentId);
+        
+        _logger.LogInformation("Document lookup result: {Found}, TenantId: {DocTenantId}", document != null, document?.TenantId);
         
         if (document == null)
         {
@@ -86,6 +90,7 @@ public class IngestionPipelineService : IIngestionPipelineService
             };
             _dbContext.KnowledgeBaseDocuments.Add(document);
             await _dbContext.SaveChangesAsync();
+            _logger.LogInformation("Created new document record for {DocumentId}", documentId);
         }
         else
         {
@@ -94,6 +99,18 @@ public class IngestionPipelineService : IIngestionPipelineService
             document.ContentType = contentType;
             document.FileSizeBytes = fileStream.Length;
             await _dbContext.SaveChangesAsync();
+            _logger.LogInformation("Updated existing document status to Processing");
+        }
+
+        // Clear any existing chunks for this document (handles retries/duplicates)
+        var existingChunks = await _dbContext.KnowledgeBases
+            .Where(k => k.DocumentId == document.Id)
+            .ToListAsync();
+        if (existingChunks.Any())
+        {
+            _logger.LogInformation("Clearing " + existingChunks.Count + " existing chunks before re-processing");
+            _dbContext.KnowledgeBases.RemoveRange(existingChunks);
+            document.Chunks.Clear();
         }
 
         try
@@ -104,47 +121,68 @@ public class IngestionPipelineService : IIngestionPipelineService
             {
                 throw new NotSupportedException($"No parser found for content type: {contentType}");
             }
+            _logger.LogInformation("Found parser: {Parser}", parser.GetType().Name);
 
             // 2. Parse
-            fileStream.Position = 0; // Reset for parsing
+            fileStream.Position = 0;
+            _logger.LogInformation("Parsing file...");
             var parsedDoc = await parser.ParseAsync(fileStream, fileName);
+            _logger.LogInformation("Parsing complete. TextChunks: {TextChunks}, ImageChunks: {ImageChunks}", 
+                parsedDoc.TextChunks.Count, parsedDoc.ImageChunks.Count);
 
             // 3. Chunk
             var chunkSize = _configuration.GetValue("AI:Ingestion:ChunkSize", 800);
             var overlapSize = _configuration.GetValue("AI:Ingestion:ChunkOverlap", 150);
+            _logger.LogInformation("Chunking text with size {ChunkSize}, overlap {OverlapSize}", chunkSize, overlapSize);
+            
             int chunkIndex = 0;
+            int totalChunks = 0;
 
             foreach (var textChunk in parsedDoc.TextChunks)
             {
-                var chunks = _chunker.Chunk(textChunk.Content, chunkSize, overlapSize);
+                var chunks = _chunker.Chunk(textChunk.Content, chunkSize, overlapSize).ToList();
+                _logger.LogInformation("Text chunk split: index=" + textChunk.Index + ", count=" + chunks.Count);
+                
                 foreach (var chunkText in chunks)
                 {
-                    // 4. Embed with retry
-                    var embedding = await ExecuteWithRetryAsync(
-                        async () =>
-                        {
-                            var embeddings = await _embeddingGenerator.GenerateAsync(new[] { chunkText });
-                            return embeddings[0];
-                        },
-                        $"embedding for chunk {chunkIndex}");
-                    
-                    var kbChunk = new KnowledgeBase
+                    totalChunks++;
+                    try
                     {
-                        TenantId = tenantId,
-                        DocumentId = document.Id,
-                        RawContent = chunkText,
-                        ChunkIndex = chunkIndex++,
-                        ChunkType = "text",
-                        Title = parsedDoc.Title,
-                        EmbeddingVector = new Pgvector.Vector(embedding.Vector.Span.ToArray())
-                    };
-                    document.Chunks.Add(kbChunk);
+                        // 4. Embed with retry
+                        _logger.LogInformation("Generating embedding for chunk number (num=" + chunkIndex + ", total=" + totalChunks + ")");
+                        var embedding = await ExecuteWithRetryAsync(
+                            async () =>
+                            {
+                                var embeddings = await _embeddingGenerator.GenerateAsync(new[] { chunkText });
+                                return embeddings[0];
+                            },
+                            $"embedding for chunk {chunkIndex}");
+                        
+                        var kbChunk = new KnowledgeBase
+                        {
+                            TenantId = tenantId,
+                            DocumentId = document.Id,
+                            RawContent = chunkText,
+                            ChunkIndex = chunkIndex++,
+                            ChunkType = "text",
+                            Title = parsedDoc.Title,
+                            EmbeddingVector = new Pgvector.Vector(embedding.Vector.Span.ToArray())
+                        };
+                        _dbContext.KnowledgeBases.Add(kbChunk);
+                        _logger.LogInformation("Added chunk " + (chunkIndex - 1) + " with embedding");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to process chunk {Index}: {Error}", chunkIndex, ex.Message);
+                        throw;
+                    }
                 }
             }
 
-            // 5. Save chunks
+            _logger.LogInformation("Total chunks created: {TotalChunks}", totalChunks);
 
-            // 6. Process Images
+            // 5. Process Images
+            _logger.LogInformation("Processing {ImageCount} images...", parsedDoc.ImageChunks.Count);
             foreach (var imageChunk in parsedDoc.ImageChunks)
             {
                 using var imageMs = new MemoryStream(imageChunk.Data);
@@ -153,7 +191,6 @@ public class IngestionPipelineService : IIngestionPipelineService
                 var caption = imageChunk.Caption;
                 if (string.IsNullOrWhiteSpace(caption))
                 {
-                    // Generate descriptive caption using Vision with retry
                     caption = await ExecuteWithRetryAsync(
                         async () => await GenerateImageCaptionAsync(imageChunk.Data, imageChunk.ContentType, fileName),
                         $"image caption for {fileName}");
@@ -181,9 +218,13 @@ public class IngestionPipelineService : IIngestionPipelineService
                 _dbContext.KnowledgeBaseImages.Add(kbImage);
             }
             
+            // 6. Save document and chunks
+            _logger.LogInformation("Saving document and chunks to database...");
             document.Status = "Indexed";
             document.IndexedAtUtc = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync();
+            _logger.LogInformation("Successfully saved {ChunkCount} chunks and {ImageCount} images", 
+                document.Chunks.Count, parsedDoc.ImageChunks.Count);
 
             // 7. Usage tracking
             var totalStorageMb = (int)((fileStream.Length + document.Chunks.Count * 1536 * 4) / (1024 * 1024));
@@ -204,23 +245,29 @@ public class IngestionPipelineService : IIngestionPipelineService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ingestion failed for {FileName}", fileName);
-            document.Status = "Failed";
-            document.ErrorMessage = ex.Message;
-            try 
+            _logger.LogError(ex, "Ingestion failed for {FileName}: {Error}", fileName, ex.Message);
+            
+            // Try to update status to Failed using fresh query
+            try
             {
-                if (_dbContext.Entry(document).State == EntityState.Detached)
+                var docToUpdate = await _dbContext.KnowledgeBaseDocuments
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(d => d.Id == documentId);
+                
+                if (docToUpdate != null)
                 {
-                    _dbContext.KnowledgeBaseDocuments.Attach(document);
+                    docToUpdate.Status = "Failed";
+                    docToUpdate.ErrorMessage = ex.Message;
+                    await _dbContext.SaveChangesAsync();
+                    _logger.LogInformation("Updated document status to Failed");
                 }
-                _dbContext.Entry(document).State = EntityState.Modified;
-                await _dbContext.SaveChangesAsync();
             }
-            catch
+            catch (Exception updateEx)
             {
-                // Last resort if context is totally corrupted
+                _logger.LogError(updateEx, "Failed to update document status to Failed: {Error}", updateEx.Message);
             }
-            return new IngestionResult(document.Id, 0, 0, ex.Message);
+            
+            return new IngestionResult(documentId, 0, 0, ex.Message);
         }
     }
 
@@ -261,7 +308,6 @@ public class IngestionPipelineService : IIngestionPipelineService
         }
         catch (Exception)
         {
-            // Fallback if vision is not supported or fails
             return $"Image from {fileName}";
         }
     }

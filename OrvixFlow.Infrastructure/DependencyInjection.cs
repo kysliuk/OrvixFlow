@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddSingleton<Hangfire.PostgreSql.PostgreSqlStorage>(_ => 
             new Hangfire.PostgreSql.PostgreSqlStorage(connectionString));
 
+        services.AddSingleton<OrvixFlow.Core.Interfaces.ITenantProviderFactory, TenantProviderFactory>();
         services.AddScoped<ScopedTenantProviderFactory>();
 
         // Auth / Scope

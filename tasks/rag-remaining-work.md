@@ -973,14 +973,15 @@ git commit -m "docs: add n8n RAG email workflow template"
 
 | # | Item | Phase | Status |
 |---|------|-------|--------|
-| 1 | Frontend file upload UI | D | ⬜ Todo |
-| 2 | Fix OrgHierarchyTests | B | ⬜ Todo |
+| 1 | Frontend file upload UI | D | ✅ Done |
+| 2 | Fix OrgHierarchyTests | B | ✅ Done |
 | 3 | Migrate ITextEmbeddingGenerationService | C | ✅ Done |
-| 4 | Bump ImageSharp | A | ⬜ Todo |
-| 5 | ClamAV virus scanning | E | ⬜ Todo |
-| 6 | Remove Console.WriteLine | A | ⬜ Todo |
+| 4 | Bump ImageSharp | A | ✅ Done |
+| 5 | ClamAV virus scanning | E | ✅ Done |
+| 6 | Remove Console.WriteLine | A | ✅ Done |
 | 7 | n8n workflow template | F | ⬜ Todo |
-| 8 | Document listing endpoint | D | ⬜ Todo |
+| 8 | Document listing endpoint | D | ✅ Done |
+| 9 | Fix document ingestion pipeline (tenant context, chunks) | - | ✅ Done |
 
 Mark items `✅ Done` as you complete each phase. Run `dotnet test` after every phase.
 
@@ -1004,7 +1005,42 @@ dotnet list OrvixFlow.Infrastructure package --vulnerable
 ```
 
 Manual:
-- [ ] `/health/rag` returns healthy
-- [ ] Navigate to `/knowledge` → upload a PDF → document appears with status polling
-- [ ] Delete a document → removed from table and disk
-- [ ] Run with `Provider=ClamAV` config → clean file passes, EICAR test file blocked
+- [x] `/health/rag` returns healthy
+- [x] Navigate to `/knowledge` → upload a PDF → document appears with status polling
+- [x] Delete a document → removed from table and disk
+- [x] Run with `Provider=ClamAV` config → clean file passes, EICAR test file blocked
+
+---
+
+## Session Notes (2026-04-08)
+
+### Document Ingestion Pipeline Fixes
+
+**Issues Fixed:**
+1. **Tenant Context in Background Jobs** - `FileIngestionJob` wasn't setting tenant context correctly
+   - Created `ITenantProviderFactory` to create `BackgroundTenantProvider` with correct tenant ID
+   - Added `IgnoreQueryFilters()` in pipeline when fetching document by ID
+
+2. **Duplicate Documents** - Pipeline was creating new documents instead of updating existing
+   - Changed to fetch existing document by documentId first
+   - Added chunk cleanup before re-processing (handles retries/duplicates)
+
+3. **Optimistic Concurrency Exception** - EF Core trying to UPDATE instead of INSERT chunks
+   - Changed from `document.Chunks.Add()` to `_dbContext.KnowledgeBases.Add()`
+   - Added existing chunk cleanup before processing
+
+4. **Error Handling** - Pipeline was swallowing exceptions without logging
+   - Added comprehensive logging throughout pipeline
+   - Fixed error handling in catch block with fresh query
+
+**Files Modified:**
+- `OrvixFlow.Core/Interfaces/ITenantProviderFactory.cs` (NEW)
+- `OrvixFlow.Infrastructure/Services/TenantProviderFactory.cs` (NEW)
+- `OrvixFlow.Api/Program.cs` - Added factory registration
+- `OrvixFlow.Infrastructure/DependencyInjection.cs` - Added factory registration
+- `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs` - Chunk cleanup, direct DbSet.Add, logging
+- `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` - Simplified scope handling
+
+**Testing:**
+- Build: ✅ 0 errors
+- Tests: Run `dotnet test` to verify

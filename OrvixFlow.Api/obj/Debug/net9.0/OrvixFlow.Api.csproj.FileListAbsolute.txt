@@ -60,6 +60,7 @@
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Microsoft.SemanticKernel.Core.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Mono.TextTemplating.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Namotion.Reflection.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/nClam.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Newtonsoft.Json.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/NJsonSchema.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/NJsonSchema.Annotations.dll
@@ -211,4 +212,3 @@
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/OrvixFlow.Api.pdb
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/OrvixFlow.Api.genruntimeconfig.cache
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/obj/Debug/net9.0/ref/OrvixFlow.Api.dll
-/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/nClam.dll

@@ -111,3 +111,11 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - Bumped `SixLabors.ImageSharp` from 3.1.5 → 3.1.12, resolving CVE warnings (NU1903/NU1902)
 - Created `MockEmbeddingGenerator` implementing `IEmbeddingGenerator<string, Embedding<float>>` for Phase C migration prep
 - Test count increased to 278 (277 + 1 new `EmbeddingMigrationSmokeTests`)
+
+### Document Ingestion Pipeline Fixes (2026-04-08)
+- **Tenant Context Fix:** Created `ITenantProviderFactory` to properly set tenant context in background jobs
+- **Duplicate Prevention:** Pipeline now fetches existing document by ID before processing
+- **Concurrency Fix:** Changed from navigation property `document.Chunks.Add()` to direct `DbSet.Add()` to prevent UPDATE vs INSERT conflicts
+- **Chunk Cleanup:** Added existing chunk cleanup before re-processing (handles retries/duplicates)
+- **Logging:** Comprehensive logging throughout ingestion pipeline for debugging
+- **Error Handling:** Fixed error handling with fresh queries in catch blocks
