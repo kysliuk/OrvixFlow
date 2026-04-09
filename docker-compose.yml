@@ -45,6 +45,7 @@ services:
       Jwt__Issuer: ${JWT_ISSUER:-orvixflow}
       Jwt__Audience: ${JWT_AUDIENCE:-orvixflow-web}
       AI__Provider: OpenAI
+      AI__OpenAI__ApiKey: ${AI_OPENAI_API_KEY}
       Automation__N8nBaseUrl: ${N8N_BASE_URL:-http://orvix-n8n:5678}
     env_file:
       - .env

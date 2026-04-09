@@ -17,7 +17,7 @@ describe("Register Page API Parsing", () => {
         // The form submission runs fetch. If it throws, it catches and sets error string.
         // For unit test isolation without mounting React, we can simulate the API call logic here:
         let errorMsg = "Registration failed";
-        const res = await fetch("http://localhost/api/auth/register");
+        const res = await fetch("/api/auth/register");
         try {
             if (!res.ok) {
                 const contentType = res.headers.get("content-type");

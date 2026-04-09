@@ -35,14 +35,61 @@ _db.Entity.IgnoreQueryFilters() // Admin operations only
 
 ## Critical: OAuth Account Linking
 
-**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs:99-115`
+**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs:107-119`
 
 **Risk:** Account takeover via email matching
 
-**Pattern:** If email exists with different OAuth provider, account is linked automatically.
+**Pattern:** FIXED - If email exists with different OAuth provider, returns error: "An account with this email already exists. Please sign in with your original authentication method."
 
 **When changing:**
 - Verify existing test `ProvisionOAuthUserAsync`
+
+---
+
+## Critical: Tenant Isolation (X-Tenant-ID Header)
+
+**Location:** `OrvixFlow.Api/Services/TenantProvider.cs:44-47`
+
+**Risk:** Cross-tenant data access via HTTP header
+
+**Pattern:** FIXED - Removed `X-Tenant-ID` header fallback. Tenant ID must ALWAYS come from JWT claims (`ActiveCompanyId` or `TenantId`). For webhook paths that need X-Tenant-ID, use a separate WebhookTenantProvider that validates HMAC signature.
+
+**When changing:**
+- Run `TenantProviderTests.cs`
+- Verify no tenant header bypass is possible
+
+---
+
+## Critical: Admin Impersonation Audit Trail
+
+**Location:** `OrvixFlow.Api/Services/TenantProvider.cs:32-38`
+
+**Risk:** Platform admin can impersonate any tenant without audit trail
+
+**Pattern:** FIXED - Admin impersonation via `X-Impersonate-Tenant` header is now logged at Warning level with structured data: AdminUserId, ImpersonatedTenantId, RemoteIp. Log entry includes "SECURITY: Admin impersonation started."
+
+**When changing:**
+- Check logs for impersonation events
+- Ensure logging pipeline captures Warning level for TenantProvider
+
+---
+
+## High: Secrets Management
+
+**Location:** `docker-compose.yml`, `.env`, `appsettings.json`, `appsettings.Development.json`
+
+**Risk:** Secrets committed to git, exposure via logs
+
+**Pattern:** FIXED - All secrets moved to `.env` file (gitignored). docker-compose.yml uses `${VAR}` syntax with `env_file: .env`. JWT secret and API keys removed from appsettings files.
+
+**Required:**
+- `.env` must exist and contain all required secrets before running
+- Use `.env.example` as template for new deployments
+- Rotate any secrets that were previously committed (Google, Azure, Groq)
+
+**When changing:**
+- Never commit secrets to git
+- Use environment variables in all environments
 
 ---
 
@@ -268,3 +315,26 @@ When modifying these areas, tests MUST pass:
 | Permissions | `AccessResolverTests.cs` |
 | Webhooks | `HmacSignatureMiddlewareTests.cs` |
 | Background jobs | `InboxProcessingJob` (manual) |
+
+---
+
+## Security Remediation Status (2026-04-09)
+
+### Phase 1 Complete ✅
+| Finding | Description | Status |
+|---------|-------------|--------|
+| F-09 | X-Tenant-ID header fallback removed | ✅ Fixed |
+| F-10 | Admin impersonation audit logging | ✅ Fixed |
+| F-15 | Secrets moved to .env file | ✅ Fixed |
+| F-17 | JWT secret removed from appsettings.json | ✅ Fixed |
+| F-31 | Groq API key removed from config | ✅ Fixed |
+| F-02 | OAuth email linking returns error | ✅ Fixed |
+
+### Phase 2 Pending
+- F-32: HTTP security headers (API & frontend)
+- F-11: File MIME type validation (magic bytes)
+- F-12: Filename sanitization
+- F-22: Hangfire dashboard auth
+- F-01: JWT lifetime shortening
+- F-03: Login rate limiting
+- F-08: Invitation role ceiling check
