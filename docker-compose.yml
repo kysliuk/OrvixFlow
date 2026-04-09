@@ -53,6 +53,8 @@ services:
       - orvix-db
       - n8n
     restart: unless-stopped
+    volumes:
+      - uploads_data:/app/uploads
 
   orvix-web:
     build:
@@ -83,3 +85,4 @@ services:
 volumes:
   pgdata:
   n8n_data:
+  uploads_data:

@@ -383,3 +383,19 @@ When modifying these areas, tests MUST pass:
 | F-16 | AutomationKey comparison uses FixedTimeEquals | ✅ Fixed |
 | F-08 | Invitation role ceiling check (IsHigherThan extension method) | ✅ Fixed |
 | F-19 | WebhookSecret removed from AdminController.GetCompany response | ✅ Fixed |
+
+### Volume Mounts Added ✅
+| Volume | Service | Path | Purpose |
+|--------|---------|------|---------|
+| pgdata | orvix-db | /var/lib/postgresql/data | PostgreSQL data persistence |
+| n8n_data | n8n | /home/node/.n8n | n8n workflow data |
+| uploads_data | orvix-api | /app/uploads | File uploads persistence |
+
+**Note:** uploads_data volume is temporary. Future F-20 will replace with MinIO (S3-compatible) storage.
+
+### Future: F-20 MinIO Storage
+| Status | File |
+|--------|------|
+| Planned | `tasks/F20-minio-storage-plan.md` |
+
+Phase 3 pending - see security review document for remaining items.

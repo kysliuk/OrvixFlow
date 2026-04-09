@@ -128,3 +128,20 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
   - F-17: Removed JWT secret placeholder from `appsettings.json` (must use env var)
   - F-31: Removed Groq API key from `appsettings.Development.json` (must use env var)
   - F-02: Fixed OAuth email linking to reject conflicts (verified already fixed)
+
+- **Phase 2 Remediation Complete:**
+  - F-32: HTTP security headers added to API (middleware) and Frontend (next.config.ts)
+  - F-11: File MIME validation via magic bytes (`FileSignatureValidator`)
+  - F-12: Filename sanitization with GUID naming + path traversal prevention
+  - F-14: File deletion error logged (no longer silent)
+  - F-22: Hangfire dashboard protected with SuperAdmin JWT authorization filter
+  - F-01: JWT lifetime shortened from 7 days to 60 minutes
+  - F-03: Login rate limiting (5 attempts/min per IP)
+  - F-28: Failed login logging elevated to Warning level
+  - F-16: AutomationKey comparison uses FixedTimeEquals
+  - F-08: Invitation role ceiling check (CompanyAdmin cannot invite CompanyOwner)
+  - F-19: WebhookSecret removed from AdminController company response
+
+- **Docker Volume Mounts Added:**
+  - `uploads_data` volume mounted to `/app/uploads` for file persistence
+  - Files persist across container restarts (temporary solution before F-20 MinIO)
