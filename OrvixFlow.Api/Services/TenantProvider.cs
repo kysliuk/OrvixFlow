@@ -40,7 +40,7 @@ public class TenantProvider : ITenantProvider
                     "SECURITY: Admin impersonation started. AdminUserId={AdminUserId}, ImpersonatedTenantId={ImpersonatedTenantId}, RemoteIp={RemoteIp}",
                     userIdClaim ?? "unknown",
                     impersonateGuid,
-                    _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+                    _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown"
                 );
 
                 return impersonateGuid; // Admins assume the target tenant's scope

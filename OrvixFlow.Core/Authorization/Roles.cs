@@ -84,4 +84,28 @@ public static class UserRoleExtensions
         UserRole.DepartmentManager,
         UserRole.Operator, UserRole.Viewer,
     ];
+
+    /// <summary>
+    /// F-08 Fix: Returns true if <paramref name="this"/> (the caller's role)
+    /// has lower privilege than <paramref name="other"/> (the target role),
+    /// i.e., the caller cannot assign the other role.
+    ///
+    /// Platform roles (SuperAdmin, InternalOperator) can assign any role.
+    /// Company roles use their numeric enum value — lower number = more privilege.
+    /// CompanyOwner(10) > CompanyAdmin(11), so CompanyAdmin cannot assign CompanyOwner.
+    /// </summary>
+    /// <param name="this">The caller's role.</param>
+    /// <param name="other">The role being assigned.</param>
+    /// <returns>True if the caller cannot assign the target role.</returns>
+    public static bool IsHigherThan(this UserRole @this, UserRole other)
+    {
+        // Platform admins can assign any company role
+        if (@this.IsPlatformAdmin())
+            return false;
+
+        // For company roles, lower enum value = higher privilege
+        // SuperAdmin(1) < InternalOperator(2) < CompanyOwner(10) < CompanyAdmin(11) < ... < Viewer(31)
+        // So CompanyAdmin(11).IsHigherThan(CompanyOwner(10)) = 11 > 10 = true
+        return (int)@this > (int)other;
+    }
 }

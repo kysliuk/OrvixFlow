@@ -70,13 +70,13 @@ public class AuthService : IAuthService
 
         if (user == null)
         {
-            _logger.LogDebug("Login failed: no local user found for email {Email}", normalizedEmail);
+            _logger.LogWarning("Login failed: no local user found for email {Email}", normalizedEmail);
             return new AuthResult(false, Error: "Invalid email or password.");
         }
 
         if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
         {
-            _logger.LogDebug("Login failed: password mismatch for email {Email}", normalizedEmail);
+            _logger.LogWarning("Login failed: password mismatch for email {Email}", normalizedEmail);
             return new AuthResult(false, Error: "Invalid email or password.");
         }
 
@@ -93,7 +93,6 @@ public class AuthService : IAuthService
         // Idempotent: return existing user if OAuth account already provisioned
         var existing = await _db.Users
             .IgnoreQueryFilters()
-            .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.OAuthProvider == provider && u.ExternalId == externalId);
 
         if (existing != null)
@@ -108,9 +107,7 @@ public class AuthService : IAuthService
         // SECURITY: Do NOT link accounts from different providers - this enables account takeover.
         var byEmail = await _db.Users
             .IgnoreQueryFilters()
-            .Include(u => u.Tenant)
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
-
         if (byEmail != null)
         {
             // F-02 FIX: Reject the OAuth login attempt.
@@ -213,7 +210,7 @@ public class AuthService : IAuthService
             issuer: _config["Jwt:Issuer"] ?? "orvixflow",
             audience: _config["Jwt:Audience"] ?? "orvixflow-web",
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(7),
+            expires: DateTime.UtcNow.AddMinutes(60), // F-01 FIX: Shortened from 7 days to 60 minutes to reduce token exposure window
             signingCredentials: creds
         );
 

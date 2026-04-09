@@ -41,6 +41,8 @@ _db.Entity.IgnoreQueryFilters() // Admin operations only
 
 **Pattern:** FIXED - If email exists with different OAuth provider, returns error: "An account with this email already exists. Please sign in with your original authentication method."
 
+**Note:** EF Core InMemory does not support `Include` on missing related entities. The `ProvisionOAuthUserAsync` email check uses `IgnoreQueryFilters()` without `Include` — the Tenant is not needed for the email-existence check.
+
 **When changing:**
 - Verify existing test `ProvisionOAuthUserAsync`
 
@@ -292,6 +294,43 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
+
+---
+
+## Critical: Two Roles Classes
+
+**Locations:**
+1. `OrvixFlow.Core/Authorization/Roles.cs` — enum + extension methods (`IsHigherThan`, `IsPlatformAdmin`, etc.)  
+2. `OrvixFlow.Api/Roles.cs` — static class with string constants (`"Admin"`, `"Owner"`, `"SuperAdmin"`)
+
+**TenantProvider impersonation:** `TenantProvider.GetTenantId()` uses `Roles.IsAdmin(roleClaim)` (from `Api/Roles.cs`) which only recognizes `"Admin"`, `"Owner"`, `"SuperAdmin"` — NOT `"CompanyAdmin"` or `"CompanyOwner"`. This means company-level admins cannot use the `X-Impersonate-Tenant` header for impersonation; only platform admins (SuperAdmin) can.
+
+**When adding roles:** Add to BOTH files if applicable. `Core/Authorization/Roles.cs` for enum/extension logic, `Api/Roles.cs` for impersonation.
+
+---
+
+## Critical: EF Core InMemory + Include with Missing Related Entities
+
+**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs:ProvisionOAuthUserAsync`
+
+**Issue:** `Include(u => u.Tenant)` in EF Core InMemory causes the entire query to return `null` when the related `Tenant` record doesn't exist, even when the `User` record does exist. This silently bypasses security checks.
+
+**Pattern:** For existence checks (finding if a User with given email/provider exists), do NOT use `Include`. The navigation property data is not needed for the check.
+
+**Safe pattern:**
+```csharp
+// For existence checks — NO Include
+var user = await _db.Users.IgnoreQueryFilters()
+    .FirstOrDefaultAsync(u => u.Email == email);
+
+// For loading related data — Include AFTER existence check
+var userWithTenant = await _db.Users.IgnoreQueryFilters()
+    .Include(u => u.Tenant)
+    .FirstOrDefaultAsync(u => u.Id == userId);
+```
+
+---
+
 ## Adding New Features
 
 1. Create entity in `OrvixFlow.Core/Entities/`
@@ -330,11 +369,17 @@ When modifying these areas, tests MUST pass:
 | F-31 | Groq API key removed from config | ✅ Fixed |
 | F-02 | OAuth email linking returns error | ✅ Fixed |
 
-### Phase 2 Pending
-- F-32: HTTP security headers (API & frontend)
-- F-11: File MIME type validation (magic bytes)
-- F-12: Filename sanitization
-- F-22: Hangfire dashboard auth
-- F-01: JWT lifetime shortening
-- F-03: Login rate limiting
-- F-08: Invitation role ceiling check
+### Phase 2 Complete ✅
+| Finding | Description | Status |
+|---------|-------------|--------|
+| F-32 | HTTP security headers (API middleware + Next.js headers) | ✅ Fixed |
+| F-11 | File MIME type validation (magic bytes in FileSignatureValidator) | ✅ Fixed |
+| F-12 | Filename sanitization (GUID naming + path traversal prevention) | ✅ Fixed |
+| F-14 | Silent error swallowing in file deletion (logged now) | ✅ Fixed |
+| F-22 | Hangfire dashboard auth (SuperAdmin-only via authorization filter) | ✅ Fixed |
+| F-01 | JWT lifetime shortened from 7 days to 60 minutes | ✅ Fixed |
+| F-03 | Login rate limiting (5 attempts/min per IP via sliding window) | ✅ Fixed |
+| F-28 | Failed login logging elevated to Warning level | ✅ Fixed |
+| F-16 | AutomationKey comparison uses FixedTimeEquals | ✅ Fixed |
+| F-08 | Invitation role ceiling check (IsHigherThan extension method) | ✅ Fixed |
+| F-19 | WebhookSecret removed from AdminController.GetCompany response | ✅ Fixed |

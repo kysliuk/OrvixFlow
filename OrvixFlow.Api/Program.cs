@@ -88,6 +88,21 @@ builder.Services.AddHealthChecks()
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    
+    // F-03 FIX: Per-IP rate limiting on login endpoint to prevent brute-force attacks.
+    // 5 attempts per minute per IP address.
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    // Existing upload policy
     options.AddFixedWindowLimiter(policyName: "upload", options =>
     {
         options.PermitLimit = 10;
@@ -120,6 +135,25 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUi();
 }
 
+// F-32 FIX: Add HTTP security headers before authentication middleware.
+// These headers protect against XSS, clickjacking, MIME sniffing, and enforce HTTPS.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    // Content-Security-Policy should be added once inline scripts are audited.
+    await next();
+});
+
+// F-32 FIX: HSTS (HTTP Strict Transport Security) in production only.
+// Tells browsers to only connect via HTTPS for the specified max-age.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -130,9 +164,13 @@ app.UseRateLimiter();
 app.UseMiddleware<OrvixFlow.Api.Middleware.HmacSignatureMiddleware>();
 app.MapControllers();
 app.MapHealthChecks("/health/rag");
+
+// F-22 FIX: Protect Hangfire dashboard with SuperAdmin JWT authentication.
+// The custom HangfireDashboardAuthorizationFilter checks for the SuperAdmin role claim
+// in the JWT, replacing the insecure LocalRequestsOnlyAuthorizationFilter.
 app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
 {
-    Authorization = new[] { new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter() }
+    Authorization = new[] { new OrvixFlow.Api.Filters.HangfireDashboardAuthorizationFilter() }
 });
 
 using (var scope = app.Services.CreateScope())

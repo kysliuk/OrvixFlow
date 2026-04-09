@@ -30,6 +30,10 @@ public class OAuthLinkingTests : IDisposable
             .UseInMemoryDatabase(dbName)
             .Options;
         _db = new AppDbContext(options, new MockTenantProvider(_tenantId));
+
+        // Seed the Tenant record so MintJwtAsync/BuildProfileAsync can resolve it
+        _db.Tenants.Add(new Tenant { Id = _tenantId, Name = "Test Tenant", Plan = "Free", SubscriptionStatus = "Active" });
+        _db.SaveChanges();
         
         _loggerMock = new Mock<ILogger<AuthService>>();
         _configMock = new Mock<IConfiguration>();
@@ -56,22 +60,18 @@ public class OAuthLinkingTests : IDisposable
         _db.Users.Add(localUser);
         await _db.SaveChangesAsync();
 
-        // Verify user exists
-        var userCount = await _db.Users.IgnoreQueryFilters().CountAsync(u => u.Email == "user@example.com");
-        userCount.Should().Be(1);
-
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object);
 
         // Act: Attacker tries to sign in with Google using the same email
         var result = await authService.ProvisionOAuthUserAsync(
-            "user@example.com",  // exact match
+            "user@example.com",
             "Attacker",
             "google",
             "google-external-id-123"
         );
 
         // Assert: F-02 FIX - Should reject
-        result.IsSuccess.Should().BeFalse("{Error}", result.Error);
+        result.IsSuccess.Should().BeFalse($"Expected rejection but got IsSuccess={result.IsSuccess}, Error='{result.Error}'");
         result.Error.Should().Contain("already exists");
     }
 

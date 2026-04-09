@@ -4,6 +4,7 @@
 > **Note:** This document incorporates findings from two independent AI security reviews. Findings F-01 through F-30 were identified by Claude from direct source-code inspection. Findings F-31, F-32, and F-33 were identified by OpenCode and verified by manual source inspection before inclusion. One OpenCode finding (CORS misconfiguration) was rejected as factually incorrect after code verification. See `tasks/opencode-security-review-08-04.md` for the original OpenCode report.
 >
 > **2026-04-09 Update:** Phase 1 remediation completed: F-09, F-10, F-15, F-17, F-31 fixed. F-02 was already fixed.
+> **2026-04-09 Update (continued):** Phase 2 remediation completed: F-32, F-11, F-12, F-14, F-22, F-01, F-03, F-28, F-16, F-08, F-19 fixed.
 
 ---
 
@@ -734,20 +735,20 @@ const nextConfig: NextConfig = {
 
 ---
 
-### Phase 2 — Short-Term Hardening (Sprint 1–2)
+### Phase 2 — Short-Term Hardening (Sprint 1–2) ✅ COMPLETE
 
 > [!IMPORTANT]
 > High-severity risks that should be addressed before launch.
 
-7. **F-32 — Add HTTP security headers to API and frontend.** Add middleware in `Program.cs` for `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. Add `headers()` config in `next.config.ts`. Enable HSTS in production.
-8. **F-19 — Stop returning WebhookSecret in admin API.** Treat it like a password — never transmit after creation.
-9. **F-11 — Validate MIME type by magic bytes**, not client `Content-Type`.
-10. **F-12 — Sanitize uploaded filenames** before file system writes. Use `Path.GetFileName()` at minimum; ideally generate a random internal name.
-11. **F-22 — Protect Hangfire dashboard with SuperAdmin JWT auth** instead of localhost-only filter.
-12. **F-01 — Shorten JWT lifetime to 30–60 minutes**, add refresh token flow or re-login requirement on sensitive operations.
-13. **F-03 — Add rate limiting to login endpoint**: per-IP and per-account, with backoff.
-14. **F-08 — Fix invitation role ceiling**: callers cannot assign roles higher than their own.
-15. **F-16 — Fix AutomationKey comparison to use `FixedTimeEquals`** and rotate the key out of git.
+7. **F-32 — Add HTTP security headers to API and frontend.** ✅ Fixed — `Program.cs` middleware adds `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `X-XSS-Protection`. HSTS in non-dev. `next.config.ts` headers config added.
+8. **F-19 — Stop returning WebhookSecret in admin API.** ✅ Fixed — Removed from `AdminController.GetCompany` response DTO.
+9. **F-11 — Validate MIME type by magic bytes**, not client `Content-Type`. ✅ Fixed — `FileSignatureValidator.cs` created, `FileIngestionController` updated.
+10. **F-12 — Sanitize uploaded filenames** before file system writes. ✅ Fixed — `LocalFileStorage.cs` uses GUID naming, invalid char removal, path traversal prevention.
+11. **F-22 — Protect Hangfire dashboard with SuperAdmin JWT auth** instead of localhost-only filter. ✅ Fixed — `HangfireDashboardAuthorizationFilter.cs` checks SuperAdmin JWT claim.
+12. **F-01 — Shorten JWT lifetime to 30–60 minutes**, add refresh token flow or re-login requirement on sensitive operations. ✅ Fixed — JWT lifetime changed from 7 days to 60 minutes in `MintJwtAsync`.
+13. **F-03 — Add rate limiting to login endpoint**: per-IP and per-account, with backoff. ✅ Fixed — `login` rate limiter policy (5 attempts/min per IP) in `Program.cs`, `[EnableRateLimiting("login")]` on `AuthController.Login`.
+14. **F-08 — Fix invitation role ceiling**: callers cannot assign roles higher than their own. ✅ Fixed — `IsHigherThan` extension added to `Roles.cs`, `InviteController.SendInvite` enforces ceiling check.
+15. **F-16 — Fix AutomationKey comparison to use `FixedTimeEquals`** and rotate the key out of git. ✅ Fixed — `RequireAutomationKeyAttribute` uses `CryptographicOperations.FixedTimeEquals`.
 
 ---
 

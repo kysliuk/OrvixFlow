@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using OrvixFlow.Core.Interfaces;
 using System;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace OrvixFlow.Api.Controllers;
 
@@ -38,10 +39,24 @@ public class AuthController : ControllerBase
         }
     }
 
+    // F-03 FIX: Apply per-IP rate limiting to prevent brute-force password attacks.
+    // The "login" rate limiter policy allows 5 attempts per minute per IP address.
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var result = await _authService.LoginAsync(req.Email, req.Password);
+        
+        if (!result.IsSuccess)
+        {
+            // F-28 FIX: Use LogWarning instead of LogDebug for failed login attempts.
+            // LogDebug may not appear in production log levels, making security auditing impossible.
+            _logger.LogWarning(
+                "Login failed for email {Email} — reason: {Reason}",
+                req.Email,
+                result.Error);
+        }
+        
         return result.IsSuccess
             ? Ok(new { token = result.Token, profile = result.Profile })
             : Unauthorized(new { error = result.Error });

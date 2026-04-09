@@ -116,7 +116,7 @@ public class AdminController : ControllerBase
     {
         if (!IsGlobalAdmin()) return Forbid();
 
-        var company = await _db.Tenants
+        var company = await _db.Tenants // F-19 FIX: WebhookSecret intentionally omitted — treat as password, never expose after creation
             .IgnoreQueryFilters()
             .Where(t => t.Id == id)
             .Select(t => new
@@ -126,7 +126,6 @@ public class AdminController : ControllerBase
                 t.Plan,
                 t.SubscriptionStatus,
                 t.CreatedAt,
-                t.WebhookSecret,
                 UserCount = t.Users.Count,
                 Members = t.Users.Select(u => new
                 {

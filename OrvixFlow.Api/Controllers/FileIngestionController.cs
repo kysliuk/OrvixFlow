@@ -13,6 +13,7 @@ using OrvixFlow.Infrastructure.Ai.Jobs;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using OrvixFlow.Infrastructure.Security;
 
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -66,12 +67,29 @@ public class FileIngestionController : ControllerBase
             return BadRequest($"File size exceeds the limit of {maxFileSizeMb} MB.");
         }
 
-        // 2. Validate MIME Type
+        // 2. F-11 FIX: Validate MIME type using magic bytes, not client-supplied Content-Type.
+        // This prevents attackers from bypassing the type check by setting arbitrary Content-Type headers.
+        string detectedMimeType;
+        using (var stream = file.OpenReadStream())
+        {
+            detectedMimeType = FileSignatureValidator.DetectMimeTypeFromStream(stream)
+                ?? string.Empty;
+
+            if (!FileSignatureValidator.IsAllowedMimeType(detectedMimeType))
+            {
+                return BadRequest(
+                    $"File content type is not allowed. Detected: '{detectedMimeType}', allowed: PDF, PNG, JPEG, plain text.");
+            }
+        }
+
+        // F-11 FIX: Additionally check that the client-supplied Content-Type
+        // is in the allowlist as a secondary validation layer.
         var allowedTypes = _configuration.GetSection("AI:Ingestion:AllowedMimeTypes").Get<string[]>() 
                            ?? new[] { "text/plain", "application/pdf", "image/png", "image/jpeg" };
-        if (!System.Linq.Enumerable.Contains(allowedTypes, file.ContentType.ToLower()))
+        var clientContentType = file.ContentType.ToLowerInvariant();
+        if (!System.Linq.Enumerable.Contains(allowedTypes, clientContentType))
         {
-            return BadRequest($"Content type '{file.ContentType}' is not allowed.");
+            return BadRequest($"Content type '{clientContentType}' is not in the allowed list.");
         }
 
         // 3. Virus Scan
@@ -89,8 +107,8 @@ public class FileIngestionController : ControllerBase
         var document = new KnowledgeBaseDocument
         {
             TenantId = tenantId,
-            FileName = file.FileName,
-            ContentType = file.ContentType,
+            FileName = file.FileName,  // Original filename kept for display purposes
+            ContentType = detectedMimeType, // F-11 FIX: Store the server-detected MIME type, not the client-supplied one
             FileSizeBytes = file.Length,
             Status = "Pending"
         };
@@ -99,6 +117,7 @@ public class FileIngestionController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         // 2. Save raw file locally before background processing
+        // Note: LocalFileStorage now sanitizes filenames internally (F-12)
         using (var stream = file.OpenReadStream())
         {
             var storagePath = await _storage.SaveFileAsync(tenantId, document.Id, file.FileName, stream);
@@ -178,8 +197,16 @@ public class FileIngestionController : ControllerBase
             {
                 await _storage.DeleteFileAsync(document.StoragePath);
             }
-            catch
+            catch (Exception ex)
             {
+                // F-14 Fix: Log storage deletion errors instead of silently swallowing them.
+                // The document record is still deleted (DB record removed), but the orphaned
+                // file will be cleaned up by a future maintenance job.
+                var logger = HttpContext.RequestServices
+                    .GetService<Microsoft.Extensions.Logging.ILogger<FileIngestionController>>();
+                logger?.LogWarning(ex,
+                    "Failed to delete storage file {StoragePath} for document {DocumentId}. " +
+                    "File may be orphaned.", document.StoragePath, document.Id);
             }
         }
 
