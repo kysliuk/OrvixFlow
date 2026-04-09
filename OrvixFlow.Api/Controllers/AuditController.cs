@@ -50,6 +50,10 @@ public class AuditController : ControllerBase
     private Guid? ParseGuid(string claimType)
     {
         var value = User.FindFirst(claimType)?.Value;
+        if (value == null && claimType == "sub")
+        {
+            value = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        }
         return Guid.TryParse(value, out var parsed) ? parsed : null;
     }
 }
