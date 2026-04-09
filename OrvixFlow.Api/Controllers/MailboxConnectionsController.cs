@@ -221,6 +221,7 @@ public class MailboxConnectionsController : ControllerBase
         return NoContent();
     }
 
+    [NonAction]
     [Hangfire.JobDisplayName("Provision n8n Workflow for Mailbox")]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })]
     public async Task ProvisionN8nWorkflowJob(Guid connectionId, Guid tenantId)
@@ -272,6 +273,7 @@ public class MailboxConnectionsController : ControllerBase
         }
     }
 
+    [NonAction]
     [Hangfire.JobDisplayName("Cleanup n8n Workflow")]
     public async Task CleanupN8nWorkflowJob(string? workflowId, string? credentialId)
     {
