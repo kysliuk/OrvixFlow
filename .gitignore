@@ -1,0 +1,62 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+OrvixFlow.Api/bin/
+OrvixFlow.Api/obj/
+OrvixFlow.Core/bin/
+OrvixFlow.Core/obj/
+OrvixFlow.Infrastructure/bin/
+OrvixFlow.Infrastructure/obj/
+OrvixFlow.Tests/bin/
+OrvixFlow.Tests/obj/
+
+# Build artifacts (explicit)
+*.dll
+*.pdb
+*.exe
+*.cache
+*.pdb.meta
+*.xml
+
+# NuGet
+*.nupkg
+packages/
+# Build logs
+build*.log
+msbuild*.log
+# Rider
+*.userosscache
+*.sln.docstates
+
+# Frontend
+orvixflow-web/.next/
+orvixflow-web/node_modules/
+orvixflow-web/out/
+orvixflow-web/build/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+coverage*.xml
+
+# Secrets backup files
+*secret*
+*.key
+credentials.json

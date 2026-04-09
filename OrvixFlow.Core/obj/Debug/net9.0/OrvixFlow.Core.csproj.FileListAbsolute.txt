@@ -1,16 +1,3 @@
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.deps.json
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.dll
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.pdb
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.csproj.AssemblyReference.cache
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.GeneratedMSBuildEditorConfig.editorconfig
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.AssemblyInfoInputs.cache
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.AssemblyInfo.cs
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.csproj.CoreCompileInputs.cache
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.sourcelink.json
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.dll
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/refint/OrvixFlow.Core.dll
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/OrvixFlow.Core.pdb
-D:/Antigravity/OrvixFlow/OrvixFlow.Core/obj/Debug/net9.0/ref/OrvixFlow.Core.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.deps.json
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/bin/Debug/net9.0/OrvixFlow.Core.pdb

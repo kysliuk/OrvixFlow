@@ -40,12 +40,14 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=orvix-db;Database=orvixflow;Username=orvix_admin;Password=orvix_password_dev
       Frontend__BaseUrl: http://localhost:3000
-      AutomationKey: super-secret-n8n-dev-key
-      Jwt__Secret: dev-super-secret-jwt-key-32-chars-minimum-length-required-here!
-      Jwt__Issuer: orvixflow
-      Jwt__Audience: orvixflow-web
+      AutomationKey: ${AUTOMATION_KEY}
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER:-orvixflow}
+      Jwt__Audience: ${JWT_AUDIENCE:-orvixflow-web}
       AI__Provider: OpenAI
-      Automation__N8nBaseUrl: http://orvix-n8n:5678
+      Automation__N8nBaseUrl: ${N8N_BASE_URL:-http://orvix-n8n:5678}
+    env_file:
+      - .env
     depends_on:
       - orvix-db
       - n8n
@@ -63,14 +65,16 @@ services:
     environment:
       NODE_ENV: production
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: dev-nextauth-secret-change-me
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       AUTH_TRUST_HOST: "true"
       NEXT_PUBLIC_API_URL: http://localhost:8080
       INTERNAL_API_URL: http://orvix-api:8080
-      GOOGLE_CLIENT_ID: "807810943561-g55223mqo7q62ije0v1ms1r7qtujba8k.apps.googleusercontent.com"
-      GOOGLE_CLIENT_SECRET: "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"
-      AZURE_AD_CLIENT_ID: "a20460c4-29f0-458c-93cc-914acfc7a06c"
-      AZURE_AD_CLIENT_SECRET: "tyu8Q~4v_FMRDRn8R~XDaTISfW2dUe61HXhLWaZd"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET}
+    env_file:
+      - .env
     depends_on:
       - orvix-api
     restart: unless-stopped

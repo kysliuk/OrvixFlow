@@ -104,7 +104,8 @@ public class AuthService : IAuthService
             return new AuthResult(true, Token: existingToken, Profile: existingProfile);
         }
 
-        // Check if email already exists under a different provider – link accounts
+        // F-02 FIX: Check if email already exists.
+        // SECURITY: Do NOT link accounts from different providers - this enables account takeover.
         var byEmail = await _db.Users
             .IgnoreQueryFilters()
             .Include(u => u.Tenant)
@@ -112,14 +113,9 @@ public class AuthService : IAuthService
 
         if (byEmail != null)
         {
-            // Upgrade account to OAuth if it was previously local
-            byEmail.OAuthProvider = provider;
-            byEmail.ExternalId = externalId;
-            await _db.SaveChangesAsync();
-            await EnsureOwnerMembershipAsync(byEmail.Id, byEmail.TenantId);
-            var linkedToken = await MintJwtAsync(byEmail, byEmail.TenantId);
-            var linkedProfile = await BuildProfileAsync(byEmail, byEmail.TenantId);
-            return new AuthResult(true, Token: linkedToken, Profile: linkedProfile);
+            // F-02 FIX: Reject the OAuth login attempt.
+            // An account with this email already exists - user should sign in with their original provider.
+            return new AuthResult(false, Error: "An account with this email already exists. Please sign in with your original authentication method.");
         }
 
         // Brand new user — auto-provision tenant

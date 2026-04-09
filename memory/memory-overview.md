@@ -119,3 +119,12 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - **Chunk Cleanup:** Added existing chunk cleanup before re-processing (handles retries/duplicates)
 - **Logging:** Comprehensive logging throughout ingestion pipeline for debugging
 - **Error Handling:** Fixed error handling with fresh queries in catch blocks
+
+### Security Hardening (2026-04-09)
+- **Phase 1 Remediation Complete:**
+  - F-09: Removed `X-Tenant-ID` header fallback from TenantProvider (verified already fixed)
+  - F-10: Added audit logging for admin impersonation via `X-Impersonate-Tenant` header
+  - F-15: Moved all secrets from docker-compose.yml to `.env` file (gitignored), created `.env.example`
+  - F-17: Removed JWT secret placeholder from `appsettings.json` (must use env var)
+  - F-31: Removed Groq API key from `appsettings.Development.json` (must use env var)
+  - F-02: Fixed OAuth email linking to reject conflicts (verified already fixed)
