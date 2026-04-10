@@ -57,7 +57,8 @@ public class AuthService : IAuthService
 
         var token = await MintJwtAsync(user, tenant.Id);
         var profile = await BuildProfileAsync(user, tenant.Id);
-        return new AuthResult(true, Token: token, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 
     public async Task<AuthResult> LoginAsync(string email, string password)
@@ -83,7 +84,8 @@ public class AuthService : IAuthService
         var activeCompanyId = user.TenantId;
         var token = await MintJwtAsync(user, activeCompanyId);
         var profile = await BuildProfileAsync(user, activeCompanyId);
-        return new AuthResult(true, Token: token, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 
     public async Task<AuthResult> ProvisionOAuthUserAsync(string email, string displayName, string provider, string externalId)
@@ -100,7 +102,8 @@ public class AuthService : IAuthService
             await EnsureOwnerMembershipAsync(existing.Id, existing.TenantId);
             var existingToken = await MintJwtAsync(existing, existing.TenantId);
             var existingProfile = await BuildProfileAsync(existing, existing.TenantId);
-            return new AuthResult(true, Token: existingToken, Profile: existingProfile);
+            var existingRefreshToken = await CreateRefreshTokenAsync(existing.Id);
+            return new AuthResult(true, Token: existingToken, Profile: existingProfile, RefreshToken: existingRefreshToken);
         }
 
         // F-02 FIX: Check if email already exists.
@@ -133,7 +136,8 @@ public class AuthService : IAuthService
 
         var token = await MintJwtAsync(user, tenant.Id);
         var profile = await BuildProfileAsync(user, tenant.Id);
-        return new AuthResult(true, Token: token, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 
     public async Task<AuthResult> SwitchCompanyAsync(Guid userId, Guid companyId)
@@ -167,7 +171,8 @@ public class AuthService : IAuthService
 
         var token = await MintJwtAsync(user, companyId);
         var profile = await BuildProfileAsync(user, companyId);
-        return new AuthResult(true, Token: token, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 
     private async Task<string> MintJwtAsync(User user, Guid activeCompanyId)
@@ -289,6 +294,55 @@ public class AuthService : IAuthService
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<AuthResult> RefreshSessionAsync(string refreshToken)
+    {
+        var tokenRecord = await _db.RefreshTokens
+            .Include(r => r.User)
+            .ThenInclude(u => u!.Tenant)
+            .FirstOrDefaultAsync(r => r.Token == refreshToken);
+
+        if (tokenRecord == null)
+            return new AuthResult(false, Error: "Invalid refresh token.");
+
+        if (tokenRecord.RevokedAt != null)
+            return new AuthResult(false, Error: "Refresh token has been revoked.");
+
+        if (tokenRecord.IsExpired)
+            return new AuthResult(false, Error: "Refresh token has expired.");
+
+        // Revoke the old token
+        tokenRecord.RevokedAt = DateTime.UtcNow;
+
+        var user = tokenRecord.User!;
+        var activeCompanyId = user.TenantId;
+
+        var jwt = await MintJwtAsync(user, activeCompanyId);
+        var profile = await BuildProfileAsync(user, activeCompanyId);
+        var newRefreshToken = await CreateRefreshTokenAsync(user.Id);
+
+        await _db.SaveChangesAsync();
+
+        return new AuthResult(true, Token: jwt, Profile: profile, RefreshToken: newRefreshToken);
+    }
+
+    private async Task<string> CreateRefreshTokenAsync(Guid userId)
+    {
+        var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            
+        var refreshToken = new RefreshToken
+        {
+            UserId = userId,
+            Token = token,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+        };
+        
+        _db.RefreshTokens.Add(refreshToken);
+        await _db.SaveChangesAsync();
+        
+        return token;
     }
 
     // ── Invitation ────────────────────────────────────────────────────────────
@@ -417,7 +471,8 @@ public class AuthService : IAuthService
 
         var jwtToken = await MintJwtAsync(user, invitation.CompanyId);
         var profile  = await BuildProfileAsync(user, invitation.CompanyId);
-        return new AuthResult(true, Token: jwtToken, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: jwtToken, Profile: profile, RefreshToken: refreshToken);
     }
 
     public async Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName)
@@ -434,6 +489,7 @@ public class AuthService : IAuthService
         var activeCompanyId = user.TenantId;
         var token = await MintJwtAsync(user, activeCompanyId);
         var profile = await BuildProfileAsync(user, activeCompanyId);
-        return new AuthResult(true, Token: token, Profile: profile);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 }

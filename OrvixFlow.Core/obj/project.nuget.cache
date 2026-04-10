@@ -1,13 +1,16 @@
 {
   "version": 2,
-  "dgSpecHash": "0TyoTsxR2P4=",
+  "dgSpecHash": "/PeL5ZRs17c=",
   "success": true,
-  "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/OrvixFlow.Core.csproj",
+  "projectFilePath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Core\\OrvixFlow.Core.csproj",
   "expectedPackageFiles": [
-    "/home/kysliuk/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/8.0.0/microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/microsoft.extensions.logging.abstractions/8.0.0/microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/npgsql/8.0.5/npgsql.8.0.5.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/pgvector/0.3.2/pgvector.0.3.2.nupkg.sha512"
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.0\\microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\npgsql\\8.0.5\\npgsql.8.0.5.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\pgvector\\0.3.2\\pgvector.0.3.2.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.12\\microsoft.netcore.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.12\\microsoft.windowsdesktop.app.ref.9.0.12.nupkg.sha512",
+    "C:\\Users\\dkysl\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.12\\microsoft.aspnetcore.app.ref.9.0.12.nupkg.sha512"
   ],
   "logs": []
 }

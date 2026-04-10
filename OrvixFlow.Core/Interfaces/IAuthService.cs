@@ -17,9 +17,12 @@ public interface IAuthService
 
     /// <summary>Accept a pending invitation; provisions the user and returns auth tokens.</summary>
     Task<AuthResult> AcceptInvitationAsync(string token, string? displayName, string? password);
+
+    /// <summary>Rotates the refresh token and returns a new session.</summary>
+    Task<AuthResult> RefreshSessionAsync(string refreshToken);
 }
 
-public record AuthResult(bool IsSuccess, string? Token = null, string? Error = null, UserProfile? Profile = null);
+public record AuthResult(bool IsSuccess, string? Token = null, string? Error = null, UserProfile? Profile = null, string? RefreshToken = null);
 
 public record InviteRequest(
     Guid InvitedByUserId,

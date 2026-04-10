@@ -70,8 +70,21 @@ public class AuthController : ControllerBase
 
         var result = await _authService.ProvisionOAuthUserAsync(req.Email, req.DisplayName, req.Provider, req.ExternalId);
         return result.IsSuccess
-            ? Ok(new { token = result.Token, profile = result.Profile })
+            ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
             : StatusCode(500, new { error = result.Error });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken))
+            return BadRequest(new { error = "Refresh token is required." });
+
+        var result = await _authService.RefreshSessionAsync(req.RefreshToken);
+        
+        return result.IsSuccess
+            ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
+            : Unauthorized(new { error = result.Error });
     }
 
     [HttpGet("me")]
@@ -149,3 +162,4 @@ public record LoginRequest(string Email, string Password);
 public record OAuthProvisionRequest(string Email, string DisplayName, string Provider, string ExternalId);
 public record SwitchCompanyRequest(Guid CompanyId);
 public record UpdateProfileRequest(string? DisplayName);
+public record RefreshRequest(string RefreshToken);

@@ -1,0 +1,5 @@
+﻿Build started...
+Build succeeded.
+The Entity Framework tools version '9.0.8' is older than that of the runtime '9.0.14'. Update the tools for the latest features and bug fixes. See https://aka.ms/AAc1fbw for more information.
+An error occurred while accessing the Microsoft.Extensions.Hosting services. Continuing without the application service provider. Error: The value cannot be an empty string or composed entirely of whitespace. (Parameter 'apiKey')
+Unable to create a 'DbContext' of type 'RuntimeType'. The exception 'Unable to resolve service for type 'Microsoft.EntityFrameworkCore.DbContextOptions`1[OrvixFlow.Infrastructure.Data.AppDbContext]' while attempting to activate 'OrvixFlow.Infrastructure.Data.AppDbContext'.' was thrown while attempting to create an instance. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728

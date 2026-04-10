@@ -1,0 +1,344 @@
+﻿
+> orvixflow-web@0.1.0 lint
+> eslint
+
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(admin)\companies\[id]\inbox\page.tsx
+  44:9   warning  'router' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  52:32  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  56:6   warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  67:17  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(admin)\inbox-metrics\page.tsx
+   5:30  warning  'AlertTriangle' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+  26:32  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  30:6   warning  React Hook useEffect has a missing dependency: 'loadMetrics'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  41:17  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\billing\page.tsx
+   49:26  warning  'update' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+   61:32  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+   98:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  136:14  warning  'err' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\inbox\history\page.tsx
+   6:66  warning  'ArrowUpRight' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   6:80  warning  'ArrowDownRight' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  30:32  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  34:6   warning  React Hook useEffect has a missing dependency: 'loadEvents'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  56:17  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\inbox\page.tsx
+    7:60  warning  'Filter' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+    7:86  warning  'Database' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   53:6   warning  React Hook useEffect has a missing dependency: 'fetchEvents'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   60:36  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+   89:17  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  101:22  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  109:22  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  111:48  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  127:17  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\inbox\pending\page.tsx
+    6:79  warning  'Edit' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+    6:85  warning  'Send' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+   38:6   warning  React Hook useEffect has a missing dependency: 'fetchPendingActions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   45:36  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   71:17  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   91:36  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  128:17  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\knowledge\page.tsx
+    5:59   warning  'MoreVertical' is defined but never used                                                                                                  @typescript-eslint/no-unused-vars
+    5:115  warning  'X' is defined but never used                                                                                                             @typescript-eslint/no-unused-vars
+    5:118  warning  'Upload' is defined but never used                                                                                                        @typescript-eslint/no-unused-vars
+   74:6    warning  React Hook useEffect has missing dependencies: 'fetchDocuments' and 'fetchKnowledge'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   77:34   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   91:36   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  116:17   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  128:36   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  149:17   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  162:22   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  170:22   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  172:48   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  194:17   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  205:36   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  229:17   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  255:17   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  270:38   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  317:38   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  335:19   error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  771:104  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                           react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\layout.tsx
+  16:3   warning  'ChevronDown' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+  29:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\layout.tsx:29:7
+  27 |   useEffect(() => {
+  28 |     if (!session) {
+> 29 |       setModulesLoaded(true);
+     |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |       return;
+  31 |     }
+  32 |  react-hooks/set-state-in-effect
+  33:31  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\page.tsx
+  145:51  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  145:79  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\billing\page.tsx
+    4:10  warning  'CheckCircle2' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+    4:29  warning  'Rocket' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+    4:37  warning  'Building2' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+    4:76  warning  'Activity' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   40:32  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   45:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\billing\page.tsx:45:7
+  43 |   useEffect(() => {
+  44 |     if (!apiToken) {
+> 45 |       setLoading(false);
+     |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  46 |       return;
+  47 |     }
+  48 |  react-hooks/set-state-in-effect
+   64:6   warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  108:69  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react/no-unescaped-entities
+  121:67  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\inbox\page.tsx
+    6:10  warning  'Settings' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   57:10  warning  'provisioningIds' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   59:32  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+   63:7   error    Error: Cannot access variable before it is declared
+
+`loadAll` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\inbox\page.tsx:63:7
+  61 |   useEffect(() => {
+  62 |     if (apiToken) {
+> 63 |       loadAll();
+     |       ^^^^^^^ `loadAll` accessed before it is declared
+  64 |     }
+  65 |   }, [apiToken]);
+  66 |
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\inbox\page.tsx:74:3
+  72 |   };
+  73 |
+> 74 |   const loadAll = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 75 |     setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 76 |     await Promise.all([loadConnections(), loadPolicies(), loadPersona()]);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 77 |     setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 78 |   };
+     | ^^^^^ `loadAll` is declared here
+  79 |
+  80 |   const loadConnections = async () => {
+  81 |     try {  react-hooks/immutability
+   65:6   warning  React Hook useEffect has a missing dependency: 'loadAll'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       react-hooks/exhaustive-deps
+  135:47  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\(dashboard)\settings\page.tsx
+   45:32  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+   73:6   warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  105:14  warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  118:27  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  118:57  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  148:22  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  161:19  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  193:14  warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  227:14  warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  257:6   warning  React Hook useEffect has a missing dependency: 'orgSubTabs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  353:38  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  357:44  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  417:80  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                react/no-unescaped-entities
+  575:67  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\companies\[id]\audit\page.tsx
+  23:9   warning  'router' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  30:10  warning  'total' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+  33:32  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  37:6   warning  React Hook useEffect has a missing dependency: 'loadAudit'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  51:17  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\companies\[id]\page.tsx
+    6:104  warning  'Settings' is defined but never used                                                                                                                  @typescript-eslint/no-unused-vars
+  114:32   error    Unexpected any. Specify a different type                                                                                                              @typescript-eslint/no-explicit-any
+  123:6    warning  React Hook useEffect has missing dependencies: 'loadCompany', 'loadModules', and 'loadOverrides'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  139:17   error    Unexpected any. Specify a different type                                                                                                              @typescript-eslint/no-explicit-any
+  182:32   error    Unexpected any. Specify a different type                                                                                                              @typescript-eslint/no-explicit-any
+  290:51   error    Unexpected any. Specify a different type                                                                                                              @typescript-eslint/no-explicit-any
+  599:43   error    Unexpected any. Specify a different type                                                                                                              @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\layout.tsx
+  6:23  warning  'Users' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\modules\page.tsx
+  35:32  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  39:6   warning  React Hook useEffect has a missing dependency: 'loadModules'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  52:17  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\page.tsx
+   20:21  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   22:59  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  113:45  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  113:59  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:56  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:66  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\plans\[id]\page.tsx
+    6:50  warning  'Cpu' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+    6:67  warning  'XIcon' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+   68:32  error    Unexpected any. Specify a different type                                                                   @typescript-eslint/no-explicit-any
+  109:6   warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  125:17  error    Unexpected any. Specify a different type                                                                   @typescript-eslint/no-explicit-any
+  141:17  error    Unexpected any. Specify a different type                                                                   @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\plans\page.tsx
+  103:32  error    Unexpected any. Specify a different type                                                                                            @typescript-eslint/no-explicit-any
+  142:6   warning  React Hook useEffect has missing dependencies: 'fetchModules' and 'fetchPlans'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  226:19  error    Unexpected any. Specify a different type                                                                                            @typescript-eslint/no-explicit-any
+  268:14  warning  'e' is defined but never used                                                                                                       @typescript-eslint/no-unused-vars
+  282:14  warning  'e' is defined but never used                                                                                                       @typescript-eslint/no-unused-vars
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\tenants\page.tsx
+   5:23  warning  'Zap' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  24:16  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\tenants\page.tsx:24:16
+  22 |     // Load local storage impersonation state
+  23 |     const saved = localStorage.getItem("impersonateTenantId");
+> 24 |     if (saved) setImpersonating(saved);
+     |                ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  25 |
+  26 |     if ((session as any)?.apiToken) {
+  27 |       fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/tenants`, {  react-hooks/set-state-in-effect
+  26:21  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+  28:59  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\admin\test\page.tsx
+   36:32  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   77:17  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  104:17  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  175:59  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\api\auth\register\route.ts
+  45:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\login\page.tsx
+   31:14  warning  'err' is defined but never used                                  @typescript-eslint/no-unused-vars
+  137:14  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\register\page.test.tsx
+  28:27  warning  'text' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  33:23  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\app\register\page.tsx
+  57:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\auth.ts
+   12:12  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+   88:55  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+   90:52  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+   98:15  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  111:37  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  112:41  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  113:37  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  114:44  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  115:33  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  116:33  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  117:38  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  165:54  error    Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\components\module-gate.tsx
+   68:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\components\module-gate.tsx:68:7
+  66 |
+  67 |     if (!activeLimit) {
+> 68 |       setLimitStatus({ allowed: true });
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  69 |       return;
+  70 |     }
+  71 |  react-hooks/set-state-in-effect
+  103:14  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react/no-unescaped-entities
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\components\settings\AuditLogTab.tsx
+  22:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\components\settings\DepartmentsTab.tsx
+   27:22  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   29:62  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   45:6   warning  React Hook useEffect has a missing dependency: 'fetchDepartments'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   63:22  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   79:48  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   92:14  warning  'error' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+  100:22  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  106:57  error    Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\components\settings\TeamTab.tsx
+    5:46  warning  'Shield' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+    5:54  warning  'Users' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+   44:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   46:62  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   69:6   warning  React Hook useEffect has a missing dependency: 'fetchTeamData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   73:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   82:48  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   98:14  warning  'error' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+  106:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  110:57  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  119:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  125:48  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  269:69  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+
+D:\Own\Antigravity\OrvixFlow\orvixflow-web\lib\api-client.test.ts
+   30:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   32:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   86:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   95:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 187 problems (129 errors, 58 warnings)
+

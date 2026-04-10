@@ -1,0 +1,278 @@
+﻿commit 695848d41fd55b1765d39f7b07a5c6cbfc3863cb
+Author: kysliuk <dkysliuk@gmail.com>
+Date:   Thu Apr 9 17:07:08 2026 +0300
+
+    feat: configure persistent file upload volume and document security remediation progress
+
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 30fa7c5..a0dad67 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -53,6 +53,8 @@ services:
+       - orvix-db
+       - n8n
+     restart: unless-stopped
++    volumes:
++      - uploads_data:/app/uploads
+ 
+   orvix-web:
+     build:
+@@ -83,3 +85,4 @@ services:
+ volumes:
+   pgdata:
+   n8n_data:
++  uploads_data:
+diff --git a/memory/memory-overview.md b/memory/memory-overview.md
+index 96f3b4d..6a246b1 100644
+--- a/memory/memory-overview.md
++++ b/memory/memory-overview.md
+@@ -128,3 +128,20 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
+   - F-17: Removed JWT secret placeholder from `appsettings.json` (must use env var)
+   - F-31: Removed Groq API key from `appsettings.Development.json` (must use env var)
+   - F-02: Fixed OAuth email linking to reject conflicts (verified already fixed)
++
++- **Phase 2 Remediation Complete:**
++  - F-32: HTTP security headers added to API (middleware) and Frontend (next.config.ts)
++  - F-11: File MIME validation via magic bytes (`FileSignatureValidator`)
++  - F-12: Filename sanitization with GUID naming + path traversal prevention
++  - F-14: File deletion error logged (no longer silent)
++  - F-22: Hangfire dashboard protected with SuperAdmin JWT authorization filter
++  - F-01: JWT lifetime shortened from 7 days to 60 minutes
++  - F-03: Login rate limiting (5 attempts/min per IP)
++  - F-28: Failed login logging elevated to Warning level
++  - F-16: AutomationKey comparison uses FixedTimeEquals
++  - F-08: Invitation role ceiling check (CompanyAdmin cannot invite CompanyOwner)
++  - F-19: WebhookSecret removed from AdminController company response
++
++- **Docker Volume Mounts Added:**
++  - `uploads_data` volume mounted to `/app/uploads` for file persistence
++  - Files persist across container restarts (temporary solution before F-20 MinIO)
+diff --git a/memory/memory-risks.md b/memory/memory-risks.md
+index 12b3475..145c7f8 100644
+--- a/memory/memory-risks.md
++++ b/memory/memory-risks.md
+@@ -383,3 +383,19 @@ When modifying these areas, tests MUST pass:
+ | F-16 | AutomationKey comparison uses FixedTimeEquals | Γ£à Fixed |
+ | F-08 | Invitation role ceiling check (IsHigherThan extension method) | Γ£à Fixed |
+ | F-19 | WebhookSecret removed from AdminController.GetCompany response | Γ£à Fixed |
++
++### Volume Mounts Added Γ£à
++| Volume | Service | Path | Purpose |
++|--------|---------|------|---------|
++| pgdata | orvix-db | /var/lib/postgresql/data | PostgreSQL data persistence |
++| n8n_data | n8n | /home/node/.n8n | n8n workflow data |
++| uploads_data | orvix-api | /app/uploads | File uploads persistence |
++
++**Note:** uploads_data volume is temporary. Future F-20 will replace with MinIO (S3-compatible) storage.
++
++### Future: F-20 MinIO Storage
++| Status | File |
++|--------|------|
++| Planned | `tasks/F20-minio-storage-plan.md` |
++
++Phase 3 pending - see security review document for remaining items.
+diff --git a/tasks/F20-minio-storage-plan.md b/tasks/F20-minio-storage-plan.md
+new file mode 100644
+index 0000000..901fd41
+--- /dev/null
++++ b/tasks/F20-minio-storage-plan.md
+@@ -0,0 +1,199 @@
++# F-20: MinIO Local Storage with Department-Level Isolation
++
++**Date:** 2026-04-09 | **Feature:** File Storage Migration | **Status:** Planned
++
++---
++
++## Overview
++
++Implement S3-compatible local storage using MinIO with:
++- Department-level isolation
++- Role-based access control
++- CompanyAdmin full access
++- Docker-based local deployment (free)
++
++---
++
++## Architecture
++
++```
++ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++Γöé                     Docker Compose                           Γöé
++Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
++Γöé  orvix-api   Γöé  orvix-web   Γöé  orvix-db    Γöé  minio         Γöé
++Γöé   (8080)     Γöé   (3000)     Γöé   (5432)     Γöé  :9000 (API)   Γöé
++Γöé              Γöé              Γöé              Γöé  :9001 (UI)    Γöé
++ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++       Γöé                                        Γöé
++       Γöé    AWS SDK (S3-compatible)             Γöé
++       ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++                      Γöé
++              ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓû╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++              Γöé  MinIO        Γöé
++              Γöé  /data        Γöé
++              Γöé  (volume)     Γöé
++              ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++```
++
++### Storage Key Structure
++
++```
++orvixflow/
++ΓööΓöÇΓöÇ companies/
++    ΓööΓöÇΓöÇ {companyId}/
++        ΓööΓöÇΓöÇ departments/
++            ΓööΓöÇΓöÇ {departmentId}/
++                ΓööΓöÇΓöÇ documents/
++                    ΓööΓöÇΓöÇ {documentId}/
++                        ΓööΓöÇΓöÇ {guid}.{extension}
++```
++
++---
++
++## Implementation Steps
++
++### Phase 1: Infrastructure Setup
++
++| # | Task | File(s) | Description |
++|---|------|---------|-------------|
++| 1.1 | Add MinIO to docker-compose | `docker-compose.yml` | Add minio service, ports 9000/9001, volume |
++| 1.2 | Add .env variables | `.env`, `.env.example` | MinIO access key, secret key, endpoint |
++| 1.3 | Create bucket on startup | New: `MinIOBucketInitializer.cs` | Auto-create `orvixflow` bucket |
++
++### Phase 2: Core Storage Implementation
++
++| # | Task | File(s) | Description |
++|---|------|---------|-------------|
++| 2.1 | Add DepartmentId to document | `KnowledgeBaseDocument.cs` | Add nullable `DepartmentId` field |
++| 2.2 | Create IFileStorage v2 | `IFileStorage.cs` | Add department-aware methods |
++| 2.3 | Implement MinIOFileStorage | New: `MinIOFileStorage.cs` | AWS SDK S3 client implementation |
++| 2.4 | Add DI registration | `Program.cs` | Register MinIO storage based on config |
++
++### Phase 3: Access Control
++
++| # | Task | File(s) | Description |
++|---|------|---------|-------------|
++| 3.1 | Add department access check | `FileAccessValidator.cs` | Validate user can access department's files |
++| 3.2 | Update FileIngestionController | `FileIngestionController.cs` | Accept DepartmentId, validate access |
++| 3.3 | Return department in list API | `KnowledgeBaseController.cs` | Include DepartmentId in document listing |
++
++### Phase 4: Frontend (Optional for MVP)
++
++| # | Task | File(s) | Description |
++|---|------|---------|-------------|
++| 4.1 | Add department picker | Upload UI | User selects department before upload |
++| 4.2 | Show department in file list | Knowledge base UI | Display department column |
++
++---
++
++## Database Migration
++
++```csharp
++// Add to KnowledgeBaseDocument
++public Guid? DepartmentId { get; set; }
++
++// Add index
++HasIndex(x => new { x.TenantId, x.DepartmentId });
++```
++
++---
++
++## Access Control Rules
++
++```
++ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++Γöé Role                Γöé Access                                   Γöé
++Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
++Γöé SuperAdmin          Γöé All companies, all departments           Γöé
++Γöé InternalOperator    Γöé Read-only, all companies                 Γöé
++Γöé CompanyOwner        Γöé All departments in their company         Γöé
++Γöé CompanyAdmin        Γöé All departments in their company         Γöé
++Γöé DepartmentManager   Γöé Assigned departments only                Γöé
++Γöé Operator            Γöé Own department only                      Γöé
++Γöé Viewer              Γöé Own department read-only                 Γöé
++ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++```
++
++---
++
++## Configuration
++
++### Environment Variables
++
++```bash
++# MinIO (S3-compatible)
++STORAGE_PROVIDER=MinIO                    # Local | MinIO
++MINIO_ENDPOINT=minio:9000
++MINIO_ACCESS_KEY=orvixflow_access
++MINIO_SECRET_KEY=orvixflow_secret
++MINIO_BUCKET=orvixflow
++MINIO_USE_SSL=false
++
++# Fallback (dev without MinIO)
++STORAGE__LOCAL__BASEPATH=/app/uploads
++```
++
++### appsettings.json
++
++```json
++"Storage": {
++  "Provider": "MinIO",
++  "MinIO": {
++    "Endpoint": "minio:9000",
++    "Bucket": "orvixflow"
++  },
++  "Local": {
++    "BasePath": "/app/uploads"
++  }
++}
++```
++
++---
++
++## Files to Create
++
++| File | Path |
++|------|------|
++| MinIOBucketInitializer.cs | `OrvixFlow.Infrastructure/Storage/` |
++| MinIOFileStorage.cs | `OrvixFlow.Infrastructure/Storage/` |
++| FileAccessValidator.cs | `OrvixFlow.Infrastructure/Authorization/` |
++
++## Files to Modify
++
++| File | Change |
++|------|--------|
++| `KnowledgeBaseDocument.cs` | Add `DepartmentId?` |
++| `IFileStorage.cs` | Add department-aware methods |
++| `docker-compose.yml` | Add minio service |
++| `.env` | Add minio credentials |
++| `FileIngestionController.cs` | Add DepartmentId, access validation |
++| `Program.cs` | Add MinIO DI registration |
++
++---
++
++## Effort Estimate
++
++| Phase | Hours |
++|-------|-------|
++| Infrastructure (MinIO) | 1 |
++| Storage Implementation | 2 |
++| Access Control | 2 |
++| Migration + Testing | 1 |
++| **Total** | **6 hours** |
++
++---
++
++## Rollback Plan
++
++- Keep `LocalFileStorage` as fallback
++- Toggle via `STORAGE_PROVIDER=Local`
++- No breaking changes to existing API contracts
++
++---
++
++## Dependencies
++
++- AWS SDK for .NET (`AWSSDK.S3`)
++- MinIO Docker image (`minio/minio`)
++- Existing `KnowledgeBaseDocument` entity
++- Existing `UserRole` enum and extensions

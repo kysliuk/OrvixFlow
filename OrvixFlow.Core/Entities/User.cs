@@ -30,4 +30,5 @@ public class User
     public ICollection<UserCompanyMembership> CompanyMemberships { get; set; } = new List<UserCompanyMembership>();
     public ICollection<UserDepartmentMembership> DepartmentMemberships { get; set; } = new List<UserDepartmentMembership>();
     public ICollection<ModuleAssignment> ModuleAssignments { get; set; } = new List<ModuleAssignment>();
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

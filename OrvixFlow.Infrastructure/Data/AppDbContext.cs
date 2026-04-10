@@ -52,6 +52,7 @@ public class AppDbContext : DbContext
     public DbSet<CompanyModuleOverride> CompanyModuleOverrides => Set<CompanyModuleOverride>();
     public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
     public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +106,8 @@ public class AppDbContext : DbContext
 
         // Unique constraint on email
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+
+        modelBuilder.Entity<RefreshToken>().HasIndex(r => r.Token).IsUnique();
 
         // Organizations / Access control constraints & seeds
         modelBuilder.Entity<UserCompanyMembership>()

@@ -5,6 +5,15 @@ import MicrosoftEntraId from "next-auth/providers/microsoft-entra-id";
 
 const apiBaseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
 
+function parseJwtExp(token: string): number | null {
+  try {
+    const payload = Buffer.from(token.split('.')[1], 'base64').toString('utf-8');
+    return JSON.parse(payload).exp;
+  } catch {
+    return null;
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   providers: [
@@ -39,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: data.profile.displayName,
             email: data.profile.email,
             apiToken: data.token,
+            refreshToken: data.refreshToken,
             tenantId: data.profile.tenantId,
             activeCompanyId: data.profile.activeCompanyId,
             plan: data.profile.plan,
@@ -84,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (res.ok) {
               const data = await res.json();
               token.apiToken = data.token;
+              token.refreshToken = data.refreshToken;
               token.tenantId = data.profile.tenantId;
               token.activeCompanyId = data.profile.activeCompanyId;
               token.plan = data.profile.plan;
@@ -98,6 +109,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } else if (account.type === "credentials") {
           // Local login already has the token bundled inside `user`
           token.apiToken = (user as any).apiToken;
+          token.refreshToken = (user as any).refreshToken;
           token.tenantId = (user as any).tenantId;
           token.activeCompanyId = (user as any).activeCompanyId;
           token.plan = (user as any).plan;
@@ -105,6 +117,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.companies = (user as any).companies ?? [];
         }
       }
+
+      // Token Refresh Logic
+      if (token.apiToken && token.refreshToken) {
+        const exp = parseJwtExp(token.apiToken as string);
+        if (exp) {
+          // If token expires in less than 5 minutes (300 seconds)
+          const nowInSeconds = Math.floor(Date.now() / 1000);
+          if (exp - nowInSeconds < 300) {
+            try {
+              console.log("Token expiring soon, attempting refresh...");
+              const refreshRes = await fetch(`${apiBaseUrl}/api/auth/refresh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refreshToken: token.refreshToken }),
+              });
+              
+              if (refreshRes.ok) {
+                const data = await refreshRes.json();
+                token.apiToken = data.token;
+                token.refreshToken = data.refreshToken;
+              } else {
+                console.warn(`Failed to refresh token. API returned: ${refreshRes.status}`);
+                // Invalidate API token to force re-auth
+                token.apiToken = "";
+                token.refreshToken = "";
+              }
+            } catch (e) {
+              console.error("Refresh token fetch failed", e);
+            }
+          }
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
