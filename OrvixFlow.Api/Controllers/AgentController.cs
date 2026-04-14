@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,5 +51,7 @@ public class AgentController : ControllerBase
 
 public class AgentRequest
 {
+    [Required(ErrorMessage = "Prompt is required.")]
+    [StringLength(100000, ErrorMessage = "Prompt exceeds maximum allowed length (100,000 characters).")]
     public string Prompt { get; set; } = string.Empty;
 }

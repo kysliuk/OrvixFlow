@@ -109,24 +109,36 @@ public class InboxProcessingJob
                     await repository.UpdateStatusAsync(inboxEventId, InboxEventStatus.AutoApproved);
                     if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        try
+                        var rateLimiter = scope.ServiceProvider.GetRequiredService<ITenantWebhookRateLimiter>();
+                        var rateCheck = await rateLimiter.CheckAndIncrementAsync(tenantId);
+                        
+                        if (!rateCheck.IsAllowed)
                         {
-                            await callbackService.SendCallbackAsync(
-                                inboxEvent.WebhookCallbackPath,
-                                policyDecision,
-                                inboxEventId,
-                                response.Message);
-                            _logger.LogInformation(
-                                "[{TraceId}] Callback sent for auto-approve {MessageId}",
-                                traceId, inboxEvent.MessageId);
+                            _logger.LogWarning(
+                                "[{TraceId}] Webhook callback SKIPPED - rate limit exceeded for tenant {TenantId}. Count: {Count}, Limit: {Limit}",
+                                traceId, tenantId, rateCheck.Remaining, rateCheck.Limit);
                         }
-                        catch (Exception callbackEx)
+                        else
                         {
-                            _logger.LogWarning(callbackEx,
-                                "[{TraceId}] Callback failed for auto-approve {MessageId}, scheduling retry",
-                                traceId, inboxEvent.MessageId);
-                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
-                                policyDecision, inboxEventId, response.Message, 1, traceId);
+                            try
+                            {
+                                await callbackService.SendCallbackAsync(
+                                    inboxEvent.WebhookCallbackPath,
+                                    policyDecision,
+                                    inboxEventId,
+                                    response.Message);
+                                _logger.LogInformation(
+                                    "[{TraceId}] Callback sent for auto-approve {MessageId}, RateLimit: {Remaining}/{Limit}",
+                                    traceId, inboxEvent.MessageId, rateCheck.Remaining, rateCheck.Limit);
+                            }
+                            catch (Exception callbackEx)
+                            {
+                                _logger.LogWarning(callbackEx,
+                                    "[{TraceId}] Callback failed for auto-approve {MessageId}, scheduling retry",
+                                    traceId, inboxEvent.MessageId);
+                                ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                    policyDecision, inboxEventId, response.Message, 1, traceId);
+                            }
                         }
                     }
                     _logger.LogInformation(
@@ -173,24 +185,36 @@ public class InboxProcessingJob
 
                     if (!string.IsNullOrEmpty(inboxEvent.WebhookCallbackPath))
                     {
-                        try
+                        var rateLimiter = scope.ServiceProvider.GetRequiredService<ITenantWebhookRateLimiter>();
+                        var rateCheck = await rateLimiter.CheckAndIncrementAsync(tenantId);
+                        
+                        if (!rateCheck.IsAllowed)
                         {
-                            await callbackService.SendCallbackAsync(
-                                inboxEvent.WebhookCallbackPath,
-                                policyDecision,
-                                inboxEventId,
-                                response.Message);
-                            _logger.LogInformation(
-                                "[{TraceId}] Callback sent for hold-approval {MessageId}",
-                                traceId, inboxEvent.MessageId);
+                            _logger.LogWarning(
+                                "[{TraceId}] Webhook callback SKIPPED - rate limit exceeded for tenant {TenantId}. Count: {Count}, Limit: {Limit}",
+                                traceId, tenantId, rateCheck.Remaining, rateCheck.Limit);
                         }
-                        catch (Exception callbackEx)
+                        else
                         {
-                            _logger.LogWarning(callbackEx,
-                                "[{TraceId}] Callback failed for hold-approval {MessageId}, scheduling retry",
-                                traceId, inboxEvent.MessageId);
-                            ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
-                                policyDecision, inboxEventId, response.Message, 1, traceId);
+                            try
+                            {
+                                await callbackService.SendCallbackAsync(
+                                    inboxEvent.WebhookCallbackPath,
+                                    policyDecision,
+                                    inboxEventId,
+                                    response.Message);
+                                _logger.LogInformation(
+                                    "[{TraceId}] Callback sent for hold-approval {MessageId}, RateLimit: {Remaining}/{Limit}",
+                                    traceId, inboxEvent.MessageId, rateCheck.Remaining, rateCheck.Limit);
+                            }
+                            catch (Exception callbackEx)
+                            {
+                                _logger.LogWarning(callbackEx,
+                                    "[{TraceId}] Callback failed for hold-approval {MessageId}, scheduling retry",
+                                    traceId, inboxEvent.MessageId);
+                                ScheduleCallbackRetry(callbackService, inboxEvent.WebhookCallbackPath,
+                                    policyDecision, inboxEventId, response.Message, 1, traceId);
+                            }
                         }
                     }
                     _logger.LogInformation(

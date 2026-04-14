@@ -1,11 +1,13 @@
 # OrvixFlow Security Review
-**Date:** 2026-04-08 | **Primary Reviewer:** Claude (Senior Architect role) | **Cross-reviewed by:** OpenCode Security Agent | **Last updated:** 2026-04-09 | **Severity Key:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
+**Date:** 2026-04-08 | **Primary Reviewer:** Claude (Senior Architect role) | **Cross-reviewed by:** OpenCode Security Agent | **Last updated:** 2026-04-14 | **Severity Key:** 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
 
 > **Note:** This document incorporates findings from two independent AI security reviews. Findings F-01 through F-30 were identified by Claude from direct source-code inspection. Findings F-31, F-32, and F-33 were identified by OpenCode and verified by manual source inspection before inclusion. One OpenCode finding (CORS misconfiguration) was rejected as factually incorrect after code verification. See `tasks/opencode-security-review-08-04.md` for the original OpenCode report.
 >
 > **2026-04-09 Update:** Phase 1 remediation completed: F-09, F-10, F-15, F-17, F-31 fixed. F-02 was already fixed.
 > **2026-04-09 Update (continued):** Phase 2 remediation completed: F-32, F-11, F-12, F-14, F-22, F-01, F-03, F-28, F-16, F-08, F-19 fixed.
-> **2026-04-14 Update:** Phase 3 complete: F-06, F-25, F-07, F-27, F-04, F-33, F-21, F-23 fixed. F-32, F-11, F-12, F-14, F-22, F-01, F-03, F-28, F-16, F-08, F-19 fixed.
+> **2026-04-14 Update:** Phase 3 complete: F-06, F-25, F-07, F-27, F-04, F-33, F-21, F-23 fixed.
+> **2026-04-14 Update:** Phase 4 complete: F-05, F-13, F-18 fixed. F-26 already implemented (audit trail present).
+> **2026-04-14 Update:** Phase 4 continued: F-24 (per-tenant webhook rate limit), F-29 (server-side API proxy) implemented. Route handlers at /api/proxy/* enable server-side API calls.
 
 ---
 

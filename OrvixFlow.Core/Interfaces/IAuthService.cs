@@ -35,7 +35,7 @@ public record InviteRequest(
     Guid? DepartmentId = null
 );
 
-public record InviteResult(bool IsSuccess, string? Token = null, string? Error = null);
+public record InviteResult(bool IsSuccess, string? Token = null, string? Error = null, Guid? InvitationId = null);
 
 public record CompanyMembershipSummary(Guid CompanyId, string CompanyName, string Role);
 

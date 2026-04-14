@@ -415,7 +415,7 @@ public class AuthService : IAuthService
         _db.Invitations.Add(invitation);
         await _db.SaveChangesAsync();
 
-        return new InviteResult(true, Token: token);
+        return new InviteResult(true, Token: token, InvitationId: invitation.Id);
     }
 
     public async Task<AuthResult> AcceptInvitationAsync(string token, string? displayName, string? password)

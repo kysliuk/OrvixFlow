@@ -53,6 +53,7 @@ public class AppDbContext : DbContext
     public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
     public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<TenantWebhookLimit> TenantWebhookLimits => Set<TenantWebhookLimit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -336,6 +337,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseImage>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<TenantWebhookLimit>().HasQueryFilter(t => t.TenantId == _tenantProvider.GetTenantId());
 
         modelBuilder.Entity<CompanyEntitlementOverride>()
             .HasOne(o => o.Company)

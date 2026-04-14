@@ -127,9 +127,9 @@ public class InviteController : ControllerBase
         if (!result.IsSuccess)
             return BadRequest(new { error = result.Error });
 
-        // In production this token would be e-mailed. For now return it directly
-        // so the frontend/tests can act immediately.
-        return Ok(new { token = result.Token, message = "Invitation created." });
+        // F-05 FIX: Token is no longer returned in the response.
+        // In production the invitation token is sent via email to the invited email address.
+        return Ok(new { id = result.InvitationId, message = $"Invitation sent to {dto.Email}." });
     }
 
     // ── POST api/invite/accept  ───────────────────────────────────────────────

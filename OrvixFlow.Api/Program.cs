@@ -222,6 +222,21 @@ app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
     Authorization = new[] { new OrvixFlow.Api.Filters.HangfireDashboardAuthorizationFilter() }
 });
 
+// F-18 FIX: Warn on startup if virus scanning is disabled in production
+if (!app.Environment.IsDevelopment())
+{
+    var virusScanProvider = builder.Configuration["Security:VirusScan:Provider"] ?? "Noop";
+    if (virusScanProvider == "Noop")
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║  WARNING: Virus scanning is DISABLED in production!              ║");
+        Console.WriteLine("║  Set Security:VirusScan:Provider to 'ClamAv' in appsettings.    ║");
+        Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+        Console.ResetColor();
+    }
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrvixFlow.Infrastructure.Data.AppDbContext>();

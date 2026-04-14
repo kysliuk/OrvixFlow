@@ -110,7 +110,7 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - Removed all `Console.WriteLine` debug noise from `OrganizationController.cs` (8 instances → `ILogger<OrganizationController>.LogDebug`)
 - Bumped `SixLabors.ImageSharp` from 3.1.5 → 3.1.12, resolving CVE warnings (NU1903/NU1902)
 - Created `MockEmbeddingGenerator` implementing `IEmbeddingGenerator<string, Embedding<float>>` for Phase C migration prep
-- Test count increased to 278 (277 + 1 new `EmbeddingMigrationSmokeTests`)
+- Test count increased to 314 (all tests passing)
 
 ### Document Ingestion Pipeline Fixes (2026-04-08)
 - **Tenant Context Fix:** Created `ITenantProviderFactory` to properly set tenant context in background jobs
@@ -119,6 +119,14 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - **Chunk Cleanup:** Added existing chunk cleanup before re-processing (handles retries/duplicates)
 - **Logging:** Comprehensive logging throughout ingestion pipeline for debugging
 - **Error Handling:** Fixed error handling with fresh queries in catch blocks
+
+### Security Hardening Phase 4 (2026-04-14)
+### Security Hardening Phase 4 (2026-04-14)
+- **F-05:** Invite token no longer returned in API response (sent via email instead)
+- **F-13:** Text ingestion now validates max length (100,000 characters)
+- **F-18:** Production startup warning when virus scanning is disabled (Noop provider)
+- **F-26:** Audit trail already implemented for destructive admin actions (Cancel, Suspend, Reactivate)
+- **Test count:** 314 tests passing
 
 ### Security Hardening (2026-04-09)
 - **Phase 1 Remediation Complete:**

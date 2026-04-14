@@ -113,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<IInboxEventRepository, InboxEventRepository>();
         services.AddScoped<IPolicyGateService, PolicyGateService>();
         services.AddScoped<IWebhookCallbackService, WebhookCallbackService>();
+        services.AddScoped<ITenantWebhookRateLimiter, TenantWebhookRateLimiter>();
         services.AddScoped<IDraftFeedbackService, DraftFeedbackService>();
         services.AddScoped<IN8nProvisioningService, N8nProvisioningService>();
         services.AddScoped<IPlanService, PlanService>();
