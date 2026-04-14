@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const { data: session, update } = useSession();
   const [activeTab, setActiveTab] = useState("profile");
   const [orgActiveTab, setOrgActiveTab] = useState("general");
-  
+
   const [companies, setCompanies] = useState<Array<{ companyId: string; companyName: string; role: string; plan: string }>>([]);
   const [departments, setDepartments] = useState<Array<{ departmentId: string; name: string; code: string; role: string }>>([]);
   const [orgStatus, setOrgStatus] = useState<OrgStatus | null>(null);
@@ -81,7 +81,7 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     if (!apiToken) return;
-    
+
     setSavingProfile(true);
     setProfileError(null);
     setProfileSuccess(false);
@@ -112,8 +112,8 @@ export default function SettingsPage() {
   const hasOrg = orgStatus?.hasOrganization === true;
 
   const handleSwitchCompany = async (companyId: string) => {
-    console.log("[DEBUG][CompanySwitch] Initiating switch-company request.", { 
-      targetCompanyId: companyId, 
+    console.log("[DEBUG][CompanySwitch] Initiating switch-company request.", {
+      targetCompanyId: companyId,
       hasToken: !!apiToken,
       userId: (session as any)?.user?.id || (session as any)?.user?.userId
     });
@@ -135,15 +135,15 @@ export default function SettingsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        console.log("[DEBUG][CompanySwitch] Decoding success payload.", { 
-          hasNewToken: !!data.token, 
-          profileTenant: data.profile?.tenantId 
+        console.log("[DEBUG][CompanySwitch] Decoding success payload.", {
+          hasNewToken: !!data.token,
+          profileTenant: data.profile?.tenantId
         });
         await update(data); // Silent token swap via Next-Auth
         console.log("[DEBUG][CompanySwitch] Session updated successfully natively.");
         return;
       }
-      
+
       // Parse detailed 401/403 errors from backend JSON
       let errorData: any;
       try {
@@ -152,7 +152,7 @@ export default function SettingsPage() {
         errorData = { error: "Could not parse JSON error body." };
       }
       console.error("[DEBUG][CompanySwitch] Request rejected.", errorData);
-      
+
       if (res.status === 401 || res.status === 403) {
         alert(`Company Access Denied: ${errorData.error || "You do not have active rights."}`);
       } else {
@@ -232,18 +232,18 @@ export default function SettingsPage() {
   };
 
   const mainTabs = [
-    { id: "profile",      label: "Profile",       icon: User },
-    { id: "organization", label: "Organization",  icon: Building },
-    { id: "billing",      label: "Billing",       icon: CreditCard },
-    { id: "api-keys",     label: "API Keys",      icon: Key },
-    { id: "notifications",label: "Notifications", icon: BellRing },
+    { id: "profile", label: "Profile", icon: User },
+    { id: "organization", label: "Organization", icon: Building },
+    { id: "billing", label: "Billing", icon: CreditCard },
+    { id: "api-keys", label: "API Keys", icon: Key },
+    { id: "notifications", label: "Notifications", icon: BellRing },
   ];
 
   const orgSubTabs = [
-    { id: "general",     label: "General",     icon: Building, gated: false },
-    { id: "departments", label: "Departments", icon: Network,  gated: true },
-    { id: "team",        label: "Team & Roles",icon: Users,    gated: true },
-    { id: "security",    label: "Security",    icon: Shield,   gated: true },
+    { id: "general", label: "General", icon: Building, gated: false },
+    { id: "departments", label: "Departments", icon: Network, gated: true },
+    { id: "team", label: "Team & Roles", icon: Users, gated: true },
+    { id: "security", label: "Security", icon: Shield, gated: true },
   ];
 
   // If we land on a gated org inner tab but have no org, reset to general
@@ -280,14 +280,14 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl h-full">
-      
+
       <div>
         <h1 className="text-2xl font-semibold mb-1">Settings</h1>
         <p className="text-sm text-muted">Manage your account preferences and tenant configurations.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8 mt-2 h-[600px]">
-        
+
         {/* Vertical Tabs Navigation (Main) */}
         <div className="w-full md:w-56 flex flex-col gap-1 shrink-0">
           {mainTabs.map((tab) => {
@@ -298,11 +298,10 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${isActive
                     ? "bg-primary text-white shadow-[0_2px_10px_var(--accent-glow)]"
                     : "text-muted hover:text-white hover:bg-surface"
-                }`}
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-muted"}`} />
                 {tab.label}
@@ -313,12 +312,12 @@ export default function SettingsPage() {
 
         {/* Tab Content Area */}
         <div className="flex-1 bg-surface border border-white/5 rounded-xl px-0 py-8 relative overflow-hidden shadow-lg h-full overflow-y-auto">
-          
+
           <div className="px-8 h-full">
             {activeTab === "profile" && (
               <div className="animate-in fade-in duration-300">
                 <h2 className="text-lg font-semibold mb-6">Personal Information</h2>
-                
+
                 <div className="flex flex-col gap-6">
                   <div className="flex items-center gap-6">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-danger flex items-center justify-center text-3xl font-bold shadow-lg">
@@ -332,8 +331,8 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-muted">Full Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         className="bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
@@ -341,8 +340,8 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-muted">Email Address</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         defaultValue={session?.user?.email || ""}
                         disabled
                         className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-muted cursor-not-allowed"
@@ -350,11 +349,11 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {(session?.user as any)?.role && (
+                  {(session?.user as any)?.globalRole && (
                     <div className="flex flex-col gap-1.5 pt-4">
                       <label className="text-xs font-medium text-muted">Global Role</label>
                       <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-2 text-sm text-white w-fit font-semibold">
-                        {(session?.user as any)?.role}
+                        {(session?.user as any)?.globalRole}
                       </div>
                     </div>
                   )}
@@ -370,7 +369,7 @@ export default function SettingsPage() {
                         Profile updated successfully!
                       </div>
                     )}
-                    <button 
+                    <button
                       onClick={handleSaveProfile}
                       disabled={savingProfile}
                       className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all disabled:opacity-50"
@@ -386,16 +385,16 @@ export default function SettingsPage() {
               <div className="animate-in fade-in duration-300">
                 <h2 className="text-lg font-semibold mb-1">API Keys</h2>
                 <p className="text-sm text-muted mb-6">Use these keys to authenticate your webhooks and n8n nodes.</p>
-                
+
                 <div className="bg-background border border-white/5 rounded-lg p-5 mb-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Production Key</span>
                     <span className="text-xs text-muted">Created Oct 10, 2026</span>
                   </div>
                   <div className="flex gap-3">
-                    <input 
-                      type="password" 
-                      value="sk_live_12345abcdefghijklmnopqrstuvwxyz" 
+                    <input
+                      type="password"
+                      value="sk_live_12345abcdefghijklmnopqrstuvwxyz"
                       readOnly
                       className="flex-1 bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-muted font-mono"
                     />
@@ -415,7 +414,7 @@ export default function SettingsPage() {
               <div className="animate-in fade-in duration-300 h-full flex flex-col">
                 <h2 className="text-lg font-semibold mb-1">Organization</h2>
                 <p className="text-sm text-muted mb-5">Manage your organization's settings, teams, and security.</p>
-                
+
                 {/* Horizontal Sub-Tabs Navigation */}
                 <div className="flex items-center gap-1 border-b border-white/10 mb-6 pb-1">
                   {orgSubTabs.map((tab) => {
@@ -432,13 +431,12 @@ export default function SettingsPage() {
                         }}
                         title={isLocked ? "Create an organisation to unlock this section" : undefined}
                         disabled={isLocked}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-t-lg text-sm font-medium transition-all ${
-                          isLocked
+                        className={`flex items-center gap-2 px-3 py-2 rounded-t-lg text-sm font-medium transition-all ${isLocked
                             ? "text-white/20 cursor-not-allowed"
                             : isActive
-                            ? "text-primary border-b-2 border-primary -mb-[5px] bg-primary/10"
-                            : "text-muted hover:text-white"
-                        }`}
+                              ? "text-primary border-b-2 border-primary -mb-[5px] bg-primary/10"
+                              : "text-muted hover:text-white"
+                          }`}
                       >
                         {isLocked ? <Lock className="w-3.5 h-3.5 text-white/20" /> : <Icon className="w-3.5 h-3.5" />}
                         {tab.label}
@@ -467,7 +465,7 @@ export default function SettingsPage() {
                           <div className="bg-background border border-white/5 rounded-lg p-6 text-center">
                             <Building className="w-8 h-8 text-white/20 mx-auto mb-3" />
                             <p className="text-sm text-muted mb-4">No active company memberships found.</p>
-                            <button 
+                            <button
                               onClick={() => setShowCreateOrgModal(true)}
                               className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-medium rounded-lg text-sm transition-all"
                             >
@@ -488,21 +486,20 @@ export default function SettingsPage() {
                                   <div className="text-xs text-muted mt-1">{company.role} • {company.plan} Plan</div>
                                 </div>
                                 {company.companyId === orgStatus?.activeCompanyId && orgStatus?.role === "CompanyOwner" ? (
-                                  <button 
+                                  <button
                                     onClick={handleStartEditCompanyName}
                                     className="px-3 py-1.5 text-xs border border-white/10 hover:bg-white/10 text-white rounded-md transition-colors"
                                   >
                                     Edit
                                   </button>
                                 ) : (
-                                  <button 
-                                    onClick={() => handleSwitchCompany(company.companyId)} 
+                                  <button
+                                    onClick={() => handleSwitchCompany(company.companyId)}
                                     disabled={company.companyId === orgStatus?.activeCompanyId}
-                                    className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${
-                                      company.companyId === orgStatus?.activeCompanyId 
-                                        ? "border-white/5 text-white/30 cursor-not-allowed bg-white/5" 
+                                    className={`px-3 py-1.5 text-xs border rounded-md transition-colors ${company.companyId === orgStatus?.activeCompanyId
+                                        ? "border-white/5 text-white/30 cursor-not-allowed bg-white/5"
                                         : "border-white/10 hover:bg-white/10 text-white"
-                                    }`}
+                                      }`}
                                   >
                                     {company.companyId === orgStatus?.activeCompanyId ? "Current" : "Switch"}
                                   </button>
@@ -562,7 +559,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-            
+
           </div>
         </div>
       </div>
@@ -573,7 +570,7 @@ export default function SettingsPage() {
           <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Let's set up your new Organization</h2>
-              <button 
+              <button
                 onClick={() => setShowCreateOrgModal(false)}
                 className="text-muted hover:text-white transition-colors"
               >
@@ -584,7 +581,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted mb-5">
                 Organizations separate billing, users, and resources. You will automatically be assigned as the Company Owner.
               </p>
-              
+
               <div className="flex flex-col gap-2 mb-6">
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider">
                   Organization Name
@@ -643,7 +640,7 @@ export default function SettingsPage() {
           <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Confirm Company Name Change</h2>
-              <button 
+              <button
                 onClick={() => setShowCompanyNameConfirm(false)}
                 className="text-muted hover:text-white transition-colors"
               >
@@ -654,12 +651,12 @@ export default function SettingsPage() {
               <p className="text-sm text-muted mb-5">
                 Are you sure you want to change your company name? This action will update your organization across the platform.
               </p>
-              
+
               <div className="bg-background border border-white/5 rounded-lg p-4 mb-6">
                 <div className="text-xs text-muted mb-1">Current Name</div>
                 <div className="text-sm text-white line-through">{orgStatus?.companyName}</div>
               </div>
-              
+
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
                 <div className="text-xs text-primary mb-1">New Name</div>
                 <input

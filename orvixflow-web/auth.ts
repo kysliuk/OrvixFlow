@@ -53,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             activeCompanyId: data.profile.activeCompanyId,
             plan: data.profile.plan,
             role: data.profile.role,
+            globalRole: data.profile.globalRole,
             companies: data.profile.companies ?? [],
           };
         }
@@ -104,6 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.activeCompanyId = session.profile.activeCompanyId;
           token.plan = session.profile.plan;
           token.role = session.profile.role;
+          (token as any).globalRole = session.profile.globalRole;
           token.companies = session.profile.companies ?? [];
         }
         return token;
@@ -121,6 +123,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               token.activeCompanyId = data.profile.activeCompanyId;
               token.plan = data.profile.plan;
               token.role = data.profile.role;
+              (token as any).globalRole = data.profile.globalRole;
               token.companies = data.profile.companies ?? [];
           }
         } else if (account.type === "credentials") {
@@ -131,6 +134,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.activeCompanyId = (user as any).activeCompanyId;
           token.plan = (user as any).plan;
           token.role = (user as any).role;
+          (token as any).globalRole = (user as any).globalRole;
           token.companies = (user as any).companies ?? [];
         }
       }
@@ -179,6 +183,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.activeCompanyId = (token.activeCompanyId as string) || (token.tenantId as string);
         session.user.plan = token.plan as string;
         session.user.role = token.role as string;
+        (session.user as any).globalRole = (token as any).globalRole as string;
         session.user.companies = (token.companies as any[]) || [];
       }
       return session;

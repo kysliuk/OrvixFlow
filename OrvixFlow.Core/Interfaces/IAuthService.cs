@@ -47,5 +47,6 @@ public record UserProfile(
     string DisplayName,
     string Role,
     string Plan,
-    IReadOnlyList<CompanyMembershipSummary> Companies
+    IReadOnlyList<CompanyMembershipSummary> Companies,
+    string? GlobalRole = null
 );

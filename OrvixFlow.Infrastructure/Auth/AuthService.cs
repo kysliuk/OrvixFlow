@@ -272,7 +272,8 @@ public class AuthService : IAuthService
             user.DisplayName,
             activeRole,
             company.Plan,
-            memberships
+            memberships,
+            user.Role // GlobalRole
         );
     }
 
