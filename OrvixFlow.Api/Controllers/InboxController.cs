@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using OrvixFlow.Api.Filters;
 using OrvixFlow.Core.Interfaces;
 
@@ -21,6 +22,7 @@ public class InboxController : ControllerBase
     }
 
     [HttpPost("process")]
+    [EnableRateLimiting("ai-process")]
     [RequireModule("inbox-guardian")]
     public async Task<IActionResult> Process([FromBody] InboxRequest request)
     {

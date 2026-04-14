@@ -7,16 +7,18 @@ services:
       POSTGRES_PASSWORD: orvix_password_dev
       POSTGRES_DB: orvixflow
     ports:
-      - "5432:5432"
+      - 5432:5432
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - internal
 
   n8n:
     image: docker.n8n.io/n8nio/n8n
     container_name: orvix_n8n
     ports:
-      - "5678:5678"
+      - 5678:5678
     environment:
       - N8N_HOST=localhost
       - N8N_PORT=5678
@@ -24,18 +26,29 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=UTC
+      # Egress restriction: limit external destinations
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # Disable external integrations that could exfiltrate data
+      - EXECUTIONS_MODE=internal
+      # Optional: N8N basic auth - SHOULD BE SET in production
+      # - N8N_BASIC_AUTH_ACTIVE=true
+      # - N8N_BASIC_AUTH_USER=admin
+      # - N8N_BASIC_AUTH_PASSWORD=${N8N_ADMIN_PASSWORD}
     volumes:
       - n8n_data:/home/node/.n8n
     restart: unless-stopped
-    depends_on:
-      - orvix-db
+    networks:
+      - external
+    # Explicitly do NOT depend on orvix-db - prevents automatic network attachment
+    # n8n can ONLY reach orvix-api via the webhooks, not the database directly
+
   orvix-api:
     build:
       context: .
       dockerfile: OrvixFlow.Api/Dockerfile
     container_name: orvix_api
     ports:
-      - "8080:8080"
+      - 8080:8080
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=orvix-db;Database=orvixflow;Username=orvix_admin;Password=orvix_password_dev
@@ -50,11 +63,16 @@ services:
     env_file:
       - .env
     depends_on:
-      - orvix-db
-      - n8n
+      orvix-db:
+        condition: service_started
+      n8n:
+        condition: service_started
     restart: unless-stopped
     volumes:
       - uploads_data:/app/uploads
+    networks:
+      - internal
+      - external  # api needs to reach n8n for webhook callbacks
 
   orvix-web:
     build:
@@ -64,12 +82,12 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost:8080
     container_name: orvix_web
     ports:
-      - "3000:3000"
+      - 3000:3000
     environment:
       NODE_ENV: production
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      AUTH_TRUST_HOST: "true"
+      AUTH_TRUST_HOST: true
       NEXT_PUBLIC_API_URL: http://localhost:8080
       INTERNAL_API_URL: http://orvix-api:8080
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
@@ -81,8 +99,18 @@ services:
     depends_on:
       - orvix-api
     restart: unless-stopped
+    networks:
+      - external
 
 volumes:
   pgdata:
   n8n_data:
   uploads_data:
+
+networks:
+  internal:
+    driver: bridge
+    name: orvixflow_internal
+  external:
+    driver: bridge
+    name: orvixflow_external

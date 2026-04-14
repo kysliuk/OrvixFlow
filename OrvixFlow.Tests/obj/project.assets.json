@@ -11032,46 +11032,38 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\dkysl\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "/home/kysliuk/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
+      "projectUniqueName": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/OrvixFlow.Tests.csproj",
       "projectName": "OrvixFlow.Tests",
-      "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\OrvixFlow.Tests.csproj",
-      "packagesPath": "C:\\Users\\dkysl\\.nuget\\packages\\",
-      "outputPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Tests\\obj\\",
+      "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/OrvixFlow.Tests.csproj",
+      "packagesPath": "/home/kysliuk/.nuget/packages/",
+      "outputPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\dkysl\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "/home/kysliuk/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj": {
-              "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Api\\OrvixFlow.Api.csproj"
+            "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj": {
+              "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/OrvixFlow.Api.csproj"
             },
-            "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Core\\OrvixFlow.Core.csproj": {
-              "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Core\\OrvixFlow.Core.csproj"
+            "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/OrvixFlow.Core.csproj": {
+              "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Core/OrvixFlow.Core.csproj"
             },
-            "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj": {
-              "projectPath": "D:\\Own\\Antigravity\\OrvixFlow\\OrvixFlow.Infrastructure\\OrvixFlow.Infrastructure.csproj"
+            "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj": {
+              "projectPath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj"
             }
           }
         }
@@ -11086,7 +11078,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "10.0.100"
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net9.0": {
@@ -11136,26 +11128,12 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
-        "downloadDependencies": [
-          {
-            "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
-          },
-          {
-            "name": "Microsoft.WindowsDesktop.App.Ref",
-            "version": "[9.0.12, 9.0.12]"
-          }
-        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/home/kysliuk/dotnet/sdk/9.0.312/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

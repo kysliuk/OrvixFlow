@@ -23,6 +23,12 @@ public class User
     /// <summary>Global platform role (SuperAdmin / InternalOperator). Empty for normal users.</summary>
     public string Role { get; set; } = string.Empty;
 
+    /// <summary>F-33: Email verified via verification token.</summary>
+    public bool EmailVerified { get; set; } = false;
+
+    /// <summary>F-33: Verification token (single-use, expires after 48h).</summary>
+    public string? VerificationToken { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

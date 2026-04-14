@@ -14,6 +14,16 @@ export default auth((req) => {
     return Response.redirect(new URL("/login", req.nextUrl));
   }
 
+  // Server-side role check for admin routes (F-25)
+  if (isLoggedIn && pathname.startsWith("/admin")) {
+    const role = req.auth?.user?.role;
+    const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
+    if (!isSuperAdmin) {
+      // Redirect non-admins away from admin pages
+      return Response.redirect(new URL("/", req.nextUrl));
+    }
+  }
+
   if (isLoggedIn && (pathname === "/login" || pathname === "/register")) {
     // Redirect authenticated users away from auth pages
     return Response.redirect(new URL("/", req.nextUrl));

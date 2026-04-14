@@ -1,13 +1,15 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Interfaces;
 
 namespace OrvixFlow.Api.Filters;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-public class RequireModuleAttribute : Attribute, IAuthorizationFilter
+public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
 {
     private readonly string _requiredModule;
 
@@ -16,7 +18,7 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
         _requiredModule = requiredModule;
     }
 
-    public void OnAuthorization(AuthorizationFilterContext context)
+    public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
         var user = context.HttpContext.User;
 
@@ -29,7 +31,12 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
         var roleClaim = user.FindFirst("Role")?.Value;
         var companyIdClaim = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value;
 
+        // Platform admins bypass module checks
         if (Roles.IsAdmin(roleClaim)) return;
+
+        // Company admins (CompanyOwner, CompanyAdmin) bypass user-level permission checks
+        var parsedRole = UserRoleExtensions.ParseRole(roleClaim);
+        if (parsedRole.IsCompanyAdmin()) return;
 
         if (!Guid.TryParse(companyIdClaim, out var companyId))
         {
@@ -44,7 +51,8 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
             return;
         }
 
-        var canUseModule = entitlementResolver.CanUseModuleAsync(companyId, _requiredModule).GetAwaiter().GetResult();
+        // FIX F-06: Use async instead of .GetAwaiter().GetResult()
+        var canUseModule = await entitlementResolver.CanUseModuleAsync(companyId, _requiredModule);
         if (!canUseModule)
         {
             context.Result = new ObjectResult(new 
@@ -56,6 +64,29 @@ public class RequireModuleAttribute : Attribute, IAuthorizationFilter
                 StatusCode = 403
             };
             return;
+        }
+
+        // FIX F-07: Also check user-level permissions (unless already admin via Roles.IsAdmin above)
+        var userIdClaim = user.FindFirst("sub")?.Value;
+        if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+        {
+            var accessResolver = context.HttpContext.RequestServices.GetService(typeof(IAccessResolver)) as IAccessResolver;
+            if (accessResolver != null)
+            {
+                var permissions = await accessResolver.GetEffectivePermissionsAsync(userId, companyId, _requiredModule);
+                if (!permissions.CanUse)
+                {
+                    context.Result = new ObjectResult(new 
+                    { 
+                        error = "Access Denied",
+                        message = $"You do not have permission to use the '{_requiredModule}' module."
+                    })
+                    {
+                        StatusCode = 403
+                    };
+                    return;
+                }
+            }
         }
     }
 }

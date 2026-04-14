@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -44,6 +45,7 @@ public class KnowledgeBaseController : ControllerBase
     }
 
     [HttpGet]
+    [EnableRateLimiting("ai-search")]
     public async Task<IActionResult> ListKnowledge([FromQuery] ListRequest request)
     {
         var tenantId = _tenantProvider.GetTenantId();

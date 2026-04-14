@@ -31,6 +31,11 @@ public class AuthService : IAuthService
 
     public async Task<AuthResult> RegisterAsync(string email, string password, string displayName)
     {
+        // F-04 FIX: Enforce password complexity
+        var passwordValidation = ValidatePasswordComplexity(password);
+        if (!passwordValidation.IsValid)
+            return new AuthResult(false, Error: passwordValidation.ErrorMessage);
+
         var normalizedEmail = email.ToLowerInvariant();
         if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == normalizedEmail))
             return new AuthResult(false, Error: "An account with this email already exists.");
@@ -50,9 +55,15 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = "local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            EmailVerified = false,
+            VerificationToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
+        
+        // F-33: TODO - Send verification email here (integration point for email service)
+        _logger.LogInformation("Verification token for {Email}: {Token}", normalizedEmail, user.VerificationToken);
+
         await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
 
         var token = await MintJwtAsync(user, tenant.Id);
@@ -79,6 +90,13 @@ public class AuthService : IAuthService
         {
             _logger.LogWarning("Login failed: password mismatch for email {Email}", normalizedEmail);
             return new AuthResult(false, Error: "Invalid email or password.");
+        }
+
+        // F-33: Block login if email not verified
+        if (!user.EmailVerified)
+        {
+            _logger.LogWarning("Login blocked: email not verified for {Email}", normalizedEmail);
+            return new AuthResult(false, Error: "Please verify your email address before logging in.");
         }
 
         var activeCompanyId = user.TenantId;
@@ -491,5 +509,55 @@ public class AuthService : IAuthService
         var profile = await BuildProfileAsync(user, activeCompanyId);
         var refreshToken = await CreateRefreshTokenAsync(user.Id);
         return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
+    }
+
+    // F-33: Verify email with token
+    public async Task<AuthResult> VerifyEmailAsync(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return new AuthResult(false, Error: "Verification token is required.");
+
+        var user = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.VerificationToken == token);
+
+        if (user == null)
+        {
+            _logger.LogWarning("Email verification failed: invalid token");
+            return new AuthResult(false, Error: "Invalid or expired verification token.");
+        }
+
+        user.EmailVerified = true;
+        user.VerificationToken = null; // Invalidate after use
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Email verified for user {Email}", user.Email);
+        return new AuthResult(true);
+    }
+
+    // F-04 FIX: Validate password complexity
+    private static (bool IsValid, string ErrorMessage) ValidatePasswordComplexity(string password)
+    {
+        if (string.IsNullOrEmpty(password))
+            return (false, "Password is required.");
+
+        if (password.Length < 12)
+            return (false, "Password must be at least 12 characters long.");
+
+        var hasLower = password.Any(char.IsLower);
+        var hasUpper = password.Any(char.IsUpper);
+        var hasDigit = password.Any(char.IsDigit);
+        var hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+
+        var missing = new List<string>();
+        if (!hasLower) missing.Add("lowercase letter");
+        if (!hasUpper) missing.Add("uppercase letter");
+        if (!hasDigit) missing.Add("number");
+        if (!hasSpecial) missing.Add("special character");
+
+        if (missing.Count > 0)
+            return (false, $"Password must contain at least one {string.Join(", ", missing)}.");
+
+        return (true, string.Empty);
     }
 }

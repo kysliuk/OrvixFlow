@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using OrvixFlow.Api.Filters;
 using OrvixFlow.Core.Interfaces;
 
@@ -38,6 +39,7 @@ public class AgentController : ControllerBase
     }
 
     [HttpPost("ingest")]
+    [EnableRateLimiting("ai-ingest")]
     [RequireModule("knowledge-base")]
     public async Task<IActionResult> Ingest([FromBody] AgentRequest request)
     {

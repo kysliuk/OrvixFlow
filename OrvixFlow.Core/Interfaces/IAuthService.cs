@@ -20,6 +20,9 @@ public interface IAuthService
 
     /// <summary>Rotates the refresh token and returns a new session.</summary>
     Task<AuthResult> RefreshSessionAsync(string refreshToken);
+
+    /// <summary>F-33: Verify user's email with verification token.</summary>
+    Task<AuthResult> VerifyEmailAsync(string token);
 }
 
 public record AuthResult(bool IsSuccess, string? Token = null, string? Error = null, UserProfile? Profile = null, string? RefreshToken = null);

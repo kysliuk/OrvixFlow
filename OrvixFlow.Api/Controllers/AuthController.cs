@@ -155,6 +155,20 @@ public class AuthController : ControllerBase
         else
             return BadRequest(new { error = result.Error });
     }
+
+    // F-33: Verify email with token
+    [HttpPost("verify")]
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Token))
+            return BadRequest(new { error = "Verification token is required." });
+
+        var result = await _authService.VerifyEmailAsync(req.Token);
+
+        return result.IsSuccess
+            ? Ok(new { message = "Email verified successfully. You can now log in." })
+            : BadRequest(new { error = result.Error });
+    }
 }
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
@@ -163,3 +177,4 @@ public record OAuthProvisionRequest(string Email, string DisplayName, string Pro
 public record SwitchCompanyRequest(Guid CompanyId);
 public record UpdateProfileRequest(string? DisplayName);
 public record RefreshRequest(string RefreshToken);
+public record VerifyRequest(string Token);

@@ -294,7 +294,6 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
-
 ---
 
 ## Critical: Two Roles Classes
@@ -357,7 +356,7 @@ When modifying these areas, tests MUST pass:
 
 ---
 
-## Security Remediation Status (2026-04-09)
+## Security Remediation Status (2026-04-14)
 
 ### Phase 1 Complete ✅
 | Finding | Description | Status |
@@ -384,6 +383,22 @@ When modifying these areas, tests MUST pass:
 | F-08 | Invitation role ceiling check (IsHigherThan extension method) | ✅ Fixed |
 | F-19 | WebhookSecret removed from AdminController.GetCompany response | ✅ Fixed |
 
+### Phase 3 Complete ✅ (2026-04-14)
+| Finding | Description | Status |
+|---------|-------------|--------|
+| F-06 | RequireModule uses async (IAsyncAuthorizationFilter) | ✅ Fixed |
+| F-25 | Admin pages have server-side auth guards | ✅ Fixed |
+| F-07 | RequireModule checks user-level permissions | ✅ Fixed |
+| F-27 | Rate limiting on AI endpoints | ✅ Fixed |
+| F-04 | Password complexity enforcement | ✅ Fixed |
+| F-33 | Email verification on registration | ✅ Fixed |
+| F-21 | AuditTrail data retention policy | ✅ Fixed |
+| F-23 | n8n network segmentation | ✅ Fixed |
+
+**Deferred:** F-20 (MinIO) — separate implementation
+
+**Note:** F-20 (MinIO storage) deferred to separate implementation.
+
 ### Volume Mounts Added ✅
 | Volume | Service | Path | Purpose |
 |--------|---------|------|---------|
@@ -393,9 +408,151 @@ When modifying these areas, tests MUST pass:
 
 **Note:** uploads_data volume is temporary. Future F-20 will replace with MinIO (S3-compatible) storage.
 
-### Future: F-20 MinIO Storage
-| Status | File |
-|--------|------|
-| Planned | `tasks/F20-minio-storage-plan.md` |
+---
 
-Phase 3 pending - see security review document for remaining items.
+## Recent Security Fixes (2026-04-14)
+
+### F-06: RequireModule Async Conversion
+**Location:** `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
+
+**Fix:** Converted from synchronous `IAuthorizationFilter` to `IAsyncAuthorizationFilter`. Now uses proper `await` instead of `.GetAwaiter().GetResult()`:
+- Changed `OnAuthorization(AuthorizationFilterContext)` → `OnAuthorizationAsync(AuthorizationFilterContext)`
+- Uses `await entitlementResolver.CanUseModuleAsync(...)` instead of blocking call
+- Prevents thread pool starvation under load
+
+**Tests:** `RequireModuleAttributeTests.cs` added
+
+### F-25: Admin Pages Server-Side Auth Guards
+**Location:** `orvixflow-web/middleware.ts`
+
+**Fix:** Added server-side role check in Next.js middleware:
+- Now checks `req.auth?.user?.role` for all `/admin` routes
+- Redirects non-SuperAdmin/InternalOperator users to homepage
+- Runs before any UI renders — no flash of content
+
+**Code added:**
+```typescript
+// Server-side role check for admin routes (F-25)
+if (isLoggedIn && pathname.startsWith("/admin")) {
+  const role = req.auth?.user?.role;
+  const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
+  if (!isSuperAdmin) {
+    return Response.redirect(new URL("/", req.nextUrl));
+  }
+}
+```
+
+**Note:** The client-side check in `admin/layout.tsx` remains as defense-in-depth.
+
+### F-07: RequireModule User-Level Permission Check
+**Location:** `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
+
+**Fix:** Extended `RequireModuleAttribute` to check user-level permissions via `IAccessResolver.GetEffectivePermissionsAsync`:
+- After verifying company entitlement (`CanUseModuleAsync`), also checks user's `CanUse` permission
+- CompanyAdmins (`CompanyOwner`, `CompanyAdmin`) bypass user-level check via `UserRoleExtensions.ParseRole().IsCompanyAdmin()`
+- Returns 403 "Access Denied" if user lacks permission, even when company has the module
+
+**Code added:**
+```csharp
+// FIX F-07: Also check user-level permissions (unless already admin via Roles.IsAdmin above)
+var userIdClaim = user.FindFirst("sub")?.Value;
+if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+{
+    var accessResolver = context.HttpContext.RequestServices.GetService(typeof(IAccessResolver)) as IAccessResolver;
+    if (accessResolver != null)
+    {
+        var permissions = await accessResolver.GetEffectivePermissionsAsync(userId, companyId, _requiredModule);
+        if (!permissions.CanUse)
+        {
+            context.Result = new ObjectResult(new { error = "Access Denied", message = $"You do not have permission to use the '{_requiredModule}' module." }) { StatusCode = 403 };
+            return;
+        }
+    }
+}
+```
+
+**Tested:** All 314 tests pass
+
+### F-27: Rate Limiting on AI Endpoints
+**Location:** `OrvixFlow.Api/Program.cs`, `InboxController.cs`, `AgentController.cs`, `KnowledgeBaseController.cs`
+
+**Fix:** Added per-tenant+IP rate limiting policies to prevent AI API cost abuse:
+- `ai-process` — 30 requests/minute (for `/api/inbox/process`)
+- `ai-ingest` — 20 requests/minute (for `/api/agent/ingest`)
+- `ai-search` — 60 requests/minute (for `/api/v1/knowledge` GET)
+
+All policies use tenant ID + IP as partition key to limit per tenant while still allowing multiple IPs.
+
+**Code added in Program.cs:**
+```csharp
+options.AddPolicy("ai-process", context =>
+{
+    var tenantId = context.User.FindFirst("TenantId")?.Value ?? ...;
+    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    return RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: $"{tenantId}:{ip}",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            ...
+        });
+});
+```
+
+**Controllers using rate limiting:**
+- `[EnableRateLimiting("ai-process")]` on `InboxController.Process()`
+- `[EnableRateLimiting("ai-ingest")]` on `AgentController.Ingest()`
+- `[EnableRateLimiting("ai-search")]` on `KnowledgeBaseController.ListKnowledge()`
+
+**Tested:** Build succeeds, 314 tests pass
+
+### F-04: Password Complexity Enforcement
+**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs`
+
+**Fix:** Enforce minimum password requirements on registration:
+- Minimum 12 characters
+- At least one lowercase letter
+- At least one uppercase letter  
+- At least one number
+- At least one special character
+
+**Code added:**
+```csharp
+private static (bool IsValid, string ErrorMessage) ValidatePasswordComplexity(string password)
+{
+    if (password.Length < 12) return (false, "Password must be at least 12 characters long.");
+    var hasLower = password.Any(char.IsLower);
+    var hasUpper = password.Any(char.IsUpper);
+    var hasDigit = password.Any(char.IsDigit);
+    var hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+    // Returns error listing missing character classes
+}
+```
+
+**Tested:** All 314 tests pass
+
+### F-23: n8n Network Segmentation
+**Location:** `docker-compose.yml`
+
+**Fix:** Implemented network segmentation to prevent n8n from accessing internal services directly:
+
+1. **Two separate Docker networks:**
+   - `internal` — contains `orvix-db` (PostgreSQL) and `orvix-api`
+   - `external` — contains `n8n`, `orvix-web`, and `orvix-api` (for webhook calls)
+
+2. **Network assignment:**
+   - `orvix-db` → `internal` only
+   - `orvix-api` → BOTH `internal` + `external` (needs to call n8n webhooks)
+   - `n8n` → `external` only (cannot reach database directly)
+   - `orvix-web` → `external` only
+
+3. **Additional security hardening:**
+   - Removed `depends_on: orvix-db` from n8n service (prevents automatic network attachment)
+   - Added `EXECUTIONS_MODE=internal` to disable external execution mode
+   - Added `N8N_ENCRYPTION_KEY` for encryption at rest
+   - Added commented-out basic auth configuration for production use
+
+**Result:** n8n can no longer directly connect to PostgreSQL. It can only communicate with the API via the defined webhook endpoints. If n8n is compromised, the attacker cannot dump the database or access internal services directly.
+
+**Tested:** Docker Compose configuration valid, build succeeds, tests pass

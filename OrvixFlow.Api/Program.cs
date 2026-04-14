@@ -110,6 +110,55 @@ builder.Services.AddRateLimiter(options =>
         options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         options.QueueLimit = 2;
     });
+
+    // F-27 FIX: Rate limiting on AI-consuming endpoints
+    // Per-tenant+IP to prevent AI API cost abuse
+    options.AddPolicy("ai-process", context =>
+    {
+        var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{tenantId}:{ip}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Rate limiting on embedding API calls
+    options.AddPolicy("ai-ingest", context =>
+    {
+        var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{tenantId}:{ip}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Rate limiting on knowledge base search
+    options.AddPolicy("ai-search", context =>
+    {
+        var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{tenantId}:{ip}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
 });
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddSingleton<ITenantProviderFactory, TenantProviderFactory>(); 
@@ -188,5 +237,11 @@ recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.TrialExpirationJob>(
     "trial-expiration-check",
     job => job.ExecuteAsync(),
     "0 */6 * * *");
+
+// F-21: AuditTrail retention job - run daily at 3am to purge records older than 90 days
+recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.AuditRetentionJob>(
+    "audit-retention",
+    job => job.ExecuteAsync(),
+    "0 3 * * *");
 
 app.Run();
