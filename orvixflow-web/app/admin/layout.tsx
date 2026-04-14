@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
 
-  const role = session?.user?.role;
+  const role = (session?.user as any)?.globalRole || session?.user?.role;
   const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
 
   useEffect(() => {

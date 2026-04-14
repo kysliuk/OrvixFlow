@@ -16,7 +16,7 @@ export default auth((req) => {
 
   // Server-side role check for admin routes (F-25)
   if (isLoggedIn && pathname.startsWith("/admin")) {
-    const role = req.auth?.user?.role;
+    const role = (req.auth?.user as any)?.globalRole || req.auth?.user?.role;
     const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
     if (!isSuperAdmin) {
       // Redirect non-admins away from admin pages
