@@ -11,18 +11,19 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(AppDbContext db, ILogger logger)
     {
-        // F-33 FIX: Backfill existing users who don't have EmailVerified set (false or null)
+        // F-33 FIX: Backfill existing users who don't have EmailVerified set, 
+        // but ONLY if they don't have a pending verification token (which indicates they are new/active verification cycle).
         var unverifiedCount = await db.Users.IgnoreQueryFilters()
-            .Where(u => (u.EmailVerified == false || u.EmailVerified == null) && u.OAuthProvider == "local")
+            .Where(u => u.EmailVerified == false && u.OAuthProvider == "local" && u.VerificationToken == null)
             .CountAsync();
         
         if (unverifiedCount > 0)
         {
-            logger.LogInformation("Backfilling {Count} existing users with email verification...", unverifiedCount);
+            logger.LogInformation("Backfilling {Count} existing legacy users with email verification...", unverifiedCount);
             await db.Users.IgnoreQueryFilters()
-                .Where(u => (u.EmailVerified == false || u.EmailVerified == null) && u.OAuthProvider == "local")
+                .Where(u => u.EmailVerified == false && u.OAuthProvider == "local" && u.VerificationToken == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(u => u.EmailVerified, true));
-            logger.LogInformation("Backfill complete: {Count} users verified", unverifiedCount);
+            logger.LogInformation("Backfill complete: {Count} legacy users verified", unverifiedCount);
         }
 
         var superAdminEmail = "superadmin@orvixflow.local";

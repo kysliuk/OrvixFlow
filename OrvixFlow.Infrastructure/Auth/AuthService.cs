@@ -66,10 +66,8 @@ public class AuthService : IAuthService
 
         await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
 
-        var token = await MintJwtAsync(user, tenant.Id);
-        var profile = await BuildProfileAsync(user, tenant.Id);
-        var refreshToken = await CreateRefreshTokenAsync(user.Id);
-        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
+        // F-33: Return success without tokens, user must verify email before logging in
+        return new AuthResult(true);
     }
 
     public async Task<AuthResult> LoginAsync(string email, string password)
@@ -160,6 +158,7 @@ public class AuthService : IAuthService
             DisplayName = displayName,
             OAuthProvider = provider,
             ExternalId = externalId,
+            EmailVerified = true // OAuth users provided by trusted providers are pre-verified
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();

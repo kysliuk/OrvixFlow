@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({ email: "", password: "", displayName: "" });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,17 +44,7 @@ export default function RegisterPage() {
         throw new Error(errorMsg);
       }
 
-      const signInRes = await signIn("credentials", {
-        redirect: false,
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (signInRes?.error) {
-        throw new Error("Login after registration failed");
-      }
-
-      router.push("/");
+      setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
     } finally {
@@ -78,66 +69,89 @@ export default function RegisterPage() {
           <p className="text-sm text-muted">Get started with OrvixFlow Enterprise</p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm text-center">
-            {error}
+        {isSuccess ? (
+          <div className="flex flex-col items-center text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-6 border border-success/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
+              <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
+            <p className="text-sm text-muted mb-8">
+              We've sent a verification link to <span className="text-white font-medium">{formData.email}</span>. 
+              Please verify your account to continue.
+            </p>
+            <Link 
+              href="/login" 
+              className="w-full bg-white/5 hover:bg-white/10 text-white font-medium rounded-lg px-4 py-3 text-sm border border-white/10 transition-all"
+            >
+              Back to Login
+            </Link>
           </div>
+        ) : (
+          <>
+            {error && (
+              <div className="mb-6 p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleRegister} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="displayName" className="text-xs font-medium text-muted ml-0.5">User Name</label>
+                <input 
+                  type="text" 
+                  id="displayName" 
+                  placeholder="John Doe" 
+                  value={formData.displayName}
+                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                  required 
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="email" className="text-xs font-medium text-muted ml-0.5">Work Email</label>
+                <input 
+                  type="email" 
+                  id="email" 
+                  placeholder="you@company.com" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                  required 
+                />
+              </div>
+              
+              <div className="flex flex-col gap-1.5 mb-2">
+                <label htmlFor="password" className="text-xs font-medium text-muted ml-0.5">Password</label>
+                <input 
+                  type="password" 
+                  id="password" 
+                  placeholder="••••••••" 
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                  required 
+                  minLength={8}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-medium rounded-lg px-4 py-3 text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Provisioning Tenant..." : "Create Account"}
+              </button>
+            </form>
+
+            <p className="mt-8 text-center text-xs text-muted">
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary hover:text-white transition-colors font-medium">Sign in instead</Link>
+            </p>
+          </>
         )}
-
-        <form onSubmit={handleRegister} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="displayName" className="text-xs font-medium text-muted ml-0.5">User Name</label>
-            <input 
-              type="text" 
-              id="displayName" 
-              placeholder="John Doe" 
-              value={formData.displayName}
-              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
-              required 
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs font-medium text-muted ml-0.5">Work Email</label>
-            <input 
-              type="email" 
-              id="email" 
-              placeholder="you@company.com" 
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
-              required 
-            />
-          </div>
-          
-          <div className="flex flex-col gap-1.5 mb-2">
-            <label htmlFor="password" className="text-xs font-medium text-muted ml-0.5">Password</label>
-            <input 
-              type="password" 
-              id="password" 
-              placeholder="••••••••" 
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
-              required 
-              minLength={8}
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-medium rounded-lg px-4 py-3 text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Provisioning Tenant..." : "Create Account"}
-          </button>
-        </form>
-
-        <p className="mt-8 text-center text-xs text-muted">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary hover:text-white transition-colors font-medium">Sign in instead</Link>
-        </p>
 
       </div>
     </div>

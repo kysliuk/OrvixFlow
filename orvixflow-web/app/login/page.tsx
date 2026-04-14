@@ -24,7 +24,9 @@ export default function LoginPage() {
         password,
       });
       if (res?.error) {
-        setError("Invalid email or password");
+        // res.error in NextAuth 5 is typically "CredentialsSignin". 
+        // We want to show a more helpful message if the backend returned one.
+        setError(res.error === "CredentialsSignin" ? "Invalid email or password" : res.error);
       } else if (res?.ok) {
         router.push("/");
       }

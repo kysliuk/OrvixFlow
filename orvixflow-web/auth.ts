@@ -57,6 +57,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             companies: data.profile.companies ?? [],
           };
         }
+        
+        // If we have a specific error message from the backend, throw it
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
         return null;
       },
     }),
