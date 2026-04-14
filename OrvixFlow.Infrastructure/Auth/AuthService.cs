@@ -131,6 +131,19 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
         if (byEmail != null)
         {
+            // Auto-migrate polluted ExternalIds from previous NextAuth bug (which used random GUIDs instead of provider ID)
+            if (byEmail.OAuthProvider == provider && byEmail.ExternalId != externalId)
+            {
+                byEmail.ExternalId = externalId;
+                await _db.SaveChangesAsync();
+
+                await EnsureOwnerMembershipAsync(byEmail.Id, byEmail.TenantId);
+                var existingToken = await MintJwtAsync(byEmail, byEmail.TenantId);
+                var existingProfile = await BuildProfileAsync(byEmail, byEmail.TenantId);
+                var existingRefreshToken = await CreateRefreshTokenAsync(byEmail.Id);
+                return new AuthResult(true, Token: existingToken, Profile: existingProfile, RefreshToken: existingRefreshToken);
+            }
+
             // F-02 FIX: Reject the OAuth login attempt.
             // An account with this email already exists - user should sign in with their original provider.
             return new AuthResult(false, Error: "An account with this email already exists. Please sign in with your original authentication method.");
@@ -212,6 +225,7 @@ public class AuthService : IAuthService
         else
         {
             var roleString = await _db.UserCompanyMemberships
+                .IgnoreQueryFilters()
                 .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
                 .Select(m => m.CompanyRole)
                 .FirstOrDefaultAsync() ?? user.Role;
@@ -244,6 +258,7 @@ public class AuthService : IAuthService
     {
         var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
         var memberships = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .Where(m => m.UserId == user.Id && m.Status == "Active")
             .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new CompanyMembershipSummary(c.Id, c.Name, m.CompanyRole))
             .ToListAsync();

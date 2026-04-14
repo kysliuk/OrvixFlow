@@ -61,6 +61,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account && (account.type === "oauth" || account.type === "oidc" || account.provider !== "credentials")) {
+        try {
+          const res = await fetch(`${apiBaseUrl}/api/auth/oauth-provision`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: user.email,
+              displayName: user.name || (profile as any)?.name,
+              provider: account.provider,
+              externalId: account.providerAccountId,
+            }),
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            // Attach data to user so jwt callback can read it
+            (user as any).apiData = data;
+            return true;
+          } else {
+            const err = await res.json();
+            if (err.error?.includes("already exists")) {
+              return "/login?error=OAuthAccountNotLinked";
+            }
+            console.error("OAuth provisioning returned non-200:", err);
+            return "/login?error=AccessDenied";
+          }
+        } catch (e) {
+          console.error("OAuth provision failed in signIn:", e);
+          return "/login?error=AccessDenied";
+        }
+      }
+      return true;
+    },
     async jwt({ token, user, account, profile, trigger, session }) {
       if (trigger === "update" && session) {
         if (session.token) token.apiToken = session.token;
@@ -78,33 +112,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // `account` and `user` are only defined on the very first sign in!
       if (account && user) {
         if (account.type === "oauth" || account.type === "oidc" || account.provider !== "credentials") {
-          try {
-            // Provision the tenant/user and get the API token from our backend
-            const res = await fetch(`${apiBaseUrl}/api/auth/oauth-provision`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: user.email,
-                displayName: user.name || (profile as any)?.name,
-                provider: account.provider,
-                externalId: user.id || (profile as any)?.sub,
-              }),
-            });
-            
-            if (res.ok) {
-              const data = await res.json();
+          const data = (user as any).apiData;
+          if (data && data.profile) {
               token.apiToken = data.token;
               token.refreshToken = data.refreshToken;
+              token.sub = data.profile.userId;
               token.tenantId = data.profile.tenantId;
               token.activeCompanyId = data.profile.activeCompanyId;
               token.plan = data.profile.plan;
               token.role = data.profile.role;
               token.companies = data.profile.companies ?? [];
-            } else {
-              console.error("OAuth provisioning returned non-200");
-            }
-          } catch (e) {
-            console.error("OAuth provisioning fetch failed", e);
           }
         } else if (account.type === "credentials") {
           // Local login already has the token bundled inside `user`

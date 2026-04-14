@@ -31,6 +31,7 @@ public class OrganizationController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var companies = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .Where(m => m.UserId == userId.Value && m.Status == "Active")
             .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new
             {
@@ -304,6 +305,7 @@ public class OrganizationController : ControllerBase
         }
 
         var membership = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m => m.UserId == userId.Value && m.CompanyId == companyId && m.Status == "Active");
         
         _logger.LogDebug("UpdateCompanyName - Membership found: {Found}, CompanyRole: {CompanyRole}", membership != null, membership?.CompanyRole);
