@@ -11,6 +11,20 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(AppDbContext db, ILogger logger)
     {
+        // F-33 FIX: Backfill existing users who don't have EmailVerified set (false or null)
+        var unverifiedCount = await db.Users.IgnoreQueryFilters()
+            .Where(u => (u.EmailVerified == false || u.EmailVerified == null) && u.OAuthProvider == "local")
+            .CountAsync();
+        
+        if (unverifiedCount > 0)
+        {
+            logger.LogInformation("Backfilling {Count} existing users with email verification...", unverifiedCount);
+            await db.Users.IgnoreQueryFilters()
+                .Where(u => (u.EmailVerified == false || u.EmailVerified == null) && u.OAuthProvider == "local")
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.EmailVerified, true));
+            logger.LogInformation("Backfill complete: {Count} users verified", unverifiedCount);
+        }
+
         var superAdminEmail = "superadmin@orvixflow.local";
         var superAdminPassword = "SuperAdmin123!";
 
@@ -38,7 +52,8 @@ public static class DbInitializer
             DisplayName = "Platform Admin",
             OAuthProvider = "local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(superAdminPassword),
-            Role = UserRole.SuperAdmin.ToClaimValue()
+            Role = UserRole.SuperAdmin.ToClaimValue(),
+            EmailVerified = true // Platform admin is pre-verified
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();
