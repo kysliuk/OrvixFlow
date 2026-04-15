@@ -150,6 +150,18 @@ public static class DependencyInjection
         services.AddScoped<IAuditService, OrvixFlow.Infrastructure.Shadow.AuditService>();
         services.AddScoped<IUsageService, OrvixFlow.Infrastructure.Shadow.UsageService>();
         
+        // Email Service
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"] ?? "Console";
+        if (emailProvider.Equals("Smtp", System.StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IEmailService, SmtpEmailService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailService, MockEmailService>();
+        }
+
         services.AddScoped<IVirusScanService, NoopVirusScanService>();
         services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
 

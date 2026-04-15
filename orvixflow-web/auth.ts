@@ -1,7 +1,14 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import MicrosoftEntraId from "next-auth/providers/microsoft-entra-id";
+
+class CustomAuthError extends CredentialsSignin {
+  constructor(public message: string) {
+    super(message);
+    this.code = message;
+  }
+}
 
 const apiBaseUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
 
@@ -58,9 +65,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         }
         
-        // If we have a specific error message from the backend, throw it
+        // If we have a specific error message from the backend, throw it as an AuthError
+        // In NextAuth 5, this allows it to be passed gracefully to the error= parameter
         if (data.error) {
-          throw new Error(data.error);
+          throw new CustomAuthError(data.error);
         }
         
         return null;

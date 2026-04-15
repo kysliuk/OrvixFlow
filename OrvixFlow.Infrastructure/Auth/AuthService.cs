@@ -20,13 +20,19 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
-    private readonly Microsoft.Extensions.Logging.ILogger<AuthService> _logger;
+    private readonly ILogger<AuthService> _logger;
+    private readonly IEmailService _emailService;
 
-    public AuthService(AppDbContext db, IConfiguration config, Microsoft.Extensions.Logging.ILogger<AuthService> logger)
+    public AuthService(
+        AppDbContext db, 
+        IConfiguration config, 
+        ILogger<AuthService> logger,
+        IEmailService emailService)
     {
         _db = db;
         _config = config;
         _logger = logger;
+        _emailService = emailService;
     }
 
     public async Task<AuthResult> RegisterAsync(string email, string password, string displayName)
@@ -61,8 +67,27 @@ public class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
         
-        // F-33: TODO - Send verification email here (integration point for email service)
-        _logger.LogInformation("Verification token for {Email}: {Token}", normalizedEmail, user.VerificationToken);
+        // F-33: Send verification email
+        var frontendUrl = _config["Frontend:BaseUrl"] ?? "http://localhost:3000";
+        var verificationLink = $"{frontendUrl}/verify?token={user.VerificationToken}";
+        
+        await _emailService.SendEmailAsync(
+            user.Email,
+            "Verify your OrvixFlow account",
+            $@"<div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                <h2 style='color: #6366f1; text-align: center;'>Welcome to OrvixFlow</h2>
+                <p>Hello {user.DisplayName},</p>
+                <p>Thank you for registering. Please click the button below to verify your email address and activate your account:</p>
+                <div style='text-align: center; margin: 30px 0;'>
+                    <a href='{verificationLink}' style='background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Verify Email Address</a>
+                </div>
+                <p style='font-size: 0.875rem; color: #64748b;'>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style='font-size: 0.875rem; color: #6366f1; word-break: break-all;'>{verificationLink}</p>
+                <hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
+                <p style='font-size: 0.75rem; color: #94a3b8; text-align: center;'>&copy; {DateTime.UtcNow.Year} OrvixFlow Enterprise. All rights reserved.</p>
+            </div>");
+
+        _logger.LogInformation("Verification email sent to {Email}", normalizedEmail);
 
         await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
 
