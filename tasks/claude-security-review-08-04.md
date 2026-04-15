@@ -371,18 +371,6 @@ var company = await _db.Tenants...
 
 ---
 
-#### 🟡 MEDIUM | F-20 | Uploaded Files Stored on Local Disk with No Access Control
-**Location:** `LocalFileStorage.cs` — `/app/uploads/{tenantId}/{documentId}/{filename}`
-
-**Issue:** Files are stored in a predictable directory structure (`/app/uploads/TENANT_GUID/DOC_GUID/filename`). If the Docker container's `/app/uploads` is ever accidentally volume-mounted with web server serving enabled, or if a path traversal vulnerability allows directory listing, all tenant documents are accessible cross-tenant.
-
-There is also no encryption at rest.
-
-**Fix:**
-- For production: replace `LocalFileStorage` with cloud object storage (AWS S3, Azure Blob) with pre-signed URLs and tenant-scoped bucket policies.
-- Add server-side encryption at rest.
-- If local disk must be used, add an explicit check that the resolved file path starts with the expected base directory before any file operation.
-
 ---
 
 #### 🟡 MEDIUM | F-21 | Sensitive Email Content in `InboxEvent` / `AuditTrail` `PreviousState` / `NewState` Fields
@@ -661,7 +649,7 @@ const nextConfig: NextConfig = {
 | F-13 | No size limit on text ingestion | 🟡 Medium | Claude |
 | F-14 | Silent storage error swallow in DeleteDocument | 🟡 Medium | Claude |
 | F-18 | Virus scan is Noop by default (including production) | 🟡 Medium | Claude |
-| F-20 | Uploaded files on local disk, no access control, no encryption | 🟡 Medium | Claude |
+
 | F-21 | PII in AuditTrail, indefinite retention | 🟡 Medium | Claude |
 | F-24 | Auto-execute workflow has no per-tenant rate limit | 🟡 Medium | Claude |
 | F-26 | Destructive admin actions lack audit trail and confirmation | 🟡 Medium | Claude |
@@ -758,7 +746,7 @@ const nextConfig: NextConfig = {
 ### Phase 3 — Medium-Term Architecture Improvements (Next Month)
 
 16. **F-23 — Segment n8n network** away from DB and API. Apply egress restrictions.
-17. **F-20 — Migrate file storage to cloud object storage** (S3/Azure Blob) with pre-signed URLs and server-side encryption.
+
 18. **F-07 — Extend `RequireModule` to check user-level permissions** not just company plan entitlements.
 19. **F-06 — Convert `RequireModule` to `IAsyncAuthorizationFilter`**.
 20. **F-27 — Add rate limiting to AI-consuming endpoints** (inbox process, text ingest, knowledge search).
@@ -840,7 +828,7 @@ const nextConfig: NextConfig = {
 > [!WARNING]
 > **OrvixFlow is NOT production-ready from a security standpoint without addressing the Critical and High findings.**
 
-**Total findings: 33** (4 Critical · 10 High · 16 Medium · 3 Low)
+**Total findings: 32** (4 Critical · 10 High · 15 Medium · 3 Low)
 
 **What is well-built:**
 - The two-layer role system (global vs company) is correctly designed and consistently enforced at the API layer.
