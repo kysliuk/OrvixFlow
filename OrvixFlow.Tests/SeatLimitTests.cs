@@ -57,7 +57,7 @@ public class SeatLimitTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 
@@ -103,7 +103,7 @@ public class SeatLimitTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 
@@ -146,7 +146,7 @@ public class SeatLimitTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -185,7 +185,7 @@ public class SeatLimitTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();

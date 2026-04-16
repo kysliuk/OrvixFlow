@@ -48,7 +48,7 @@ public class CompanySubscriptionTests : IDisposable
         {
             Name = "Test Company",
             Plan = "Free",
-            SubscriptionStatus = "Active"
+            SubscriptionStatus = SubscriptionState.Active.ToClaimValue()
         };
         _db.Tenants.Add(tenant);
         _db.SaveChanges();
@@ -101,8 +101,8 @@ public class CompanySubscriptionTests : IDisposable
         subscription.Should().NotBeNull();
         subscription.CompanyId.Should().Be(tenant.Id);
         subscription.PlanTemplateId.Should().Be(plan.Id);
-        subscription.Status.Should().Be("Trialing");
-        subscription.BillingInterval.Should().Be("Monthly");
+        subscription.Status.Should().Be(SubscriptionState.Trialing);
+        subscription.BillingInterval.Should().Be(BillingInterval.Monthly);
 
         var dbSubscription = await _db.CompanySubscriptions.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.CompanyId == tenant.Id);
         dbSubscription.Should().NotBeNull();
@@ -120,7 +120,7 @@ public class CompanySubscriptionTests : IDisposable
         var updatedSubscription = await _subscriptionService.AssignPlanAsync(tenant.Id, growthPlan.Id, "Yearly");
 
         updatedSubscription.PlanTemplateId.Should().Be(growthPlan.Id);
-        updatedSubscription.BillingInterval.Should().Be("Yearly");
+        updatedSubscription.BillingInterval.Should().Be(BillingInterval.Yearly);
 
         var count = await _db.CompanySubscriptions.IgnoreQueryFilters().CountAsync(s => s.CompanyId == tenant.Id);
         count.Should().Be(1);

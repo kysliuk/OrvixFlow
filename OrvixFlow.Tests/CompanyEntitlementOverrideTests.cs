@@ -69,7 +69,7 @@ public class CompanyEntitlementOverrideTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = _tenantId,
             PlanTemplateId = Guid.NewGuid(),
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 
@@ -120,7 +120,7 @@ public class CompanyEntitlementOverrideTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = _tenantId,
             PlanTemplateId = Guid.NewGuid(),
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 

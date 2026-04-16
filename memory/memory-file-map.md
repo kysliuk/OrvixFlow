@@ -30,6 +30,8 @@
 | CompanyEntitlementOverride | `OrvixFlow.Core/Entities/CompanyEntitlementOverride.cs` |
 | CompanyModuleOverride | `OrvixFlow.Core/Entities/CompanyModuleOverride.cs` |
 | PlanCatalog | `OrvixFlow.Core/Entities/PlanCatalog.cs` |
+| SubscriptionState | `OrvixFlow.Core/Entities/SubscriptionState.cs` |
+| BillingInterval | `OrvixFlow.Core/Entities/BillingInterval.cs` |
 
 ## Tests
 
@@ -140,6 +142,7 @@
 | OverlapChunker | `OrvixFlow.Infrastructure/Ai/Chunking/OverlapChunker.cs` |
 | FileIngestionJob | `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` |
 | TrialExpirationJob | `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` |
+| PendingPlanChangeJob | `OrvixFlow.Api/Jobs/PendingPlanChangeJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
 | Load Test Script | `scripts/load-test-inbox.sh` |

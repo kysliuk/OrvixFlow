@@ -69,6 +69,10 @@ public class PlansController : ControllerBase
     {
         if (!IsSuperAdmin()) return Forbid();
 
+        var billingInterval = !string.IsNullOrEmpty(request.BillingInterval)
+            ? BillingIntervalExtensions.ParseInterval(request.BillingInterval)
+            : BillingInterval.Monthly;
+
         var plan = new PlanTemplate
         {
             Name = request.Name,
@@ -77,7 +81,9 @@ public class PlansController : ControllerBase
             MonthlyPriceCents = request.MonthlyPriceCents,
             YearlyPriceCents = request.YearlyPriceCents,
             Currency = request.Currency ?? "USD",
-            BillingInterval = request.BillingInterval ?? "Monthly",
+            BillingInterval = billingInterval,
+            SortOrder = request.SortOrder,
+            IsPubliclyVisible = request.IsPubliclyVisible,
             MaxSeats = request.MaxSeats,
             IsActive = true,
             IsFree = request.IsFree,
@@ -99,6 +105,8 @@ public class PlansController : ControllerBase
                     MaxApiRequestsPerDay = request.Entitlements.MaxApiRequestsPerDay,
                     MaxStorageMb = request.Entitlements.MaxStorageMb,
                     MaxKnowledgeBases = request.Entitlements.MaxKnowledgeBases,
+                    MaxInboxMessagesPerMonth = request.Entitlements.MaxInboxMessagesPerMonth,
+                    MaxMailboxConnections = request.Entitlements.MaxMailboxConnections,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _planService.SetEntitlementsAsync(result.Id, entitlements);
@@ -130,7 +138,14 @@ public class PlansController : ControllerBase
         existing.MonthlyPriceCents = request.MonthlyPriceCents;
         existing.YearlyPriceCents = request.YearlyPriceCents;
         existing.Currency = request.Currency ?? existing.Currency;
-        existing.BillingInterval = request.BillingInterval ?? existing.BillingInterval;
+        
+        if (!string.IsNullOrEmpty(request.BillingInterval))
+        {
+            existing.BillingInterval = BillingIntervalExtensions.ParseInterval(request.BillingInterval);
+        }
+        
+        existing.SortOrder = request.SortOrder;
+        existing.IsPubliclyVisible = request.IsPubliclyVisible;
         existing.MaxSeats = request.MaxSeats;
         existing.IsActive = request.IsActive;
         existing.IsFree = request.IsFree;
@@ -157,6 +172,8 @@ public class PlansController : ControllerBase
                     MaxApiRequestsPerDay = request.Entitlements.MaxApiRequestsPerDay,
                     MaxStorageMb = request.Entitlements.MaxStorageMb,
                     MaxKnowledgeBases = request.Entitlements.MaxKnowledgeBases,
+                    MaxInboxMessagesPerMonth = request.Entitlements.MaxInboxMessagesPerMonth,
+                    MaxMailboxConnections = request.Entitlements.MaxMailboxConnections,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _planService.SetEntitlementsAsync(result.Id, entitlements);
@@ -242,7 +259,9 @@ public class PlansController : ControllerBase
             MaxMonthlyTokens = request.MaxMonthlyTokens,
             MaxApiRequestsPerDay = request.MaxApiRequestsPerDay,
             MaxStorageMb = request.MaxStorageMb,
-            MaxKnowledgeBases = request.MaxKnowledgeBases
+            MaxKnowledgeBases = request.MaxKnowledgeBases,
+            MaxInboxMessagesPerMonth = request.MaxInboxMessagesPerMonth,
+            MaxMailboxConnections = request.MaxMailboxConnections
         };
 
         try
@@ -267,7 +286,9 @@ public class PlansController : ControllerBase
             MonthlyPriceCents = plan.MonthlyPriceCents,
             YearlyPriceCents = plan.YearlyPriceCents,
             Currency = plan.Currency,
-            BillingInterval = plan.BillingInterval,
+            BillingInterval = plan.BillingInterval.ToClaimValue(),
+            SortOrder = plan.SortOrder,
+            IsPubliclyVisible = plan.IsPubliclyVisible,
             MaxSeats = plan.MaxSeats,
             IsActive = plan.IsActive,
             IsFree = plan.IsFree,
@@ -282,7 +303,9 @@ public class PlansController : ControllerBase
                 MaxMonthlyTokens = plan.Entitlements.MaxMonthlyTokens,
                 MaxApiRequestsPerDay = plan.Entitlements.MaxApiRequestsPerDay,
                 MaxStorageMb = plan.Entitlements.MaxStorageMb,
-                MaxKnowledgeBases = plan.Entitlements.MaxKnowledgeBases
+                MaxKnowledgeBases = plan.Entitlements.MaxKnowledgeBases,
+                MaxInboxMessagesPerMonth = plan.Entitlements.MaxInboxMessagesPerMonth,
+                MaxMailboxConnections = plan.Entitlements.MaxMailboxConnections
             } : null
         };
     }
@@ -296,6 +319,8 @@ public record CreatePlanRequest(
     int YearlyPriceCents,
     string? Currency,
     string? BillingInterval,
+    int SortOrder,
+    bool IsPubliclyVisible,
     int? MaxSeats,
     bool IsFree,
     bool IsTrialAllowed,
@@ -312,6 +337,8 @@ public record UpdatePlanRequest(
     int YearlyPriceCents,
     string? Currency,
     string? BillingInterval,
+    int SortOrder,
+    bool IsPubliclyVisible,
     int? MaxSeats,
     bool IsActive,
     bool IsFree,
@@ -326,14 +353,18 @@ public record EntitlementsInput(
     int MaxMonthlyTokens,
     int MaxApiRequestsPerDay,
     int MaxStorageMb,
-    int MaxKnowledgeBases
+    int MaxKnowledgeBases,
+    int MaxInboxMessagesPerMonth,
+    int MaxMailboxConnections
 );
 
 public record SetEntitlementsRequest(
     int MaxMonthlyTokens,
     int MaxApiRequestsPerDay,
     int MaxStorageMb,
-    int MaxKnowledgeBases
+    int MaxKnowledgeBases,
+    int MaxInboxMessagesPerMonth,
+    int MaxMailboxConnections
 );
 
 public record PlanDto
@@ -346,6 +377,8 @@ public record PlanDto
     public int YearlyPriceCents { get; init; }
     public string Currency { get; init; } = string.Empty;
     public string BillingInterval { get; init; } = string.Empty;
+    public int SortOrder { get; init; }
+    public bool IsPubliclyVisible { get; init; }
     public int? MaxSeats { get; init; }
     public bool IsActive { get; init; }
     public bool IsFree { get; init; }
@@ -364,4 +397,6 @@ public record EntitlementsDto
     public int MaxApiRequestsPerDay { get; init; }
     public int MaxStorageMb { get; init; }
     public int MaxKnowledgeBases { get; init; }
+    public int MaxInboxMessagesPerMonth { get; init; }
+    public int MaxMailboxConnections { get; init; }
 }

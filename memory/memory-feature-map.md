@@ -42,6 +42,7 @@
 - `OrvixFlow.Api/Controllers/AdminInboxController.cs`
 - `OrvixFlow.Api/Jobs/InboxProcessingJob.cs`
 - `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs`
+- `OrvixFlow.Api/Jobs/PendingPlanChangeJob.cs`
 - `OrvixFlow.Infrastructure/Ai/IngestionService.cs`
 - `OrvixFlow.Infrastructure/Ai/InboxGuardianService.cs`
 - `OrvixFlow.Infrastructure/Ai/N8nProvisioningService.cs`
@@ -162,6 +163,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Change Plan | BillingController | CompanySubscriptionService | CompanySubscription |
 | Module Gate UI | module-gate.tsx | - | - |
 | **Trial Expiration** | - | TrialExpirationJob (Hangfire) | CompanySubscription |
+| **Pending Plan Change Processing** | - | PendingPlanChangeJob (Hangfire) | CompanySubscription |
 | **Module Definitions CRUD** | AdminController | - | ModuleDefinition |
 | **Company Audit Log** | AdminController | - | AuditTrail |
 | **Entitlement Overrides** | AdminController | EntitlementResolver | CompanyEntitlementOverride |
@@ -170,6 +172,12 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | **Company Actions** | AdminController | CompanySubscriptionService | - |
 | **Load Test Script** | `scripts/load-test-inbox.sh` | - | - |
 | **Company Actions** | AdminController | CompanySubscriptionService | - |
+
+### Billing Type System (Phase 2)
+- **SubscriptionState enum** (`Trialing`, `Active`, `PastDue`, `Suspended`, `Cancelled`) — replaces string constants
+- **BillingInterval enum** (`Monthly`, `Yearly`, `Custom`) — replaces freeform strings
+- **Inbox limits per plan** — `MaxInboxMessagesPerMonth`, `MaxMailboxConnections` in `PlanEntitlements`
+- **Plan sorting** — `SortOrder` field on `PlanTemplate` for upgrade/downgrade UI (Free=0, Starter=1, Growth=2, Business=3, Enterprise=4)
 
 ### Limit Check Methods (Agent 1)
 - `IsWithinTokenLimitAsync()` - Check if can consume tokens
@@ -205,6 +213,8 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 - `OrvixFlow.Core/Entities/PlanEntitlements.cs`
 - `OrvixFlow.Core/Entities/PlanCatalog.cs`
 - `OrvixFlow.Core/Entities/CompanySubscription.cs`
+- `OrvixFlow.Core/Entities/SubscriptionState.cs`
+- `OrvixFlow.Core/Entities/BillingInterval.cs`
 - `OrvixFlow.Core/Entities/BillingSubscription.cs`
 - `OrvixFlow.Core/Entities/UsageEvent.cs`
 - `OrvixFlow.Core/Entities/AuditTrail.cs`

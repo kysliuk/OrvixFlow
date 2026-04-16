@@ -70,7 +70,7 @@ public class TrialExpirationTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = _tenantId,
             PlanTemplateId = paidPlan.Id,
-            Status = SubscriptionStatus.Trialing,
+            Status = SubscriptionState.Trialing,
             TrialEndsAt = DateTime.UtcNow.AddHours(-1),
             CurrentPeriodStart = DateTime.UtcNow.AddDays(-14),
             CurrentPeriodEnd = DateTime.UtcNow
@@ -81,7 +81,7 @@ public class TrialExpirationTests : IDisposable
         var now = DateTime.UtcNow;
         var expiredTrials = await _dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
-            .Where(s => s.Status == SubscriptionStatus.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
+            .Where(s => s.Status == SubscriptionState.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
             .ToListAsync();
 
         expiredTrials.Should().HaveCount(1);
@@ -89,19 +89,19 @@ public class TrialExpirationTests : IDisposable
         foreach (var s in expiredTrials)
         {
             s.PlanTemplateId = freePlan.Id;
-            s.Status = SubscriptionStatus.Active;
+            s.Status = SubscriptionState.Active;
             s.TrialEndsAt = null;
             s.UpdatedAt = now;
         }
 
         var tenantAfter = await _dbContext.Tenants.FindAsync(_tenantId);
         tenantAfter!.Plan = freePlan.Slug;
-        tenantAfter.SubscriptionStatus = SubscriptionStatus.Active;
+        tenantAfter.SubscriptionStatus = SubscriptionState.Active.ToClaimValue();
 
         await _dbContext.SaveChangesAsync();
 
         var updated = await _dbContext.CompanySubscriptions.FindAsync(subscription.Id);
-        updated!.Status.Should().Be(SubscriptionStatus.Active);
+        updated!.Status.Should().Be(SubscriptionState.Active);
         updated.PlanTemplateId.Should().Be(freePlan.Id);
         updated.TrialEndsAt.Should().BeNull();
 
@@ -127,7 +127,7 @@ public class TrialExpirationTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = SubscriptionStatus.Trialing,
+            Status = SubscriptionState.Trialing,
             TrialEndsAt = DateTime.UtcNow.AddDays(7)
         };
         _dbContext.CompanySubscriptions.Add(subscription);
@@ -136,7 +136,7 @@ public class TrialExpirationTests : IDisposable
         var now = DateTime.UtcNow;
         var expiredTrials = await _dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
-            .Where(s => s.Status == SubscriptionStatus.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
+            .Where(s => s.Status == SubscriptionState.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
             .ToListAsync();
 
         expiredTrials.Should().BeEmpty();
@@ -160,7 +160,7 @@ public class TrialExpirationTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = SubscriptionStatus.Active,
+            Status = SubscriptionState.Active,
             TrialEndsAt = DateTime.UtcNow.AddHours(-1)
         };
         _dbContext.CompanySubscriptions.Add(subscription);
@@ -169,7 +169,7 @@ public class TrialExpirationTests : IDisposable
         var now = DateTime.UtcNow;
         var expiredTrials = await _dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
-            .Where(s => s.Status == SubscriptionStatus.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
+            .Where(s => s.Status == SubscriptionState.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
             .ToListAsync();
 
         expiredTrials.Should().BeEmpty();

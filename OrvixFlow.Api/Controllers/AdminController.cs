@@ -52,7 +52,7 @@ public class AdminController : ControllerBase
 
         var activeSubscriptions = await _db.CompanySubscriptions
             .IgnoreQueryFilters()
-            .CountAsync(s => s.Status == "Active" || s.Status == "Trialing");
+            .CountAsync(s => s.Status == SubscriptionState.Active || s.Status == SubscriptionState.Trialing);
 
         return Ok(new
         {
@@ -148,8 +148,8 @@ public class AdminController : ControllerBase
             subscription = subscription != null ? new
             {
                 subscription.Id,
-                subscription.Status,
-                subscription.BillingInterval,
+                Status = subscription.Status.ToClaimValue(),
+                BillingInterval = subscription.BillingInterval.ToClaimValue(),
                 subscription.CurrentPeriodStart,
                 subscription.CurrentPeriodEnd,
                 subscription.TrialEndsAt,
@@ -177,7 +177,7 @@ public class AdminController : ControllerBase
             return Ok(new
             {
                 subscription.Id,
-                subscription.Status,
+                Status = subscription.Status.ToClaimValue(),
                 subscription.PlanTemplateId
             });
         }
@@ -228,7 +228,7 @@ public class AdminController : ControllerBase
             return Ok(new
             {
                 subscription.Id,
-                subscription.Status,
+                Status = subscription.Status.ToClaimValue(),
                 subscription.PlanTemplateId,
                 subscription.CurrentPeriodEnd
             });

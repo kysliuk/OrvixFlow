@@ -24,7 +24,9 @@ public static class PlanCatalog
                 MonthlyPriceCents = 0,
                 YearlyPriceCents = 0,
                 Currency = "USD",
-                BillingInterval = "Monthly",
+                BillingInterval = BillingInterval.Monthly,
+                SortOrder = 0,
+                IsPubliclyVisible = true,
                 MaxSeats = 2,
                 IsActive = true,
                 IsFree = true,
@@ -42,7 +44,9 @@ public static class PlanCatalog
                 MonthlyPriceCents = 2900,
                 YearlyPriceCents = 29000,
                 Currency = "USD",
-                BillingInterval = "Monthly",
+                BillingInterval = BillingInterval.Monthly,
+                SortOrder = 1,
+                IsPubliclyVisible = true,
                 MaxSeats = 5,
                 IsActive = true,
                 IsFree = false,
@@ -60,7 +64,9 @@ public static class PlanCatalog
                 MonthlyPriceCents = 9900,
                 YearlyPriceCents = 99000,
                 Currency = "USD",
-                BillingInterval = "Monthly",
+                BillingInterval = BillingInterval.Monthly,
+                SortOrder = 2,
+                IsPubliclyVisible = true,
                 MaxSeats = 25,
                 IsActive = true,
                 IsFree = false,
@@ -78,7 +84,9 @@ public static class PlanCatalog
                 MonthlyPriceCents = 29900,
                 YearlyPriceCents = 299000,
                 Currency = "USD",
-                BillingInterval = "Monthly",
+                BillingInterval = BillingInterval.Monthly,
+                SortOrder = 3,
+                IsPubliclyVisible = true,
                 MaxSeats = 100,
                 IsActive = true,
                 IsFree = false,
@@ -96,7 +104,9 @@ public static class PlanCatalog
                 MonthlyPriceCents = 0,
                 YearlyPriceCents = 0,
                 Currency = "USD",
-                BillingInterval = "Custom",
+                BillingInterval = BillingInterval.Custom,
+                SortOrder = 4,
+                IsPubliclyVisible = false, // Enterprise is contact-sales only
                 MaxSeats = null,
                 IsActive = true,
                 IsFree = false,
@@ -120,6 +130,8 @@ public static class PlanCatalog
                 MaxApiRequestsPerDay = 500,
                 MaxStorageMb = 100,
                 MaxKnowledgeBases = 1,
+                MaxInboxMessagesPerMonth = 50,      // Free tier limited inbox
+                MaxMailboxConnections = 1,           // One email connection
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             },
             new PlanEntitlements
@@ -130,6 +142,8 @@ public static class PlanCatalog
                 MaxApiRequestsPerDay = 1000,
                 MaxStorageMb = 500,
                 MaxKnowledgeBases = 5,
+                MaxInboxMessagesPerMonth = 500,      // Starter tier inbox
+                MaxMailboxConnections = 3,           // Up to 3 email connections
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             },
             new PlanEntitlements
@@ -140,6 +154,8 @@ public static class PlanCatalog
                 MaxApiRequestsPerDay = 5000,
                 MaxStorageMb = 5120,
                 MaxKnowledgeBases = 25,
+                MaxInboxMessagesPerMonth = 2000,      // Growth tier inbox
+                MaxMailboxConnections = 10,           // Up to 10 email connections
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             },
             new PlanEntitlements
@@ -150,6 +166,8 @@ public static class PlanCatalog
                 MaxApiRequestsPerDay = 20000,
                 MaxStorageMb = 51200,
                 MaxKnowledgeBases = 100,
+                MaxInboxMessagesPerMonth = 0,          // Unlimited for Business
+                MaxMailboxConnections = 50,           // Up to 50 email connections
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             },
             new PlanEntitlements
@@ -160,6 +178,8 @@ public static class PlanCatalog
                 MaxApiRequestsPerDay = 100000,
                 MaxStorageMb = 512000,
                 MaxKnowledgeBases = 1000,
+                MaxInboxMessagesPerMonth = 0,          // Unlimited for Enterprise
+                MaxMailboxConnections = 0,             // Unlimited for Enterprise (0 = no limit)
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         ];

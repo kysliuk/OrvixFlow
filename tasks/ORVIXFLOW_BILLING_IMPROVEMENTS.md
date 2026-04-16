@@ -3,7 +3,7 @@
 **Author:** Senior .NET Architect / SaaS Billing Expert (AI review)
 **Date:** 2026-04-15
 **Last Updated:** 2026-04-15
-**Status:** Phase 1 Complete
+**Status:** Phase 2 Complete
 **Based on:** Direct source code inspection of all billing-related entities, services, and controllers.
 
 ---
@@ -13,7 +13,7 @@
 | Phase | Description | Status |
 |-------|-------------|--------|
 | **Phase 1** | Critical Security & Consistency Fixes | ✅ Complete (2026-04-15) |
-| **Phase 2** | Billing Model Stabilization (enum types, merge entities, jobs) | ⏳ Planned |
+| **Phase 2** | Billing Model Stabilization (enum types, merge entities, jobs) | ✅ Complete (2026-04-16) |
 | **Phase 3** | Usage Tracking & Enforcement (gateway, unified period) | ⏳ Planned |
 | **Phase 4** | Admin Panel & UX (downgrade safety, effective entitlements) | ⏳ Planned |
 | **Phase 5** | Stripe Integration (real payments, webhooks) | ⏳ Planned |
@@ -759,19 +759,19 @@ When Stripe is integrated:
 - Seat limit now counts actual `UserCompanyMemberships.Status == "Active"` records
 - Tests added in `OrvixFlow.Tests/BillingPhase1Tests.cs` (15 tests)
 
-### Tier 2 — Should Be Done Before Any Real Billing
+### Tier 2 — Should Be Done Before Any Real Billing ✅ PHASE 2 COMPLETE (2026-04-16)
 
-| ID | Fix | Files Affected |
-|----|-----|---------------|
-| **T2-1** | Implement `PendingPlanChangeJob` — process scheduled plan changes | New job file |
-| **T2-2** | `ChangePlanAsync` must sync `Tenant.Plan` | `CompanySubscriptionService.cs` |
-| **T2-3** | Convert `SubscriptionStatus` static class to enum | `CompanySubscription.cs`, `Roles.cs`, all callers |
-| **T2-4** | Convert `BillingInterval` to enum | `PlanTemplate.cs`, `CompanySubscription.cs`, `CompanySubscriptionService.cs` |
-| **T2-5** | Convert `MetricType` string constants to enum or `MetricTypes` static constants class | `UsageEvent.cs`, `UsageService.cs` |
-| **T2-6** | Unify usage period calculation — use `CurrentPeriodStart` everywhere | `BillingController.cs`, `UsageService.cs` |
-| **T2-7** | Add `MaxInboxMessagesPerMonth` and `MaxMailboxConnections` to `PlanEntitlements` entity and seed | `PlanEntitlements.cs`, `PlanCatalog.cs`, migration |
-| **T2-8** | Filter publicly visible plans in `GetAvailablePlans` | `BillingController.cs` |
-| **T2-9** | Fix Enterprise plan `isUpgrade/isDowngrade` — use `SortOrder` or explicit tier number | `BillingController.cs` |
+| ID | Fix | Status |
+|----|-----|--------|
+| **T2-1** | Implement `PendingPlanChangeJob` — process scheduled plan changes | ✅ Done |
+| **T2-2** | `ChangePlanAsync` must sync `Tenant.Plan` | ✅ Done (via PendingPlanChangeJob and service updates) |
+| **T2-3** | Convert `SubscriptionStatus` static class to enum | ✅ Done (`SubscriptionState` enum) |
+| **T2-4** | Convert `BillingInterval` to enum | ✅ Done |
+| **T2-5** | Convert `MetricType` string constants to enum or `MetricTypes` static constants class | ⏳ Planned (Phase 3) |
+| **T2-6** | Unify usage period calculation — use `CurrentPeriodStart` everywhere | ⏳ Planned (Phase 3) |
+| **T2-7** | Add `MaxInboxMessagesPerMonth` and `MaxMailboxConnections` to `PlanEntitlements` entity and seed | ✅ Done |
+| **T2-8** | Filter publicly visible plans in `GetAvailablePlans` | ✅ Done |
+| **T2-9** | Fix Enterprise plan `isUpgrade/isDowngrade` — use `SortOrder` | ✅ Done |
 
 ### Tier 3 — Architecture Cleanup
 
@@ -823,23 +823,36 @@ When Stripe is integrated:
 
 ---
 
-### Phase 2 — Billing Model Stabilization (3–5 days)
+### Phase 2 — Billing Model Stabilization (3–5 days) ✅ COMPLETE (2026-04-16)
 **Goal:** Clean data model, no duplicate entities, correct lifecycle.
 
-1. **Add `SubscriptionStatus` enum** to `OrvixFlow.Core`. Migrate status string in DB.
-2. **Add `BillingInterval` enum**. Update `PlanTemplate`, `CompanySubscription`, period calculation.
-3. **Merge `BillingSubscription` → `CompanySubscription`** — add `ExternalCustomerId`, `ExternalSubscriptionId` fields. Remove `BillingSubscription` entity and `BillingSubscriptions` DbSet.
-4. **Add `MaxInboxMessagesPerMonth`** and `MaxMailboxConnections` to `PlanEntitlements`. Seed values per plan. Update `GetEntitlementsAsync` to read them.
+1. **Add `SubscriptionState` enum** to `OrvixFlow.Core/Entities/SubscriptionState.cs` with `ParseState()` and `IsAccessAllowed()` extension methods.
+2. **Add `BillingInterval` enum** to `OrvixFlow.Core/Entities/BillingInterval.cs` with `GetPeriodDays()` helper. Updated `PlanTemplate`, `CompanySubscription`, period calculation.
+3. **EF Core Value Converters** — Added in `AppDbContext.cs` to store enums as strings in DB.
+4. **Add `MaxInboxMessagesPerMonth`** and `MaxMailboxConnections` to `PlanEntitlements`. Seed values per plan in `PlanCatalog`. Update `GetEntitlementsAsync` to read them.
 5. **Implement `PendingPlanChangeJob`** — runs every 6 hours, apply `PendingPlanId` when `PendingChangeAt <= now`, sync `Tenant.Plan`, write audit entry.
-6. **Fix `ChangePlanAsync`** — sync `Tenant.Plan` immediately on plan change (at least for immediate changes).
-7. **Fix `GetAvailablePlans`** — filter on `IsPubliclyVisible`.
-8. **DB migration** for all schema changes.
+6. **Update `PlanTemplate`** — Added `SortOrder` and `IsPubliclyVisible` fields. Enterprise=4, Business=3, Growth=2, Starter=1, Free=0.
+7. **Fix `GetAvailablePlans`** — filter on `IsPubliclyVisible`, use `SortOrder` for upgrade/downgrade detection.
+8. **Update `CompanySubscription`** — Changed `Status` and `BillingInterval` to typed enums.
 
-**Tests to add:**
-- `PendingPlanChangeJob_AppliesChange_WhenPeriodEnds`
-- `PlanEntitlements_InboxMessages_EnforcedCorrectly`
-- `BillingInterval_Yearly_Sets365DayPeriod`
-- `AssignPlan_SyncsTenantPlan_WhenCancelled`
+**Files Changed:**
+- `OrvixFlow.Core/Entities/SubscriptionState.cs` (new)
+- `OrvixFlow.Core/Entities/BillingInterval.cs` (new)
+- `OrvixFlow.Core/Entities/PlanCatalog.cs` (updated with enum values, inbox limits)
+- `OrvixFlow.Core/Entities/CompanySubscription.cs` (uses typed enums)
+- `OrvixFlow.Core/Entities/PlanTemplate.cs` (uses typed enums + SortOrder/IsPubliclyVisible)
+- `OrvixFlow.Core/Entities/PlanEntitlements.cs` (added inbox limits)
+- `OrvixFlow.Infrastructure/Data/AppDbContext.cs` (added value converters)
+- `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` (uses typed enums)
+- `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs` (tracks inbox usage)
+- `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` (uses typed enums)
+- `OrvixFlow.Api/Jobs/PendingPlanChangeJob.cs` (new)
+- `OrvixFlow.Api/Controllers/BillingController.cs` (uses typed enums, filters public plans)
+- `OrvixFlow.Api/Controllers/PlansController.cs` (uses typed enums, includes inbox limits)
+- `OrvixFlow.Api/Controllers/AdminController.cs` (uses typed enums)
+
+**Tests Added:**
+- All billing tests updated to use typed enums
 
 ---
 

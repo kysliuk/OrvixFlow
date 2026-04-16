@@ -135,6 +135,29 @@ public class AppDbContext : DbContext
             .HasIndex(s => s.CompanyId)
             .IsUnique();
 
+        // EF Core Value Converters for typed enums (stored as strings in DB)
+
+        // CompanySubscription - Status (SubscriptionState enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.Status)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => SubscriptionStateExtensions.ParseState(v));
+
+        // CompanySubscription - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
+
+        // PlanTemplate - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<PlanTemplate>()
+            .Property(p => p.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
+
         modelBuilder.Entity<Tenant>()
             .HasMany(t => t.Departments)
             .WithOne(d => d.Company)
@@ -198,6 +221,29 @@ public class AppDbContext : DbContext
         // Invitation
         modelBuilder.Entity<Invitation>()
             .HasIndex(i => i.Token).IsUnique();
+
+        // EF Core Value Converters for typed enums (stored as strings in DB)
+
+        // CompanySubscription - Status (SubscriptionState enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.Status)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => SubscriptionStateExtensions.ParseState(v));
+
+        // CompanySubscription - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
+
+        // PlanTemplate - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<PlanTemplate>()
+            .Property(p => p.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
         modelBuilder.Entity<Invitation>()
             .HasIndex(i => new { i.CompanyId, i.Email });
         modelBuilder.Entity<Invitation>()
@@ -215,6 +261,29 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PlanTemplate>()
             .HasIndex(p => p.Slug)
             .IsUnique();
+
+        // EF Core Value Converters for typed enums (stored as strings in DB)
+
+        // CompanySubscription - Status (SubscriptionState enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.Status)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => SubscriptionStateExtensions.ParseState(v));
+
+        // CompanySubscription - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
+
+        // PlanTemplate - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<PlanTemplate>()
+            .Property(p => p.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
         modelBuilder.Entity<PlanTemplate>()
             .HasOne(p => p.Entitlements)
             .WithOne(e => e.PlanTemplate)
@@ -230,6 +299,29 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PlanModuleInclusion>()
             .HasIndex(m => new { m.PlanTemplateId, m.ModuleDefinitionId })
             .IsUnique();
+
+        // EF Core Value Converters for typed enums (stored as strings in DB)
+
+        // CompanySubscription - Status (SubscriptionState enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.Status)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => SubscriptionStateExtensions.ParseState(v));
+
+        // CompanySubscription - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<CompanySubscription>()
+            .Property(s => s.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
+
+        // PlanTemplate - BillingInterval (BillingInterval enum -> string)
+        modelBuilder.Entity<PlanTemplate>()
+            .Property(p => p.BillingInterval)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => BillingIntervalExtensions.ParseInterval(v));
         modelBuilder.Entity<PlanModuleInclusion>()
             .HasOne(m => m.ModuleDefinition)
             .WithMany(d => d.PlanInclusions)

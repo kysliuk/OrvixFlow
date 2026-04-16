@@ -62,7 +62,7 @@ public class RoleCeilingTests : IDisposable
 
         var entitlementResolver = new EntitlementResolver(_db);
         var configMock = new Moq.Mock<Microsoft.Extensions.Configuration.IConfiguration>();
-        var authService = new AuthService(_db, configMock.Object, Mock.Of<ILogger<AuthService>>());
+        var authService = new AuthService(_db, configMock.Object, Mock.Of<ILogger<AuthService>>(), Mock.Of<IEmailService>());
         var controller = new InviteController(authService, _db, entitlementResolver);
         controller.ControllerContext = new ControllerContext
         {
@@ -91,7 +91,7 @@ public class RoleCeilingTests : IDisposable
             Id = Guid.NewGuid(),
             CompanyId = tenantId,
             PlanTemplateId = planTemplateId,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         subscription.PlanTemplate = planTemplate;
 

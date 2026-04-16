@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Core.Authorization;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 
@@ -172,13 +173,24 @@ public class BillingController : ControllerBase
         }
 
         var subscription = await _entitlementResolver.GetSubscriptionAsync(companyId.Value);
-        var entitlements = await _entitlementResolver.GetEntitlementsAsync(companyId.Value);
+        var entitlements = await _entitlementResolver.GetEffectiveEntitlementsAsync(companyId.Value);
 
         var memberCount = await _db.UserCompanyMemberships
             .CountAsync(m => m.CompanyId == companyId.Value && m.Status == "Active");
 
         var kbCount = await _db.KnowledgeBases
             .CountAsync(k => k.TenantId == companyId.Value);
+
+        // Get inbox message count for this month
+        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inboxMessageCount = await _db.InboxEvents
+            .Where(e => e.TenantId == companyId.Value && e.ReceivedAtUtc >= startOfMonth)
+            .CountAsync();
+
+        // Get mailbox connection count
+        var mailboxConnectionCount = await _db.MailboxConnections
+            .Where(m => m.TenantId == companyId.Value)
+            .CountAsync();
 
         var billingHistory = subscription?.PlanTemplate != null ? new[]
         {
@@ -197,9 +209,9 @@ public class BillingController : ControllerBase
             {
                 name = subscription.PlanTemplate.Name,
                 price = subscription.PlanTemplate.MonthlyPriceCents,
-                interval = subscription.PlanTemplate.BillingInterval
+                interval = subscription.PlanTemplate.BillingInterval.ToClaimValue()
             } : null,
-            status = subscription?.Status ?? "Active",
+            status = subscription?.Status.ToClaimValue() ?? "Active",
             currentPeriodEnd = subscription?.CurrentPeriodEnd != default ? subscription.CurrentPeriodEnd.ToString("o") : null,
             pendingPlanId = subscription?.PendingPlanId,
             pendingChangeAt = subscription?.PendingChangeAt?.ToString("o"),
@@ -212,7 +224,11 @@ public class BillingController : ControllerBase
                 maxStorageMb = entitlements.MaxStorageMb,
                 usedStorageMb = entitlements.StorageUsedMb,
                 maxKnowledgeBases = entitlements.MaxKnowledgeBases,
-                usedKnowledgeBases = kbCount
+                usedKnowledgeBases = kbCount,
+                maxInboxMessagesPerMonth = entitlements.MaxInboxMessagesPerMonth,
+                inboxMessagesUsedThisMonth = inboxMessageCount,
+                maxMailboxConnections = entitlements.MaxMailboxConnections,
+                mailboxConnectionsUsed = mailboxConnectionCount
             },
             billingHistory = billingHistory
         });
@@ -230,10 +246,13 @@ public class BillingController : ControllerBase
         var subscription = await _subscriptionService.GetSubscriptionAsync(companyId.Value);
         var currentPlanId = subscription?.PlanTemplateId;
         var currentPlanName = subscription?.PlanTemplate?.Name ?? "Free";
-        var currentPriceCents = subscription?.PlanTemplate?.MonthlyPriceCents ?? 0;
+        var currentSortOrder = subscription?.PlanTemplate?.SortOrder ?? 0;
 
+        // Get only publicly visible and active plans
         var plans = await _planService.GetActivePlansAsync();
-        var planDtos = plans.Select(p => new
+        var visiblePlans = plans.Where(p => p.IsPubliclyVisible).ToList();
+
+        var planDtos = visiblePlans.Select(p => new
         {
             id = p.Id,
             name = p.Name,
@@ -241,18 +260,21 @@ public class BillingController : ControllerBase
             description = p.Description,
             monthlyPriceCents = p.MonthlyPriceCents,
             yearlyPriceCents = p.YearlyPriceCents,
-            billingInterval = p.BillingInterval,
+            billingInterval = p.BillingInterval.ToClaimValue(),
             maxSeats = p.MaxSeats,
             isFree = p.IsFree,
-            isUpgrade = p.MonthlyPriceCents > currentPriceCents,
-            isDowngrade = p.MonthlyPriceCents < currentPriceCents,
+            // Use SortOrder for upgrade/downgrade detection (not price)
+            isUpgrade = p.SortOrder > currentSortOrder,
+            isDowngrade = p.SortOrder < currentSortOrder,
             isCurrentPlan = p.Id == (currentPlanId ?? Guid.Empty),
             entitlements = new
             {
                 maxMonthlyTokens = p.Entitlements?.MaxMonthlyTokens ?? 50000,
                 maxApiRequestsPerDay = p.Entitlements?.MaxApiRequestsPerDay ?? 500,
                 maxStorageMb = p.Entitlements?.MaxStorageMb ?? 100,
-                maxKnowledgeBases = p.Entitlements?.MaxKnowledgeBases ?? 1
+                maxKnowledgeBases = p.Entitlements?.MaxKnowledgeBases ?? 1,
+                maxInboxMessagesPerMonth = p.Entitlements?.MaxInboxMessagesPerMonth ?? 0,
+                maxMailboxConnections = p.Entitlements?.MaxMailboxConnections ?? 1
             }
         }).ToList();
 

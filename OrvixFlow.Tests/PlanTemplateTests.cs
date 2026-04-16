@@ -188,7 +188,7 @@ public class PlanTemplateTests : IDisposable
         await _dbContext.SaveChangesAsync();
 
         plan.Currency.Should().Be("USD");
-        plan.BillingInterval.Should().Be("Monthly");
+        plan.BillingInterval.Should().Be(BillingInterval.Monthly);
         plan.IsTrialAllowed.Should().BeTrue();
         plan.TrialDays.Should().Be(14);
     }

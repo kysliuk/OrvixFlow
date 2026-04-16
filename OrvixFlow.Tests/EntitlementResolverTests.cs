@@ -62,7 +62,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -96,7 +96,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -131,7 +131,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 
@@ -179,7 +179,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -207,7 +207,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -234,7 +234,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Trialing"
+            Status = SubscriptionState.Trialing
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -242,7 +242,7 @@ public class EntitlementResolverTests : IDisposable
         var result = await _resolver.GetSubscriptionAsync(_tenantId);
 
         result.Should().NotBeNull();
-        result!.Status.Should().Be("Trialing");
+        result!.Status.Should().Be(SubscriptionState.Trialing);
         result.PlanTemplate.Should().NotBeNull();
         result.PlanTemplate.MaxSeats.Should().Be(100);
     }
@@ -270,7 +270,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -285,11 +285,27 @@ public class EntitlementResolverTests : IDisposable
     [Fact]
     public async Task GetEntitlements_ReturnsUsageData_WithIgnoreQueryFilters()
     {
+        var plan = new PlanTemplate
+        {
+            Id = Guid.NewGuid(),
+            Name = "Starter",
+            Slug = "starter",
+            MaxSeats = 5,
+            Entitlements = new PlanEntitlements
+            {
+                MaxMonthlyTokens = 100000,
+                MaxApiRequestsPerDay = 1000,
+                MaxStorageMb = 500,
+                MaxKnowledgeBases = 5
+            }
+        };
+        _dbContext.PlanTemplates.Add(plan);
+
         var subscription = new CompanySubscription
         {
             CompanyId = _tenantId,
-            PlanTemplateId = Guid.NewGuid(),
-            Status = "Active",
+            PlanTemplateId = plan.Id,
+            Status = SubscriptionState.Active,
             CurrentPeriodStart = DateTime.UtcNow.AddMonths(-1),
             CurrentPeriodEnd = DateTime.UtcNow.AddMonths(1)
         };
@@ -326,11 +342,27 @@ public class EntitlementResolverTests : IDisposable
     [Fact]
     public async Task GetEntitlements_FiltersUsageByBillingPeriod()
     {
+        var plan = new PlanTemplate
+        {
+            Id = Guid.NewGuid(),
+            Name = "Starter",
+            Slug = "starter",
+            MaxSeats = 5,
+            Entitlements = new PlanEntitlements
+            {
+                MaxMonthlyTokens = 100000,
+                MaxApiRequestsPerDay = 1000,
+                MaxStorageMb = 500,
+                MaxKnowledgeBases = 5
+            }
+        };
+        _dbContext.PlanTemplates.Add(plan);
+
         var subscription = new CompanySubscription
         {
             CompanyId = _tenantId,
-            PlanTemplateId = Guid.NewGuid(),
-            Status = "Active",
+            PlanTemplateId = plan.Id,
+            Status = SubscriptionState.Active,
             CurrentPeriodStart = DateTime.UtcNow.AddMonths(-1),
             CurrentPeriodEnd = DateTime.UtcNow.AddMonths(1)
         };
@@ -370,7 +402,7 @@ public class EntitlementResolverTests : IDisposable
         {
             CompanyId = _tenantId,
             PlanTemplateId = Guid.NewGuid(),
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
 

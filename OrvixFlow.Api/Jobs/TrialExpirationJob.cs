@@ -33,7 +33,7 @@ public class TrialExpirationJob
         var expiredTrials = await dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
             .Include(s => s.PlanTemplate)
-            .Where(s => s.Status == SubscriptionStatus.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
+            .Where(s => s.Status == SubscriptionState.Trialing && s.TrialEndsAt.HasValue && s.TrialEndsAt.Value <= now)
             .ToListAsync();
 
         if (expiredTrials.Count == 0)
@@ -58,8 +58,8 @@ public class TrialExpirationJob
             var companyId = subscription.CompanyId;
 
             subscription.PlanTemplateId = freePlan.Id;
-            subscription.Status = SubscriptionStatus.Active;
-            subscription.BillingInterval = "Monthly";
+            subscription.Status = SubscriptionState.Active;
+            subscription.BillingInterval = BillingInterval.Monthly;
             subscription.CurrentPeriodStart = now;
             subscription.CurrentPeriodEnd = now.AddMonths(1);
             subscription.TrialEndsAt = null;
@@ -69,7 +69,7 @@ public class TrialExpirationJob
             if (tenant != null)
             {
                 tenant.Plan = freePlan.Slug;
-                tenant.SubscriptionStatus = SubscriptionStatus.Active;
+                tenant.SubscriptionStatus = SubscriptionState.Active.ToClaimValue();
             }
 
             dbContext.AuditTrails.Add(new AuditTrail

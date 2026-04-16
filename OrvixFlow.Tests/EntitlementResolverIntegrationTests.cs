@@ -83,7 +83,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -124,7 +124,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -161,7 +161,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -196,7 +196,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -238,7 +238,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Trialing",
+            Status = SubscriptionState.Trialing,
             TrialEndsAt = DateTime.UtcNow.AddDays(14)
         };
         _dbContext.CompanySubscriptions.Add(subscription);
@@ -247,7 +247,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         var result = await _resolver.GetSubscriptionAsync(_companyId);
 
         result.Should().NotBeNull();
-        result!.Status.Should().Be("Trialing");
+        result!.Status.Should().Be(SubscriptionState.Trialing);
         result.PlanTemplate.Should().NotBeNull();
         result.PlanTemplate.Name.Should().Be("Growth");
         result.PlanTemplate.Entitlements.Should().NotBeNull();
@@ -282,7 +282,7 @@ public class EntitlementResolverIntegrationTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();

@@ -22,6 +22,7 @@ public class OAuthLinkingTests : IDisposable
     private readonly AppDbContext _db;
     private readonly Mock<ILogger<AuthService>> _loggerMock;
     private readonly Mock<IConfiguration> _configMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
 
     public OAuthLinkingTests()
     {
@@ -37,6 +38,7 @@ public class OAuthLinkingTests : IDisposable
         
         _loggerMock = new Mock<ILogger<AuthService>>();
         _configMock = new Mock<IConfiguration>();
+        _emailServiceMock = new Mock<IEmailService>();
         
         _configMock.Setup(c => c["Jwt:Secret"]).Returns("test-secret-key-for-testing-min-32-chars");
         _configMock.Setup(c => c["Jwt:Issuer"]).Returns("test-issuer");
@@ -60,7 +62,7 @@ public class OAuthLinkingTests : IDisposable
         _db.Users.Add(localUser);
         await _db.SaveChangesAsync();
 
-        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
 
         // Act: Attacker tries to sign in with Google using the same email
         var result = await authService.ProvisionOAuthUserAsync(
@@ -92,7 +94,7 @@ public class OAuthLinkingTests : IDisposable
         _db.Users.Add(existingUser);
         await _db.SaveChangesAsync();
 
-        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
 
         // Act: User signs in again with same Google account
         var result = await authService.ProvisionOAuthUserAsync(
@@ -109,7 +111,7 @@ public class OAuthLinkingTests : IDisposable
     [Fact]
     public async Task ProvisionOAuthUserAsync_Should_Create_New_User_When_Email_Not_Found()
     {
-        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
 
         // Act: Brand new user signs up with Google
         var result = await authService.ProvisionOAuthUserAsync(

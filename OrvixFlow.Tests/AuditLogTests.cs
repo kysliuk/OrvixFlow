@@ -80,7 +80,7 @@ public class AuditLogTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -109,7 +109,7 @@ public class AuditLogTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Suspended"
+            Status = SubscriptionState.Suspended
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -138,7 +138,7 @@ public class AuditLogTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = plan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
@@ -170,7 +170,7 @@ public class AuditLogTests : IDisposable
         {
             CompanyId = _companyId,
             PlanTemplateId = oldPlan.Id,
-            Status = "Active"
+            Status = SubscriptionState.Active
         };
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();

@@ -23,9 +23,9 @@ public class EntitlementResolver : IEntitlementResolver
         return await _dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
             .Include(s => s.PlanTemplate)
-                .ThenInclude(p => p.Entitlements)
+                .ThenInclude(p => p!.Entitlements)
             .Include(s => s.PlanTemplate)
-                .ThenInclude(p => p.ModuleInclusions)
+                .ThenInclude(p => p!.ModuleInclusions)
                     .ThenInclude(m => m.ModuleDefinition)
             .FirstOrDefaultAsync(s => s.CompanyId == companyId);
     }
@@ -53,6 +53,14 @@ public class EntitlementResolver : IEntitlementResolver
     public async Task<CompanyEntitlements> GetEntitlementsAsync(Guid companyId)
     {
         var subscription = await GetSubscriptionAsync(companyId);
+
+        if (subscription == null
+            || subscription.Status == SubscriptionState.Suspended
+            || subscription.Status == SubscriptionState.Cancelled)
+        {
+            return new CompanyEntitlements();
+        }
+
         var entitlements = new CompanyEntitlements();
 
         if (subscription?.PlanTemplate != null)
@@ -66,17 +74,24 @@ public class EntitlementResolver : IEntitlementResolver
                 entitlements.MaxApiRequestsPerDay = planEntitlements.MaxApiRequestsPerDay;
                 entitlements.MaxStorageMb = planEntitlements.MaxStorageMb;
                 entitlements.MaxKnowledgeBases = planEntitlements.MaxKnowledgeBases;
+                // Inbox Guardian limits from plan
+                entitlements.MaxInboxMessagesPerMonth = planEntitlements.MaxInboxMessagesPerMonth;
+                entitlements.MaxMailboxConnections = planEntitlements.MaxMailboxConnections;
             }
             else
             {
+                // Defaults when no entitlements defined
                 entitlements.MaxMonthlyTokens = 100000;
                 entitlements.MaxApiRequestsPerDay = 1000;
                 entitlements.MaxStorageMb = 500;
                 entitlements.MaxKnowledgeBases = 5;
+                entitlements.MaxInboxMessagesPerMonth = 0; // Unlimited
+                entitlements.MaxMailboxConnections = 1;
             }
         }
 
         var today = DateTime.UtcNow.Date;
+        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodStart = subscription?.CurrentPeriodStart ?? DateTime.UtcNow.AddMonths(-1);
 
         var usageSummary = await _dbContext.UsageEvents
@@ -108,6 +123,12 @@ public class EntitlementResolver : IEntitlementResolver
             .Where(e => e.CompanyId == companyId && e.OccurredAt >= today)
             .SumAsync(e => e.Quantity);
 
+        // Track inbox messages used this month
+        entitlements.InboxMessagesUsedThisMonth = await _dbContext.InboxEvents
+            .IgnoreQueryFilters()
+            .Where(e => e.TenantId == companyId && e.ReceivedAtUtc >= startOfMonth)
+            .CountAsync();
+
         return entitlements;
     }
 
@@ -119,37 +140,37 @@ public class EntitlementResolver : IEntitlementResolver
 
     public async Task<bool> CanInviteUserAsync(Guid companyId, int currentMemberCount)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         return entitlements.CanAddSeats(currentMemberCount + 1);
     }
 
     public async Task<bool> IsWithinTokenLimitAsync(Guid companyId, int tokensToConsume)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         return entitlements.CanAddTokens(tokensToConsume);
     }
 
     public async Task<bool> IsWithinApiLimitAsync(Guid companyId)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         return entitlements.CanAddApiRequests;
     }
 
     public async Task<bool> IsWithinStorageLimitAsync(Guid companyId, int mbToConsume)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         return entitlements.CanAddStorage(mbToConsume);
     }
 
     public async Task<bool> IsWithinKnowledgeBaseLimitAsync(Guid companyId)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         return entitlements.CanAddKnowledgeBase;
     }
 
     public async Task<LimitCheckResult> CheckLimitAsync(Guid companyId, string limitType, int amount = 1)
     {
-        var entitlements = await GetEntitlementsAsync(companyId);
+        var entitlements = await GetEffectiveEntitlementsAsync(companyId);
         
         var result = new LimitCheckResult { Allowed = true };
 
@@ -187,10 +208,33 @@ public class EntitlementResolver : IEntitlementResolver
                 break;
                 
             case "seats":
+                var memberCount = await _dbContext.UserCompanyMemberships
+                    .IgnoreQueryFilters()
+                    .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
                 result.Limit = entitlements.MaxSeats ?? int.MaxValue;
-                result.CurrentUsage = 0;
+                result.CurrentUsage = memberCount;
                 result.ExceededLimit = "Seats";
-                result.Allowed = true;
+                result.Allowed = entitlements.CanAddSeats(memberCount + amount);
+                break;
+                
+            case "inbox-messages":
+            case "inbox":
+                result.Limit = entitlements.MaxInboxMessagesPerMonth;
+                result.CurrentUsage = entitlements.InboxMessagesUsedThisMonth;
+                result.ExceededLimit = "Inbox Messages";
+                result.Allowed = entitlements.CanProcessInboxMessage;
+                break;
+                
+            case "mailbox-connections":
+            case "mailbox":
+                result.Limit = entitlements.MaxMailboxConnections;
+                result.CurrentUsage = await _dbContext.MailboxConnections
+                    .IgnoreQueryFilters()
+                    .Where(m => m.TenantId == companyId)
+                    .CountAsync();
+                result.ExceededLimit = "Mailbox Connections";
+                // 0 means unlimited
+                result.Allowed = result.Limit == 0 || result.CurrentUsage < result.Limit;
                 break;
         }
 
@@ -237,6 +281,14 @@ public class EntitlementResolver : IEntitlementResolver
 
     public async Task<bool> CanUseModuleWithOverridesAsync(Guid companyId, string moduleKey)
     {
+        var subscription = await GetSubscriptionAsync(companyId);
+        if (subscription == null
+            || subscription.Status == SubscriptionState.Suspended
+            || subscription.Status == SubscriptionState.Cancelled)
+        {
+            return false;
+        }
+
         var plan = await GetActivePlanAsync(companyId);
         if (plan == null)
         {
