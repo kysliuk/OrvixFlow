@@ -52,6 +52,9 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         _dbContext.CompanySubscriptions.Add(subscription);
         await _dbContext.SaveChangesAsync();
 
+        // Sync tenant denormalization for new trial subscription
+        await SyncTenantDenormalizationAsync(companyId, plan.Slug, SubscriptionStatus.Trialing);
+
         return subscription;
     }
 
@@ -93,6 +96,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 
         var interval = billingInterval ?? plan.BillingInterval;
         var periodDays = interval == "Yearly" ? 365 : 30;
+        var targetStatus = plan.IsFree ? SubscriptionStatus.Active : SubscriptionStatus.Trialing;
 
         if (existingSubscription != null)
         {
@@ -100,16 +104,13 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             existingSubscription.BillingInterval = interval;
             existingSubscription.CurrentPeriodStart = DateTime.UtcNow;
             existingSubscription.CurrentPeriodEnd = DateTime.UtcNow.AddDays(periodDays);
-            existingSubscription.Status = plan.IsFree ? SubscriptionStatus.Active : SubscriptionStatus.Trialing;
+            existingSubscription.Status = targetStatus;
             existingSubscription.UpdatedAt = DateTime.UtcNow;
             
-            var tenant = await _dbContext.Tenants.FindAsync(companyId);
-            if (tenant != null)
-            {
-                tenant.Plan = plan.Slug;
-            }
-            
             await _dbContext.SaveChangesAsync();
+            
+            // Sync tenant denormalization (T1-2/T1-3)
+            await SyncTenantDenormalizationAsync(companyId, plan.Slug, targetStatus);
             
             if (_auditService != null)
             {
@@ -123,7 +124,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         {
             CompanyId = companyId,
             PlanTemplateId = planTemplateId,
-            Status = plan.IsFree ? SubscriptionStatus.Active : SubscriptionStatus.Trialing,
+            Status = targetStatus,
             BillingInterval = interval,
             CurrentPeriodStart = DateTime.UtcNow,
             CurrentPeriodEnd = DateTime.UtcNow.AddDays(periodDays),
@@ -132,13 +133,10 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 
         _dbContext.CompanySubscriptions.Add(subscription);
         
-        var tenantForNew = await _dbContext.Tenants.FindAsync(companyId);
-        if (tenantForNew != null)
-        {
-            tenantForNew.Plan = plan.Slug;
-        }
-        
         await _dbContext.SaveChangesAsync();
+
+        // Sync tenant denormalization (T1-2/T1-3)
+        await SyncTenantDenormalizationAsync(companyId, plan.Slug, targetStatus);
 
         if (_auditService != null)
         {
@@ -184,14 +182,20 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             subscription.PendingPlanId = null;
             subscription.PendingChangeAt = null;
             subscription.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+            
+            // Sync tenant denormalization (T1-2/T1-3) - immediate change
+            await SyncTenantDenormalizationAsync(companyId, newPlan.Slug, SubscriptionStatus.Active);
         }
         else
         {
             subscription.PendingPlanId = newPlanTemplateId;
             subscription.PendingChangeAt = subscription.CurrentPeriodEnd;
+            subscription.UpdatedAt = DateTime.UtcNow;
+            
+            await _dbContext.SaveChangesAsync();
         }
-
-        await _dbContext.SaveChangesAsync();
 
         if (_auditService != null)
         {
@@ -215,6 +219,9 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 
         await _dbContext.SaveChangesAsync();
 
+        // Sync tenant denormalization (T1-2/T1-3)
+        await SyncTenantDenormalizationAsync(companyId, subscription.PlanTemplate?.Slug ?? "Free", SubscriptionStatus.Suspended);
+
         if (_auditService != null)
         {
             await _auditService.RecordAsync(companyId, "SubscriptionSuspended", $"Subscription for plan '{planName}' has been suspended");
@@ -236,6 +243,9 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         subscription.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
+
+        // Sync tenant denormalization (T1-2/T1-3)
+        await SyncTenantDenormalizationAsync(companyId, subscription.PlanTemplate?.Slug ?? "Free", SubscriptionStatus.Active);
 
         if (_auditService != null)
         {
@@ -259,6 +269,9 @@ public class CompanySubscriptionService : ICompanySubscriptionService
 
         await _dbContext.SaveChangesAsync();
 
+        // Sync tenant denormalization (T1-2/T1-3)
+        await SyncTenantDenormalizationAsync(companyId, subscription.PlanTemplate?.Slug ?? "Free", SubscriptionStatus.Cancelled);
+
         if (_auditService != null)
         {
             await _auditService.RecordAsync(companyId, "SubscriptionCancelled", $"Subscription for plan '{planName}' has been cancelled");
@@ -279,5 +292,19 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
 
         return !newPlan.MaxSeats.HasValue || memberCount <= newPlan.MaxSeats.Value;
+    }
+
+    /// <summary>
+    /// Syncs Tenant denormalized fields (Plan, SubscriptionStatus) with the authoritative CompanySubscription.
+    /// This ensures Tenant.Plan and Tenant.SubscriptionStatus stay in sync with the subscription lifecycle.
+    /// </summary>
+    private async Task SyncTenantDenormalizationAsync(Guid companyId, string planSlug, string status)
+    {
+        var tenant = await _dbContext.Tenants.FindAsync(companyId);
+        if (tenant != null)
+        {
+            tenant.Plan = planSlug;
+            tenant.SubscriptionStatus = status;
+        }
     }
 }

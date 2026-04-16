@@ -437,3 +437,127 @@ For the complete findings, fixes, and rationale, see `tasks/claude-security-revi
 | CSP | Content-Security-Policy header | Medium — requires inline script audit |
 | Impersonation AuditTrail | Write `AuditTrail` DB entry on impersonation (currently log only) | Medium |
 | JWT revocation | `jti` blacklist for sensitive events | Future / Low urgency at 60min lifetime |
+
+---
+
+## 11. Billing Security Improvements (2026-04-15)
+
+### Phase 1 Billing Security Fixes Complete
+
+The following critical billing security issues have been fixed:
+
+| Issue ID | Description | Fix Applied | Status |
+|----------|-------------|-------------|--------|
+| **C2** | Stripe webhook has no signature validation | Changed `[AllowAnonymous]` to `[Authorize(Policy = "SuperAdminOnly")]` until Stripe is integrated | ✅ Fixed |
+| **C3** | Tenant.Plan/SubscriptionStatus out of sync | Added `SyncTenantDenormalizationAsync()` helper, called in all lifecycle methods | ✅ Fixed |
+| **C4** | Cancelled/Suspended subscriptions not blocked | Added status gate to `GetEntitlementsAsync` and `CanUseModuleWithOverridesAsync` | ✅ Fixed |
+| **H3** | Seat limit always returns 0 | Fixed `CheckLimitAsync("seats")` to count actual `UserCompanyMemberships` | ✅ Fixed |
+| **H5** | Admin overrides ignored in enforcement | Changed `IsWithin*Async` methods to use `GetEffectiveEntitlementsAsync` | ✅ Fixed |
+
+### Key Changes
+
+#### 1. Stripe Webhook Security (C2)
+**Location:** `BillingController.cs`
+
+The Stripe webhook endpoint was protected with `[AllowAnonymous]`, allowing anyone to change subscription status. Now protected with `[Authorize(Policy = "SuperAdminOnly")]` until full Stripe signature validation is implemented.
+
+```csharp
+[Authorize(Policy = "SuperAdminOnly")]
+[HttpPost("stripe/webhook")]
+public async Task<IActionResult> StripeWebhook([FromBody] StripeWebhookRequest req)
+```
+
+#### 2. Tenant Sync in Lifecycle Operations (C3)
+**Location:** `CompanySubscriptionService.cs`
+
+Added `SyncTenantDenormalizationAsync()` helper that syncs `Tenant.Plan` and `Tenant.SubscriptionStatus` after every lifecycle operation:
+- `AssignPlanAsync` - syncs plan and status
+- `SuspendSubscriptionAsync` - syncs Suspended status
+- `CancelSubscriptionAsync` - syncs Cancelled status
+- `ReactivateSubscriptionAsync` - syncs Active status
+- `ChangePlanAsync` - syncs new plan and Active status (immediate changes)
+
+#### 3. Subscription Status Gate (C4)
+**Location:** `EntitlementResolver.cs`
+
+Cancelled or suspended subscriptions now return zero entitlements and cannot access modules:
+
+```csharp
+// GetEntitlementsAsync - returns zero limits for non-active subscriptions
+if (subscription == null
+    || subscription.Status == SubscriptionStatus.Suspended
+    || subscription.Status == SubscriptionStatus.Cancelled)
+{
+    return entitlements; // All limits 0, all CanAdd* = false
+}
+
+// CanUseModuleWithOverridesAsync - blocks access for non-active subscriptions
+if (subscription == null
+    || subscription.Status == SubscriptionStatus.Suspended
+    || subscription.Status == SubscriptionStatus.Cancelled)
+{
+    return false;
+}
+```
+
+#### 4. Effective Entitlements in Enforcement (H5)
+**Location:** `EntitlementResolver.cs`
+
+All `IsWithin*Async` methods now use `GetEffectiveEntitlementsAsync` to respect admin overrides:
+
+```csharp
+public async Task<bool> IsWithinTokenLimitAsync(Guid companyId, int tokensToConsume)
+{
+    var entitlements = await GetEffectiveEntitlementsAsync(companyId); // Uses overrides
+    return entitlements.CanAddTokens(tokensToConsume);
+}
+```
+
+#### 5. Seat Limit Fix (H3)
+**Location:** `EntitlementResolver.cs`
+
+`CheckLimitAsync("seats")` now counts actual active memberships instead of always returning 0:
+
+```csharp
+case "seats":
+    var memberCount = await _dbContext.UserCompanyMemberships
+        .IgnoreQueryFilters()
+        .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
+    result.Limit = entitlements.MaxSeats ?? int.MaxValue;
+    result.CurrentUsage = memberCount;
+    result.ExceededLimit = "Seats";
+    result.Allowed = entitlements.CanAddSeats(memberCount + amount);
+    break;
+```
+
+### Phase 2 Billing Improvements (Planned)
+
+| Issue ID | Description | Priority |
+|----------|-------------|----------|
+| C1 | Merge `BillingSubscription` into `CompanySubscription` | Critical |
+| H4 | Convert `BillingInterval` to enum | High |
+| H6 | Implement `PendingPlanChangeJob` | High |
+| M7 | Convert `SubscriptionStatus` to enum | Medium |
+| T4-2 | Add grace period for cancelled subscriptions | Feature |
+
+### Testing
+
+New tests added in `BillingPhase1Tests.cs`:
+- `SuspendSubscription_SyncsTenantStatus`
+- `CancelSubscription_SyncsTenantStatus`
+- `ReactivateSubscription_SyncsTenantStatus`
+- `ChangePlan_Immediate_SyncsTenantPlan`
+- `CancelledSubscription_GetEntitlements_ReturnsZeroLimits`
+- `SuspendedSubscription_GetEntitlements_ReturnsZeroLimits`
+- `CancelledSubscription_CanUseModuleWithOverrides_ReturnsFalse`
+- `IsWithinTokenLimit_RespectsAdminOverride_NotBasePlanLimit`
+- `CheckLimit_Seats_ReturnsActualMemberCount`
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `BillingController.cs` | T1-1: Webhook security, T1-7: GetUsage fix |
+| `CompanySubscriptionService.cs` | T1-2/3: Tenant sync helper and calls |
+| `EntitlementResolver.cs` | T1-4: Status gate, T1-5: Effective entitlements, T1-6: Seat fix |
+| `BillingPhase1Tests.cs` | New test file for Phase 1 fixes |

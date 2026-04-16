@@ -556,3 +556,97 @@ private static (bool IsValid, string ErrorMessage) ValidatePasswordComplexity(st
 **Result:** n8n can no longer directly connect to PostgreSQL. It can only communicate with the API via the defined webhook endpoints. If n8n is compromised, the attacker cannot dump the database or access internal services directly.
 
 **Tested:** Docker Compose configuration valid, build succeeds, tests pass
+
+---
+
+## Critical: Billing System Improvements (Phase 1 - 2026-04-15)
+
+### Security Fixes Applied
+
+#### Billing Webhook Security (Previously: Critical Vulnerability)
+**Location:** `BillingController.cs:131-163`
+
+**Risk:** The Stripe webhook was protected with `[AllowAnonymous]`, allowing anyone to change a company's plan or subscription status without authentication.
+
+**Fix:** Changed to `[Authorize(Policy = "SuperAdminOnly")]`. Until Stripe signature validation is fully implemented, only platform admins can process webhook events.
+
+**Verification:**
+```bash
+# Webhook is now protected
+grep -n "Authorize.*SuperAdminOnly" BillingController.cs
+```
+
+#### Cancelled/Suspended Subscription Access (Previously: Revenue Loss)
+**Location:** `EntitlementResolver.cs:53-68, 238-250`
+
+**Risk:** Cancelled or suspended companies retained access to paid features indefinitely because `CompanySubscription.Status` was not checked in entitlement resolution.
+
+**Fix:** Added subscription status gate at the start of `GetEntitlementsAsync` and `CanUseModuleWithOverridesAsync`:
+```csharp
+if (subscription == null
+    || subscription.Status == SubscriptionStatus.Suspended
+    || subscription.Status == SubscriptionStatus.Cancelled)
+{
+    return new CompanyEntitlements(); // Zero limits, no access
+}
+```
+
+#### Tenant Sync on Lifecycle Operations (Previously: Data Inconsistency)
+**Location:** `CompanySubscriptionService.cs`
+
+**Risk:** `Tenant.Plan` and `Tenant.SubscriptionStatus` were only synced in `AssignPlanAsync`, leaving them stale after suspend/cancel/reactivate operations.
+
+**Fix:** Added `SyncTenantDenormalizationAsync()` helper called in all lifecycle methods:
+- `AssignPlanAsync` - syncs plan and status
+- `SuspendSubscriptionAsync` - syncs `Suspended` status
+- `CancelSubscriptionAsync` - syncs `Cancelled` status
+- `ReactivateSubscriptionAsync` - syncs `Active` status
+- `ChangePlanAsync` - syncs new plan and `Active` status (immediate changes)
+
+#### Seat Limit Always Returned 0 (Previously: Unlimited Seats)
+**Location:** `EntitlementResolver.cs:189-194`
+
+**Risk:** `CheckLimitAsync("seats")` always returned `CurrentUsage = 0` and `Allowed = true`, bypassing seat limits completely.
+
+**Fix:**
+```csharp
+case "seats":
+    var memberCount = await _dbContext.UserCompanyMemberships
+        .IgnoreQueryFilters()
+        .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
+    result.Limit = entitlements.MaxSeats ?? int.MaxValue;
+    result.CurrentUsage = memberCount;
+    result.Allowed = entitlements.CanAddSeats(memberCount + amount);
+    break;
+```
+
+#### Effective Entitlements Not Used in Enforcement (Previously: Admin Overrides Ignored)
+**Location:** `EntitlementResolver.cs:126-148`
+
+**Risk:** `IsWithin*Async` methods called `GetEntitlementsAsync` (base plan) instead of `GetEffectiveEntitlementsAsync` (plan + admin overrides), causing admin-granted extra quotas to be ignored.
+
+**Fix:** Changed all `IsWithin*Async` methods to use `GetEffectiveEntitlementsAsync`:
+- `IsWithinTokenLimitAsync`
+- `IsWithinApiLimitAsync`
+- `IsWithinStorageLimitAsync`
+- `IsWithinKnowledgeBaseLimitAsync`
+- `CanInviteUserAsync`
+
+### Impact Assessment
+
+| Risk | Before Fix | After Fix |
+|------|------------|-----------|
+| Unauthorized plan changes | Anyone could change plans | SuperAdmin-only |
+| Cancelled companies retained access | Yes | No (status gate) |
+| Stale tenant subscription data | Yes | No (sync on all operations) |
+| Unlimited seat creation | Yes | No (actual count) |
+| Admin overrides ignored | Yes | No (effective entitlements) |
+
+### Regression Testing Required
+
+After any billing-related changes, run:
+```bash
+dotnet test --filter "FullyQualifiedName~BillingPhase1"
+dotnet test --filter "FullyQualifiedName~EntitlementResolver"
+dotnet test --filter "FullyQualifiedName~CompanySubscription"
+```

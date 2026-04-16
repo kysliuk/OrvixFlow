@@ -153,3 +153,26 @@ Fully instrumented, secured, and tested multi-modal ingestion and hybrid retriev
 - **Docker Volume Mounts Added:**
   - `uploads_data` volume mounted to `/app/uploads` for file persistence
   - Files persist across container restarts (temporary solution before F-20 MinIO)
+
+### Billing System Phase 1 Improvements (2026-04-15)
+
+Critical billing security and consistency fixes implemented:
+
+#### Security Fixes
+- **Stripe webhook protection:** Changed from `[AllowAnonymous]` to `[Authorize(Policy = "SuperAdminOnly")]`
+- **Subscription status gate:** Cancelled/suspended companies now get zero entitlements and blocked from module access
+- **Seat limit enforcement:** `CheckLimitAsync("seats")` now counts actual active memberships
+
+#### Data Consistency
+- **Tenant sync helper:** `SyncTenantDenormalizationAsync()` syncs `Tenant.Plan` and `Tenant.SubscriptionStatus` on all lifecycle operations (suspend, cancel, reactivate, plan change)
+
+#### Enforcement Improvements
+- **Effective entitlements in limit checks:** All `IsWithin*Async` methods now respect admin overrides via `GetEffectiveEntitlementsAsync`
+- **GetUsage fix:** Billing API now uses `GetEffectiveEntitlementsAsync` instead of hardcoded plan→limit map
+
+#### New Tests
+- 15 new tests in `BillingPhase1Tests.cs` covering:
+  - Tenant sync on all lifecycle operations
+  - Subscription status gate behavior
+  - Admin override respect in limit checks
+  - Seat limit actual count verification
