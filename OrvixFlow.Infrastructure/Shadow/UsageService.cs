@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using static OrvixFlow.Core.Entities.UsageMetric;
 
 namespace OrvixFlow.Infrastructure.Shadow;
 
@@ -30,18 +31,34 @@ public sealed class UsageService : IUsageService
 
     public async Task<UsageSummary> GetCompanySummaryAsync(Guid companyId)
     {
-        var events = await _db.UsageEvents
+        return await GetCompanySummaryAsync(companyId, periodStart: null);
+    }
+
+    /// <summary>
+    /// Returns usage totals for the specified period window.
+    /// Pass null for periodStart to get lifetime totals (legacy behaviour).
+    /// </summary>
+    public async Task<UsageSummary> GetCompanySummaryAsync(Guid companyId, DateTime? periodStart)
+    {
+        var query = _db.UsageEvents
             .IgnoreQueryFilters()
-            .Where(e => e.CompanyId == companyId)
+            .Where(e => e.CompanyId == companyId);
+
+        if (periodStart.HasValue)
+        {
+            query = query.Where(e => e.OccurredAt >= periodStart.Value);
+        }
+
+        var events = await query
             .GroupBy(e => e.MetricType)
             .Select(g => new { MetricType = g.Key, Total = g.Sum(e => e.Quantity) })
             .ToListAsync();
 
-        var tokens = events.FirstOrDefault(e => e.MetricType == "ai-tokens")?.Total ?? 0;
-        var nodes  = events.FirstOrDefault(e => e.MetricType == "n8n-nodes")?.Total ?? 0;
-        var storage = events.FirstOrDefault(e => e.MetricType == "storage-mb")?.Total ?? 0;
-        var kbCount = events.FirstOrDefault(e => e.MetricType == "knowledge-bases")?.Total ?? 0;
-        var inbox   = events.FirstOrDefault(e => e.MetricType == "inbox-messages")?.Total ?? 0;
+        var tokens  = events.FirstOrDefault(e => e.MetricType == AiTokens)?.Total ?? 0;
+        var nodes   = events.FirstOrDefault(e => e.MetricType == N8nNodes)?.Total ?? 0;
+        var storage = events.FirstOrDefault(e => e.MetricType == StorageMb)?.Total ?? 0;
+        var kbCount = events.FirstOrDefault(e => e.MetricType == KnowledgeBases)?.Total ?? 0;
+        var inbox   = events.FirstOrDefault(e => e.MetricType == InboxMessages)?.Total ?? 0;
 
         return new UsageSummary(tokens, nodes, storage, kbCount, inbox);
     }
@@ -49,17 +66,17 @@ public sealed class UsageService : IUsageService
     public Task RecordStorageAsync(
         Guid companyId, string moduleKey, int megabytes,
         Guid? userId = null, Guid? departmentId = null)
-        => WriteEventAsync(companyId, moduleKey, "storage-mb", megabytes, userId, departmentId);
+        => WriteEventAsync(companyId, moduleKey, StorageMb, megabytes, userId, departmentId);
 
     public Task RecordKnowledgeBaseAsync(
         Guid companyId, string moduleKey, int count,
         Guid? userId = null, Guid? departmentId = null)
-        => WriteEventAsync(companyId, moduleKey, "knowledge-bases", count, userId, departmentId);
+        => WriteEventAsync(companyId, moduleKey, KnowledgeBases, count, userId, departmentId);
 
     public Task RecordInboxMessageAsync(
         Guid companyId, string moduleKey, int messageCount,
         Guid? userId = null, Guid? departmentId = null)
-        => WriteEventAsync(companyId, moduleKey, "inbox-messages", messageCount, userId, departmentId);
+        => WriteEventAsync(companyId, moduleKey, InboxMessages, messageCount, userId, departmentId);
 
     private async Task WriteEventAsync(
         Guid companyId, string moduleKey, string metricType,

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using static OrvixFlow.Core.Entities.UsageMetric;
 
 namespace OrvixFlow.Infrastructure.Services;
 
@@ -91,7 +92,7 @@ public class EntitlementResolver : IEntitlementResolver
         }
 
         var today = DateTime.UtcNow.Date;
-        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        // Use billing period start — not calendar month — so all usage windows are consistent
         var periodStart = subscription?.CurrentPeriodStart ?? DateTime.UtcNow.AddMonths(-1);
 
         var usageSummary = await _dbContext.UsageEvents
@@ -105,13 +106,13 @@ public class EntitlementResolver : IEntitlementResolver
             })
             .ToListAsync();
 
-        var tokenUsage = usageSummary.FirstOrDefault(u => u.MetricType == "ai-tokens");
+        var tokenUsage = usageSummary.FirstOrDefault(u => u.MetricType == AiTokens);
         entitlements.TokensUsedThisPeriod = (int)(tokenUsage?.Total ?? 0);
 
-        var storageUsage = usageSummary.FirstOrDefault(u => u.MetricType == "storage-mb");
+        var storageUsage = usageSummary.FirstOrDefault(u => u.MetricType == StorageMb);
         entitlements.StorageUsedMb = (int)(storageUsage?.Total ?? 0);
 
-        var kbUsage = usageSummary.FirstOrDefault(u => u.MetricType == "knowledge-bases");
+        var kbUsage = usageSummary.FirstOrDefault(u => u.MetricType == KnowledgeBases);
         var kbCountFromDb = await _dbContext.KnowledgeBases
             .IgnoreQueryFilters()
             .Where(k => k.TenantId == companyId)
@@ -123,10 +124,10 @@ public class EntitlementResolver : IEntitlementResolver
             .Where(e => e.CompanyId == companyId && e.OccurredAt >= today)
             .SumAsync(e => e.Quantity);
 
-        // Track inbox messages used this month
+        // Inbox messages counted from billing period start — consistent with all other metrics
         entitlements.InboxMessagesUsedThisMonth = await _dbContext.InboxEvents
             .IgnoreQueryFilters()
-            .Where(e => e.TenantId == companyId && e.ReceivedAtUtc >= startOfMonth)
+            .Where(e => e.TenantId == companyId && e.ReceivedAtUtc >= periodStart)
             .CountAsync();
 
         return entitlements;

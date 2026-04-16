@@ -448,7 +448,7 @@ The following critical billing security issues have been fixed:
 
 | Issue ID | Description | Fix Applied | Status |
 |----------|-------------|-------------|--------|
-| **C2** | Stripe webhook has no signature validation | Changed `[AllowAnonymous]` to `[Authorize(Policy = "SuperAdminOnly")]` until Stripe is integrated | ✅ Fixed |
+| **C2** | Stripe webhook has no signature validation | Webhook now reads raw body + delegates to `StripeWebhookService.ProcessWebhookAsync` which calls `EventUtility.ConstructEvent` — returns 400 on invalid signature | ✅ Fixed (2026-04-16) |
 | **C3** | Tenant.Plan/SubscriptionStatus out of sync | Added `SyncTenantDenormalizationAsync()` helper, called in all lifecycle methods | ✅ Fixed |
 | **C4** | Cancelled/Suspended subscriptions not blocked | Added status gate to `GetEntitlementsAsync` and `CanUseModuleWithOverridesAsync` | ✅ Fixed |
 | **H3** | Seat limit always returns 0 | Fixed `CheckLimitAsync("seats")` to count actual `UserCompanyMemberships` | ✅ Fixed |

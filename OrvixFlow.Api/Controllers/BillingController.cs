@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
+using OrvixFlow.Infrastructure.Services.Stripe;
 
 namespace OrvixFlow.Api.Controllers;
 
@@ -20,17 +22,20 @@ public class BillingController : ControllerBase
     private readonly IEntitlementResolver _entitlementResolver;
     private readonly ICompanySubscriptionService _subscriptionService;
     private readonly IPlanService _planService;
+    private readonly StripeWebhookService _stripeWebhookService;
 
     public BillingController(
-        AppDbContext db, 
+        AppDbContext db,
         IEntitlementResolver entitlementResolver,
         ICompanySubscriptionService subscriptionService,
-        IPlanService planService)
+        IPlanService planService,
+        StripeWebhookService stripeWebhookService)
     {
         _db = db;
         _entitlementResolver = entitlementResolver;
         _subscriptionService = subscriptionService;
         _planService = planService;
+        _stripeWebhookService = stripeWebhookService;
     }
 
     private UserRole CurrentUserRole() =>
@@ -39,6 +44,10 @@ public class BillingController : ControllerBase
     private bool IsCompanyAdminOrAbove() =>
         CurrentUserRole().IsCompanyAdminOrAbove();
 
+    /// <summary>
+    /// SuperAdmin-only: directly record a usage event for diagnostic/correction purposes.
+    /// Normal usage recording is internal via IUsageService injection — NOT via this endpoint.
+    /// </summary>
     [HttpPost("usage")]
     public async Task<IActionResult> TrackUsage([FromBody] TrackUsageRequest req)
     {
@@ -48,10 +57,16 @@ public class BillingController : ControllerBase
             return Unauthorized();
         }
 
-        var role = User.FindFirst("Role")?.Value;
-        if (!Roles.IsElevated(role))
+        // M10: Use canonical role check — matches the established UserRoleExtensions pattern
+        var role = CurrentUserRole();
+        if (role != UserRole.SuperAdmin)
         {
             return Forbid();
+        }
+
+        if (!UsageMetric.IsValidMetric(req.MetricType))
+        {
+            return BadRequest(new { error = $"Unknown metric type '{req.MetricType}'. Valid values: {string.Join(", ", UsageMetric.All)}" });
         }
 
         _db.UsageEvents.Add(new Core.Entities.UsageEvent
@@ -123,37 +138,30 @@ public class BillingController : ControllerBase
         return Ok(summary);
     }
 
+    /// <summary>
+    /// Stripe webhook endpoint. Reads the raw request body so Stripe signature validation works correctly.
+    /// Signature is validated by StripeWebhookService using Stripe:WebhookSecret from config.
+    /// </summary>
     [AllowAnonymous]
     [HttpPost("stripe/webhook")]
-    public async Task<IActionResult> StripeWebhook([FromBody] StripeWebhookRequest req)
+    public async Task<IActionResult> StripeWebhook()
     {
-        // Minimal webhook sink for subscription sync. Signature validation should be added for production.
-        var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == req.CompanyId);
-        if (company == null)
+        // Must read raw body before any model binding to preserve the exact bytes Stripe signed
+        using var reader = new StreamReader(Request.Body);
+        var payload = await reader.ReadToEndAsync();
+
+        var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
+        if (string.IsNullOrEmpty(signature))
         {
-            return NotFound();
+            return BadRequest(new { error = "Missing Stripe-Signature header" });
         }
 
-        company.Plan = req.Plan;
-        company.SubscriptionStatus = req.Status;
-
-        var subscription = await _db.BillingSubscriptions.FirstOrDefaultAsync(s => s.CompanyId == req.CompanyId);
-        if (subscription == null)
+        var success = await _stripeWebhookService.ProcessWebhookAsync(payload, signature);
+        if (!success)
         {
-            subscription = new Core.Entities.BillingSubscription
-            {
-                CompanyId = req.CompanyId
-            };
-            _db.BillingSubscriptions.Add(subscription);
+            return BadRequest(new { error = "Invalid webhook signature or processing error" });
         }
 
-        subscription.StripeCustomerId = req.StripeCustomerId;
-        subscription.StripeSubscriptionId = req.StripeSubscriptionId;
-        subscription.CurrentPlan = req.Plan;
-        subscription.Status = req.Status;
-        subscription.UpdatedAt = DateTime.UtcNow;
-
-        await _db.SaveChangesAsync();
         return Ok();
     }
 
@@ -416,6 +424,5 @@ public class BillingController : ControllerBase
 }
 
 public record TrackUsageRequest(string ModuleKey, string MetricType, decimal Quantity, Guid? DepartmentId);
-public record StripeWebhookRequest(Guid CompanyId, string StripeCustomerId, string StripeSubscriptionId, string Plan, string Status);
 public record ChangePlanRequest(Guid PlanTemplateId, bool Immediate = true);
 public record ChangePlanResponse(bool Success, string Message, string? PendingChangeAt);
