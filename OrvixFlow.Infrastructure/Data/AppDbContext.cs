@@ -54,6 +54,7 @@ public class AppDbContext : DbContext
     public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TenantWebhookLimit> TenantWebhookLimits => Set<TenantWebhookLimit>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

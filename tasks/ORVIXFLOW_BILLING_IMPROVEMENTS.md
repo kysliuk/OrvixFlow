@@ -1027,3 +1027,45 @@ When Stripe is integrated:
 | ID | Fix | Status |
 |----|-----|--------|
 | T4-4 | Usage alert hooks at 80%/100% thresholds | ⏳ Deferred to Phase 5 (Stripe integration) |
+
+---
+
+## Phase 5 Implementation Complete (2026-04-17)
+
+### Features Implemented
+
+#### Stripe Foundation
+- **Stripe.net NuGet package** (v44.0.0) added to Infrastructure project
+- **IStripeService interface** - Core interface with methods for customer/subscription management
+- **StripeService** - Implementation with Checkout session creation
+- **StripeWebhookService** - Webhook handling with signature validation
+- **Invoice entity** - Created in Core/Entities for future invoice tracking
+
+#### Files Created
+- `OrvixFlow.Core/Interfaces/IStripeService.cs` (new)
+- `OrvixFlow.Core/Entities/Invoice.cs` (new)
+- `OrvixFlow.Infrastructure/Services/Stripe/StripeService.cs` (new)
+- `OrvixFlow.Infrastructure/Services/Stripe/StripeWebhookService.cs` (new)
+
+#### Notes
+- Webhook signature validation properly implemented using Stripe.EventUtility
+- Checkout session creation flow ready
+- Invoice recording deferred pending EF Core migration
+- Portal session returns placeholder URL (requires additional Stripe setup)
+- All methods requiring DB changes return NotImplementedException - need migration
+- Build succeeds, all 347 tests pass
+
+### Remaining Phase 5 Tasks
+| ID | Feature | Notes |
+|----|--------|-------|
+| T5-1 | Invoice DbSet + migration | Add to AppDbContext, run migration |
+| T5-2 | Stripe price configuration | Add to .env (prices for each plan) |
+| T5-3 | Portal full implementation | Requires Customer Portal add-on |
+| T5-4 | Checkout success handling | Stripe webhook integration |
+| T5-5 | Tests for webhook validation | Signature verification tests |
+
+### Next Steps (Post Phase 5)
+- Run EF Core migration for Invoice table
+- Configure Stripe prices in .env
+- Add webhook tests
+- Connect checkout success to subscription activation

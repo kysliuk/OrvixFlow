@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "wmZjrDOKtZA=",
+  "dgSpecHash": "JK8qxdmW+Hc=",
   "success": true,
   "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Infrastructure/OrvixFlow.Infrastructure.csproj",
   "expectedPackageFiles": [
@@ -47,8 +47,9 @@
     "/home/kysliuk/.nuget/packages/microsoft.semantickernel.connectors.azureopenai/1.73.0/microsoft.semantickernel.connectors.azureopenai.1.73.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/microsoft.semantickernel.connectors.openai/1.73.0/microsoft.semantickernel.connectors.openai.1.73.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/microsoft.semantickernel.core/1.73.0/microsoft.semantickernel.core.1.73.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/microsoft.win32.systemevents/6.0.0/microsoft.win32.systemevents.6.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/nclam/9.0.0/nclam.9.0.0.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/newtonsoft.json/11.0.1/newtonsoft.json.11.0.1.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/newtonsoft.json/12.0.3/newtonsoft.json.12.0.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/npgsql/9.0.1/npgsql.9.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/npgsql.entityframeworkcore.postgresql/9.0.1/npgsql.entityframeworkcore.postgresql.9.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/openai/2.8.0/openai.2.8.0.nupkg.sha512",
@@ -56,8 +57,11 @@
     "/home/kysliuk/.nuget/packages/pgvector/0.3.2/pgvector.0.3.2.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/pgvector.entityframeworkcore/0.3.0/pgvector.entityframeworkcore.0.3.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/sixlabors.imagesharp/3.1.12/sixlabors.imagesharp.3.1.12.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/stripe.net/44.0.0/stripe.net.44.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.clientmodel/1.8.1/system.clientmodel.1.8.1.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.configuration.configurationmanager/6.0.0/system.configuration.configurationmanager.6.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.diagnostics.diagnosticsource/10.0.3/system.diagnostics.diagnosticsource.10.0.3.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.drawing.common/6.0.0/system.drawing.common.6.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.identitymodel.tokens.jwt/8.16.0/system.identitymodel.tokens.jwt.8.16.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.packaging/8.0.0/system.io.packaging.8.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.pipelines/10.0.3/system.io.pipelines.10.0.3.nupkg.sha512",
@@ -65,9 +69,13 @@
     "/home/kysliuk/.nuget/packages/system.memory.data/8.0.1/system.memory.data.8.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.net.serversentevents/9.0.9/system.net.serversentevents.9.0.9.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.numerics.tensors/10.0.3/system.numerics.tensors.10.0.3.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.security.accesscontrol/6.0.0/system.security.accesscontrol.6.0.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.security.cryptography.protecteddata/6.0.0/system.security.cryptography.protecteddata.6.0.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.security.permissions/6.0.0/system.security.permissions.6.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.text.encodings.web/10.0.3/system.text.encodings.web.10.0.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.text.json/10.0.3/system.text.json.10.0.3.nupkg.sha512",
-    "/home/kysliuk/.nuget/packages/system.threading.channels/10.0.3/system.threading.channels.10.0.3.nupkg.sha512"
+    "/home/kysliuk/.nuget/packages/system.threading.channels/10.0.3/system.threading.channels.10.0.3.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.windows.extensions/6.0.0/system.windows.extensions.6.0.0.nupkg.sha512"
   ],
   "logs": [
     {

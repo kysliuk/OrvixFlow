@@ -14,6 +14,7 @@ using OrvixFlow.Infrastructure.Ai.Chunking;
 using OrvixFlow.Infrastructure.Ai.Jobs;
 using OrvixFlow.Infrastructure.Storage;
 using OrvixFlow.Infrastructure.Services.Security;
+using OrvixFlow.Infrastructure.Services.Stripe;
 
 namespace OrvixFlow.Infrastructure;
 
@@ -38,6 +39,10 @@ public static class DependencyInjection
 
         // AI
         services.AddOrvixSemanticKernel(configuration);
+
+        // Phase 5: Stripe services
+        services.AddScoped<IStripeService, StripeService>();
+        services.AddScoped<StripeWebhookService>();
 
         return services;
     }
@@ -164,6 +169,10 @@ public static class DependencyInjection
 
         services.AddScoped<IVirusScanService, NoopVirusScanService>();
         services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
+
+        // Phase 5: Stripe services
+        services.AddScoped<IStripeService, StripeService>();
+        services.AddScoped<StripeWebhookService>();
 
         return services;
     }
