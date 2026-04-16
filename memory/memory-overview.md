@@ -176,3 +176,31 @@ Critical billing security and consistency fixes implemented:
   - Subscription status gate behavior
   - Admin override respect in limit checks
   - Seat limit actual count verification
+
+### Billing System Phase 3 Improvements (2026-04-16)
+
+Usage tracking and enforcement improvements implemented:
+
+#### UsageMetric Constants
+- Added `UsageMetric` static class in `OrvixFlow.Core/Entities/UsageMetric.cs`
+- Standard metric type constants: `AiTokens`, `N8nNodes`, `StorageMb`, `KnowledgeBases`, `InboxMessages`
+- Prevents silent metric type mismatches across the codebase
+
+#### UsagePeriodRolloverJob
+- New Hangfire job in `OrvixFlow.Api/Jobs/UsagePeriodRolloverJob.cs`
+- Runs daily at midnight to advance expired billing periods
+- Syncs `CurrentPeriodStart` → `CurrentPeriodEnd`, then extends `CurrentPeriodEnd` by interval (30/365 days)
+- Records audit events for each period rollover
+- Registered in `Program.cs` with cron schedule `0 0 * * *`
+
+#### Entitlements Already Period-Aware
+- `EntitlementResolver.GetEntitlementsAsync` already uses `subscription.CurrentPeriodStart` for filtering usage events
+- Phase 1 already fixed to use `GetEffectiveEntitlementsAsync` in all `IsWithin*Async` methods
+
+#### Tests Added
+- 4 new tests in `BillingPhase3Tests.cs` covering:
+  - UsageMetric constants verification
+  - CurrentPeriodStart usage in entitlements
+  - Period rollover simulation
+  - Gateway blocks cancelled subscriptions
+

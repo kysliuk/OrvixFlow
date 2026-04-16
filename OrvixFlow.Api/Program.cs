@@ -253,6 +253,12 @@ recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.TrialExpirationJob>(
     job => job.ExecuteAsync(),
     "0 */6 * * *");
 
+// Phase 3: Usage period rollover - run daily to advance expired billing periods
+recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.UsagePeriodRolloverJob>(
+    "usage-period-rollover",
+    job => job.ExecuteAsync(),
+    "0 0 * * *");
+
 // F-21: AuditTrail retention job - run daily at 3am to purge records older than 90 days
 recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.AuditRetentionJob>(
     "audit-retention",

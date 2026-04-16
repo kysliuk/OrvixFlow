@@ -32,6 +32,7 @@
 | PlanCatalog | `OrvixFlow.Core/Entities/PlanCatalog.cs` |
 | SubscriptionState | `OrvixFlow.Core/Entities/SubscriptionState.cs` |
 | BillingInterval | `OrvixFlow.Core/Entities/BillingInterval.cs` |
+| UsageMetric | `OrvixFlow.Core/Entities/UsageMetric.cs` |
 
 ## Tests
 
@@ -143,6 +144,7 @@
 | FileIngestionJob | `OrvixFlow.Infrastructure/Ai/Jobs/FileIngestionJob.cs` |
 | TrialExpirationJob | `OrvixFlow.Api/Jobs/TrialExpirationJob.cs` |
 | PendingPlanChangeJob | `OrvixFlow.Api/Jobs/PendingPlanChangeJob.cs` |
+| UsagePeriodRolloverJob | `OrvixFlow.Api/Jobs/UsagePeriodRolloverJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
 | Load Test Script | `scripts/load-test-inbox.sh` |
