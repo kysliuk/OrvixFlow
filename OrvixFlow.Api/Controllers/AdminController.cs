@@ -166,6 +166,117 @@ public class AdminController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// T4-5: Admin subscription view endpoint.
+    /// Returns full CompanySubscription + current usage + EntitlementOverride.
+    /// </summary>
+    [HttpGet("companies/{id}/subscription")]
+    public async Task<IActionResult> GetCompanySubscription(Guid id)
+    {
+        if (!IsGlobalAdmin()) return Forbid();
+
+        var subscription = await _subscriptionService.GetSubscriptionAsync(id);
+        if (subscription == null)
+        {
+            return NotFound(new { error = "Subscription not found" });
+        }
+
+        // Get effective entitlements (includes overrides)
+        var entitlements = await _entitlementResolver.GetEffectiveEntitlementsAsync(id);
+        
+        // Get entitlement override if exists
+        var overrideEntity = await _entitlementResolver.GetEntitlementOverrideAsync(id);
+        
+        // Get current usage counts
+        var memberCount = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .CountAsync(m => m.CompanyId == id && m.Status == "Active");
+
+        var kbCount = await _db.KnowledgeBaseDocuments
+            .IgnoreQueryFilters()
+            .CountAsync(k => k.TenantId == id);
+
+        var mailboxCount = await _db.MailboxConnections
+            .IgnoreQueryFilters()
+            .CountAsync(m => m.TenantId == id);
+
+        return Ok(new
+        {
+            subscription = new
+            {
+                subscription.Id,
+                subscription.CompanyId,
+                Status = subscription.Status.ToClaimValue(),
+                BillingInterval = subscription.BillingInterval.ToClaimValue(),
+                subscription.CurrentPeriodStart,
+                subscription.CurrentPeriodEnd,
+                subscription.TrialEndsAt,
+                subscription.PendingPlanId,
+                subscription.PendingChangeAt,
+                Plan = subscription.PlanTemplate != null ? new
+                {
+                    subscription.PlanTemplate.Id,
+                    subscription.PlanTemplate.Name,
+                    subscription.PlanTemplate.Slug,
+                    subscription.PlanTemplate.MonthlyPriceCents,
+                    subscription.PlanTemplate.YearlyPriceCents,
+                    subscription.PlanTemplate.MaxSeats,
+                    subscription.PlanTemplate.IsFree,
+                    PlanEntitlements = subscription.PlanTemplate.Entitlements != null ? new
+                    {
+                        subscription.PlanTemplate.Entitlements.MaxMonthlyTokens,
+                        subscription.PlanTemplate.Entitlements.MaxApiRequestsPerDay,
+                        subscription.PlanTemplate.Entitlements.MaxStorageMb,
+                        subscription.PlanTemplate.Entitlements.MaxKnowledgeBases,
+                        subscription.PlanTemplate.Entitlements.MaxInboxMessagesPerMonth,
+                        subscription.PlanTemplate.Entitlements.MaxMailboxConnections
+                    } : null
+                } : null
+            },
+            entitlements = new
+            {
+                // Effective limits (base + override)
+                entitlements.MaxSeats,
+                entitlements.MaxMonthlyTokens,
+                entitlements.MaxApiRequestsPerDay,
+                entitlements.MaxStorageMb,
+                entitlements.MaxKnowledgeBases,
+                entitlements.MaxInboxMessagesPerMonth,
+                entitlements.MaxMailboxConnections,
+                // Current usage
+                entitlements.TokensUsedThisPeriod,
+                entitlements.ApiRequestsUsedToday,
+                entitlements.StorageUsedMb,
+                entitlements.KnowledgeBasesCount,
+                entitlements.InboxMessagesUsedThisMonth,
+                // Override info
+                entitlements.HasEntitlementOverride,
+                entitlements.OverrideNote,
+                // Current counts
+                currentSeats = memberCount,
+                currentKnowledgeBases = kbCount,
+                currentMailboxConnections = mailboxCount
+            },
+            entitlementOverride = overrideEntity != null ? new
+            {
+                overrideEntity.Id,
+                overrideEntity.MaxSeats,
+                overrideEntity.MaxMonthlyTokens,
+                overrideEntity.MaxApiRequestsPerDay,
+                overrideEntity.MaxStorageMb,
+                overrideEntity.MaxKnowledgeBases,
+                overrideEntity.MaxInboxMessages,
+                overrideEntity.MaxMailboxConnections,
+                overrideEntity.Note,
+                overrideEntity.CreatedAt,
+                overrideEntity.UpdatedAt
+            } : null
+        });
+    }
+
+    /// <summary>
+    /// T4-2: Updated to pass targetStatus to AssignPlanAsync for post-payment scenarios.
+    /// </summary>
     [HttpPut("companies/{id}/plan")]
     public async Task<IActionResult> AssignPlan(Guid id, [FromBody] AssignPlanRequest request)
     {
@@ -173,12 +284,19 @@ public class AdminController : ControllerBase
 
         try
         {
-            var subscription = await _subscriptionService.AssignPlanAsync(id, request.PlanTemplateId, request.BillingInterval);
+            // T4-2: Pass targetStatus for post-payment scenarios
+            var subscription = await _subscriptionService.AssignPlanAsync(
+                id, 
+                request.PlanTemplateId, 
+                request.BillingInterval,
+                request.TargetStatus);
+            
             return Ok(new
             {
                 subscription.Id,
                 Status = subscription.Status.ToClaimValue(),
-                subscription.PlanTemplateId
+                subscription.PlanTemplateId,
+                subscription.CurrentPeriodEnd
             });
         }
         catch (PlanNotFoundException)
@@ -217,6 +335,9 @@ public class AdminController : ControllerBase
         public bool Immediate { get; set; } = true;
     }
 
+    /// <summary>
+    /// T4-3: Updated to handle DowngradeNotAllowedException with 409 Conflict.
+    /// </summary>
     [HttpPost("companies/{id}/change-plan")]
     public async Task<IActionResult> ChangeCompanyPlan(Guid id, [FromBody] ChangePlanRequest request)
     {
@@ -248,6 +369,23 @@ public class AdminController : ControllerBase
         catch (SeatLimitExceededException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (DowngradeNotAllowedException ex)
+        {
+            // T4-3: Return 409 Conflict with downgrade blocker info
+            return Conflict(new
+            {
+                error = "DOWNGRADE_BLOCKED",
+                message = ex.Message,
+                exceededLimit = ex.ExceededLimit,
+                currentValue = ex.CurrentValue,
+                maxAllowed = ex.MaxAllowed,
+                blockers = new[]
+                {
+                    new { limit = ex.ExceededLimit, current = ex.CurrentValue, maxAllowed = ex.MaxAllowed }
+                },
+                actionRequired = $"Reduce {ex.ExceededLimit} before downgrading. Current: {ex.CurrentValue}, New limit: {ex.MaxAllowed}"
+            });
         }
     }
 
@@ -740,4 +878,7 @@ public class AdminController : ControllerBase
     }
 }
 
-public record AssignPlanRequest(Guid PlanTemplateId, string? BillingInterval);
+/// <summary>
+/// T4-2: Added TargetStatus parameter for post-payment scenarios.
+/// </summary>
+public record AssignPlanRequest(Guid PlanTemplateId, string? BillingInterval, string? TargetStatus = null);

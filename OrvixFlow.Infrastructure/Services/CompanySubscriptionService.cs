@@ -69,7 +69,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             .FirstOrDefaultAsync(s => s.CompanyId == companyId);
     }
 
-    public async Task<CompanySubscription> AssignPlanAsync(Guid companyId, Guid planTemplateId, string? billingInterval = null)
+    public async Task<CompanySubscription> AssignPlanAsync(Guid companyId, Guid planTemplateId, string? billingInterval = null, string? targetStatus = null)
     {
         var plan = await _planService.GetPlanByIdAsync(planTemplateId);
         if (plan == null)
@@ -99,7 +99,18 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             ? BillingIntervalExtensions.ParseInterval(billingInterval)
             : plan.BillingInterval;
         var periodDays = interval.GetPeriodDays();
-        var targetStatus = plan.IsFree ? SubscriptionState.Active : SubscriptionState.Trialing;
+        
+        // Determine target status: admin-provided status overrides default
+        SubscriptionState resolvedStatus;
+        if (!string.IsNullOrEmpty(targetStatus))
+        {
+            resolvedStatus = SubscriptionStateExtensions.ParseState(targetStatus);
+        }
+        else
+        {
+            // Default: Free plans are Active, paid plans start as Trialing
+            resolvedStatus = plan.IsFree ? SubscriptionState.Active : SubscriptionState.Trialing;
+        }
 
         if (existingSubscription != null)
         {
@@ -107,13 +118,13 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             existingSubscription.BillingInterval = interval;
             existingSubscription.CurrentPeriodStart = DateTime.UtcNow;
             existingSubscription.CurrentPeriodEnd = DateTime.UtcNow.AddDays(periodDays);
-            existingSubscription.Status = targetStatus;
+            existingSubscription.Status = resolvedStatus;
             existingSubscription.UpdatedAt = DateTime.UtcNow;
             
             await _dbContext.SaveChangesAsync();
             
             // Sync tenant denormalization (T1-2/T1-3)
-            await SyncTenantDenormalizationAsync(companyId, plan.Slug, targetStatus);
+            await SyncTenantDenormalizationAsync(companyId, plan.Slug, resolvedStatus);
             
             if (_auditService != null)
             {
@@ -127,7 +138,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         {
             CompanyId = companyId,
             PlanTemplateId = planTemplateId,
-            Status = targetStatus,
+            Status = resolvedStatus,
             BillingInterval = interval,
             CurrentPeriodStart = DateTime.UtcNow,
             CurrentPeriodEnd = DateTime.UtcNow.AddDays(periodDays),
@@ -139,7 +150,7 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         await _dbContext.SaveChangesAsync();
 
         // Sync tenant denormalization (T1-2/T1-3)
-        await SyncTenantDenormalizationAsync(companyId, plan.Slug, targetStatus);
+        await SyncTenantDenormalizationAsync(companyId, plan.Slug, resolvedStatus);
 
         if (_auditService != null)
         {
@@ -168,12 +179,32 @@ public class CompanySubscriptionService : ICompanySubscriptionService
             throw new PlanNotActiveException(newPlanTemplateId);
         }
 
+        // T4-3: Check seat limit
         var memberCount = await _dbContext.UserCompanyMemberships
             .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
 
         if (newPlan.MaxSeats.HasValue && memberCount > newPlan.MaxSeats.Value)
         {
             throw new SeatLimitExceededException(memberCount, newPlan.MaxSeats.Value);
+        }
+
+        // T4-3: Check downgrade safety - KB count
+        var kbCount = await _dbContext.KnowledgeBaseDocuments
+            .CountAsync(k => k.TenantId == companyId);
+        
+        if (newPlan.Entitlements != null && kbCount > newPlan.Entitlements.MaxKnowledgeBases)
+        {
+            throw new DowngradeNotAllowedException("KBs", kbCount, newPlan.Entitlements.MaxKnowledgeBases);
+        }
+
+        // T4-3: Check downgrade safety - storage
+        var storageUsed = await _dbContext.UsageEvents
+            .Where(e => e.CompanyId == companyId && e.MetricType == UsageMetric.StorageMb)
+            .SumAsync(e => e.Quantity);
+        
+        if (newPlan.Entitlements != null && storageUsed > newPlan.Entitlements.MaxStorageMb)
+        {
+            throw new DowngradeNotAllowedException("storageMB", (int)storageUsed, newPlan.Entitlements.MaxStorageMb);
         }
 
         var oldPlanName = subscription.PlanTemplate?.Name ?? "None";
@@ -294,7 +325,31 @@ public class CompanySubscriptionService : ICompanySubscriptionService
         var memberCount = await _dbContext.UserCompanyMemberships
             .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");
 
-        return !newPlan.MaxSeats.HasValue || memberCount <= newPlan.MaxSeats.Value;
+        if (newPlan.MaxSeats.HasValue && memberCount > newPlan.MaxSeats.Value)
+        {
+            return false;
+        }
+
+        // Check KB count
+        var kbCount = await _dbContext.KnowledgeBaseDocuments
+            .CountAsync(k => k.TenantId == companyId);
+        
+        if (newPlan.Entitlements != null && kbCount > newPlan.Entitlements.MaxKnowledgeBases)
+        {
+            return false;
+        }
+
+        // Check storage
+        var storageUsed = await _dbContext.UsageEvents
+            .Where(e => e.CompanyId == companyId && e.MetricType == UsageMetric.StorageMb)
+            .SumAsync(e => e.Quantity);
+        
+        if (newPlan.Entitlements != null && storageUsed > newPlan.Entitlements.MaxStorageMb)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

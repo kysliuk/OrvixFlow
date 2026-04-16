@@ -966,3 +966,64 @@ When Stripe is integrated:
 | **Downgrade data loss** | If a company downgrades, their extra KBs and files still exist but are locked. Define a clear policy: locked for N days, then asked to delete, then auto-archived. |
 | **Enterprise pricing complexity** | Enterprise with `MonthlyPriceCents = 0` and `BillingInterval = "Custom"` needs manual billing outside the system. Add a flag `IsManuallyBilled` to `CompanySubscription` to avoid Stripe integration confusion. |
 | **Multi-currency** | Currently all plans are USD-only. `PlanTemplate.Currency` field exists but is always `"USD"`. Stripe handles currency conversion — hook into it properly when integrating. |
+
+---
+
+## Phase 4 Implementation Complete (2026-04-16)
+
+### Features Implemented
+
+#### T4-1: GetSubscription Uses Effective Entitlements
+- **BillingController.GetSubscription** now uses `GetEffectiveEntitlementsAsync` instead of just base entitlements
+- Returns `hasEntitlementOverride` flag to indicate when admin override is active
+- Returns `overrideNote` for context
+- Removed fake billing history - returns empty array with `billingHistoryNote`
+- Added `isEstimate: true` to proration response until Stripe integration
+
+#### T4-2: AssignPlanAsync with targetStatus Parameter
+- Added `targetStatus` optional parameter to `ICompanySubscriptionService.AssignPlanAsync`
+- Admin can set subscription to `Active` directly for post-payment scenarios
+- Without parameter, defaults to existing behavior (Trialing for paid plans)
+- Updated `AdminController.AssignPlan` to pass `TargetStatus` from request
+
+#### T4-3: Downgrade Safety Checks
+- **ChangePlanAsync** now checks:
+  - KB count: Throws `DowngradeNotAllowedException` if current KBs > new plan limit
+  - Storage: Throws `DowngradeNotAllowedException` if current storage > new plan limit
+  - Seats: Still throws `SeatLimitExceededException` (checked first)
+- Added `DowngradeNotAllowedException` to `ICompanySubscriptionService`
+- Controllers return 409 Conflict with clear blocker info including:
+  - `exceededLimit` - which limit type
+  - `currentValue` - current usage
+  - `maxAllowed` - new plan limit
+  - `actionRequired` - what user needs to do
+
+#### T4-5: Admin Subscription View Endpoint
+- Added `GET /api/admin/companies/{id}/subscription`
+- Returns full `CompanySubscription` + entitlements + `CompanyEntitlementOverride`
+- Includes both effective limits (base + override) and current usage counts
+
+### Files Changed
+- `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs` - Added `targetStatus` param, `DowngradeNotAllowedException`
+- `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` - Implemented features
+- `OrvixFlow.Api/Controllers/BillingController.cs` - Fixed entitlements, removed fake history, added downgrade handling
+- `OrvixFlow.Api/Controllers/AdminController.cs` - Added subscription endpoint, updated plan assignment
+
+### Tests Added
+- `BillingPhase4Tests.cs` - 10 tests covering:
+  - `GetEffectiveEntitlements_ReturnsOverrides_WhenOverrideExists`
+  - `GetEffectiveEntitlements_ReturnsBasePlan_WhenNoOverride`
+  - `AssignPlanAsync_WithTargetStatus_SetsStatusCorrectly`
+  - `AssignPlanAsync_WithoutTargetStatus_SetsDefaultStatus`
+  - `ChangePlanAsync_ThrowsDowngradeNotAllowed_WhenKbsExceedNewLimit`
+  - `ChangePlanAsync_ThrowsDowngradeNotAllowed_WhenStorageExceedsNewLimit`
+  - `ChangePlanAsync_ThrowsSeatLimitExceeded_WhenSeatsExceedNewLimit`
+  - `ChangePlanAsync_Succeeds_WhenWithinNewPlanLimits`
+  - `CheckLimit_ReturnsCorrectPercentageAt80Percent`
+  - `CheckLimit_BlocksWhenAt100Percent`
+- `DowngradeSafetyTests` - 1 test for exception properties
+
+### Remaining Phase 4 Tasks
+| ID | Fix | Status |
+|----|-----|--------|
+| T4-4 | Usage alert hooks at 80%/100% thresholds | ⏳ Deferred to Phase 5 (Stripe integration) |

@@ -8,7 +8,7 @@ public interface ICompanySubscriptionService
 {
     Task<CompanySubscription> CreateTrialSubscriptionAsync(Guid companyId, Guid planTemplateId);
     Task<CompanySubscription?> GetSubscriptionAsync(Guid companyId);
-    Task<CompanySubscription> AssignPlanAsync(Guid companyId, Guid planTemplateId, string? billingInterval = null);
+    Task<CompanySubscription> AssignPlanAsync(Guid companyId, Guid planTemplateId, string? billingInterval = null, string? targetStatus = null);
     Task<CompanySubscription> ChangePlanAsync(Guid companyId, Guid newPlanTemplateId, bool immediate = false);
     Task<CompanySubscription> SuspendSubscriptionAsync(Guid companyId);
     Task<CompanySubscription> ReactivateSubscriptionAsync(Guid companyId);
@@ -66,5 +66,20 @@ public class PlanNotActiveException : SubscriptionException
     public PlanNotActiveException(Guid planId) : base($"Plan {planId} is not active")
     {
         PlanId = planId;
+    }
+}
+
+public class DowngradeNotAllowedException : SubscriptionException
+{
+    public string ExceededLimit { get; }
+    public int CurrentValue { get; }
+    public int MaxAllowed { get; }
+    
+    public DowngradeNotAllowedException(string exceededLimit, int currentValue, int maxAllowed) 
+        : base($"Cannot downgrade: {currentValue} {exceededLimit} exceed new plan limit of {maxAllowed}")
+    {
+        ExceededLimit = exceededLimit;
+        CurrentValue = currentValue;
+        MaxAllowed = maxAllowed;
     }
 }

@@ -650,3 +650,39 @@ dotnet test --filter "FullyQualifiedName~BillingPhase1"
 dotnet test --filter "FullyQualifiedName~EntitlementResolver"
 dotnet test --filter "FullyQualifiedName~CompanySubscription"
 ```
+
+---
+
+## Billing System Phase 4 (2026-04-16)
+
+### Features Implemented
+
+#### T4-1: Effective Entitlements
+- `GetSubscription` now uses `GetEffectiveEntitlementsAsync` (respects admin overrides)
+- Shows `hasEntitlementOverride` flag in response
+- Fake billing history removed
+
+#### T4-2: Admin Plan Assignment
+- `targetStatus` parameter added to `AssignPlanAsync`
+- Admin can set `Active` status directly for post-payment scenarios
+
+#### T4-3: Downgrade Safety
+- `ChangePlanAsync` blocks downgrades that would exceed:
+  - KB limit → `DowngradeNotAllowedException`
+  - Storage limit → `DowngradeNotAllowedException`
+  - Seat limit → `SeatLimitExceededException` (checked first)
+- Returns 409 Conflict with blocker info
+
+#### T4-5: Admin Subscription View
+- New endpoint: `GET /api/admin/companies/{id}/subscription`
+- Returns full subscription + entitlements + override details
+
+### Key Files
+- `CompanySubscriptionService.cs` - Downgrade checks, targetStatus parameter
+- `BillingController.cs` - Effective entitlements, fake history removed
+- `AdminController.cs` - Subscription endpoint, updated plan assignment
+- `ICompanySubscriptionService.cs` - New exception, interface update
+
+### Tests
+- 11 new tests in `BillingPhase4Tests.cs`
+- Total 29 billing tests passing

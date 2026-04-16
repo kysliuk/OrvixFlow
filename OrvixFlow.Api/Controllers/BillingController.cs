@@ -77,30 +77,24 @@ public class BillingController : ControllerBase
         var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == companyId);
         if (company == null) return NotFound(new { error = "Company not found." });
 
-        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        // T4-1: Use effective entitlements from resolver (respects overrides)
+        var entitlements = await _entitlementResolver.GetEffectiveEntitlementsAsync(companyId.Value);
+        
+        // Get subscription for period dates
+        var subscription = await _entitlementResolver.GetSubscriptionAsync(companyId.Value);
+        var periodStart = subscription?.CurrentPeriodStart ?? DateTime.UtcNow.AddDays(-30);
         
         var used = await _db.UsageEvents
-            .Where(e => e.CompanyId == companyId.Value && e.OccurredAt >= startOfMonth)
+            .Where(e => e.CompanyId == companyId.Value && e.OccurredAt >= periodStart)
             .SumAsync(e => (decimal?)e.Quantity) ?? 0m;
-
-        int limit = company.Plan?.ToLowerInvariant() switch
-        {
-            "free" => 50000,
-            "trialing" => 50000,
-            "starter" => 1000000,
-            "pro" => 1000000,
-            "enterprise" => 10000000,
-            _ => 50000
-        };
-
-        var renewalDate = startOfMonth.AddMonths(1);
 
         return Ok(new
         {
             used = used,
-            limit = limit,
+            limit = entitlements.MaxMonthlyTokens,
             plan = company.Plan ?? "Free",
-            renewalDate = renewalDate
+            periodStart = periodStart.ToString("o"),
+            currentPeriodEnd = subscription?.CurrentPeriodEnd.ToString("o")
         });
     }
 
@@ -163,6 +157,10 @@ public class BillingController : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// T4-1: Get subscription with effective entitlements (respects admin overrides).
+    /// Fake billing history removed - will be available after Stripe integration.
+    /// </summary>
     [HttpGet("subscription")]
     public async Task<IActionResult> GetSubscription()
     {
@@ -173,6 +171,7 @@ public class BillingController : ControllerBase
         }
 
         var subscription = await _entitlementResolver.GetSubscriptionAsync(companyId.Value);
+        // T4-1: Use GetEffectiveEntitlementsAsync to respect admin overrides
         var entitlements = await _entitlementResolver.GetEffectiveEntitlementsAsync(companyId.Value);
 
         var memberCount = await _db.UserCompanyMemberships
@@ -181,10 +180,10 @@ public class BillingController : ControllerBase
         var kbCount = await _db.KnowledgeBases
             .CountAsync(k => k.TenantId == companyId.Value);
 
-        // Get inbox message count for this month
-        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        // Get inbox message count for this period
+        var periodStart = subscription?.CurrentPeriodStart ?? DateTime.UtcNow.AddDays(-30);
         var inboxMessageCount = await _db.InboxEvents
-            .Where(e => e.TenantId == companyId.Value && e.ReceivedAtUtc >= startOfMonth)
+            .Where(e => e.TenantId == companyId.Value && e.ReceivedAtUtc >= periodStart)
             .CountAsync();
 
         // Get mailbox connection count
@@ -192,17 +191,7 @@ public class BillingController : ControllerBase
             .Where(m => m.TenantId == companyId.Value)
             .CountAsync();
 
-        var billingHistory = subscription?.PlanTemplate != null ? new[]
-        {
-            new {
-                id = "inv_" + Guid.NewGuid().ToString("N")[..8],
-                amount = subscription.PlanTemplate.MonthlyPriceCents,
-                date = subscription.CurrentPeriodStart.ToString("o"),
-                description = $"{subscription.PlanTemplate.Name} Plan - {subscription.BillingInterval}",
-                status = "Paid"
-            }
-        } : Array.Empty<object>();
-
+        // T4-1: Removed fake billing history - returns empty array until Stripe integration
         return Ok(new
         {
             plan = subscription?.PlanTemplate != null ? new
@@ -212,6 +201,7 @@ public class BillingController : ControllerBase
                 interval = subscription.PlanTemplate.BillingInterval.ToClaimValue()
             } : null,
             status = subscription?.Status.ToClaimValue() ?? "Active",
+            currentPeriodStart = subscription?.CurrentPeriodStart.ToString("o"),
             currentPeriodEnd = subscription?.CurrentPeriodEnd != default ? subscription.CurrentPeriodEnd.ToString("o") : null,
             pendingPlanId = subscription?.PendingPlanId,
             pendingChangeAt = subscription?.PendingChangeAt?.ToString("o"),
@@ -228,9 +218,13 @@ public class BillingController : ControllerBase
                 maxInboxMessagesPerMonth = entitlements.MaxInboxMessagesPerMonth,
                 inboxMessagesUsedThisMonth = inboxMessageCount,
                 maxMailboxConnections = entitlements.MaxMailboxConnections,
-                mailboxConnectionsUsed = mailboxConnectionCount
+                mailboxConnectionsUsed = mailboxConnectionCount,
+                // T4-1: Flag when override is active
+                hasEntitlementOverride = entitlements.HasEntitlementOverride,
+                overrideNote = entitlements.OverrideNote
             },
-            billingHistory = billingHistory
+            // T4-1: Removed fake billing history
+            billingHistoryNote = "Invoice history will be available once billing is activated."
         });
     }
 
@@ -326,6 +320,22 @@ public class BillingController : ControllerBase
                 message = $"Cannot change to this plan: {ex.CurrentSeats} seats exceed the plan limit of {ex.MaxSeats}"
             });
         }
+        catch (DowngradeNotAllowedException ex)
+        {
+            // T4-3: Return 409 Conflict with clear downgrade blocker info
+            return Conflict(new
+            {
+                error = "DOWNGRADE_BLOCKED",
+                message = ex.Message,
+                exceededLimit = ex.ExceededLimit,
+                currentValue = ex.CurrentValue,
+                maxAllowed = ex.MaxAllowed,
+                blockers = new[]
+                {
+                    new { limit = ex.ExceededLimit, current = ex.CurrentValue, maxAllowed = ex.MaxAllowed }
+                }
+            });
+        }
         catch (PlanNotFoundException)
         {
             return NotFound(new { error = "Plan not found" });
@@ -374,6 +384,8 @@ public class BillingController : ControllerBase
             newPrice = newPrice,
             prorationAmount = prorationAmount,
             daysRemaining = daysRemaining,
+            // T4-1: Mark as estimate until Stripe integration
+            isEstimate = true,
             message = "Proration will be calculated when Stripe is integrated"
         });
     }

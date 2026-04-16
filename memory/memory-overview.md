@@ -204,3 +204,33 @@ Usage tracking and enforcement improvements implemented:
   - Period rollover simulation
   - Gateway blocks cancelled subscriptions
 
+
+### Billing System Phase 4 Improvements (2026-04-16)
+
+Admin panel and UX improvements implemented:
+
+#### T4-1: Effective Entitlements in Subscription Response
+- `BillingController.GetSubscription` now uses `GetEffectiveEntitlementsAsync`
+- Shows `hasEntitlementOverride` flag when admin override is active
+- Removed fake billing history (returns note instead)
+
+#### T4-2: Admin Plan Assignment with Target Status
+- `AssignPlanAsync` now accepts optional `targetStatus` parameter
+- Admin can assign subscription as `Active` directly (for post-payment scenarios)
+- Defaults to existing behavior (Trialing) when not specified
+
+#### T4-3: Downgrade Safety Checks
+- `ChangePlanAsync` blocks downgrades when:
+  - Current KBs exceed new plan's MaxKnowledgeBases limit
+  - Current storage usage exceeds new plan's MaxStorageMb limit
+  - Current seats exceed new plan's MaxSeats limit (throws `SeatLimitExceededException`)
+- Returns 409 Conflict with clear blocker info: limit type, current value, max allowed, action required
+
+#### T4-5: Admin Subscription View
+- New endpoint: `GET /api/admin/companies/{id}/subscription`
+- Returns full CompanySubscription + entitlements + override details
+- Includes both effective limits and current usage counts
+
+#### Tests Added
+- 11 new tests in `BillingPhase4Tests.cs`
+- All 29 billing tests passing

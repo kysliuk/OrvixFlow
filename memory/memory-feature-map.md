@@ -311,3 +311,25 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Billing | /(dashboard)/billing/page.tsx | Yes |
 | Admin | /admin/page.tsx | Yes |
 | Admin Inbox Metrics | /admin/inbox-metrics/page.tsx | Yes (SuperAdmin) |
+
+### Billing Phase 4 Features
+- **Effective Entitlements** — `GetSubscription` uses `GetEffectiveEntitlementsAsync` (respects overrides)
+- **Target Status Parameter** — `AssignPlanAsync` accepts `targetStatus` for post-payment scenarios
+- **Downgrade Safety** — `ChangePlanAsync` blocks when KBs/storage exceed new plan limits
+- **Admin Subscription View** — `GET /api/admin/companies/{id}/subscription` returns full details
+
+### Billing API Endpoints (Phase 4)
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/billing/subscription` | GET | Get subscription with effective entitlements |
+| `/api/admin/companies/{id}/subscription` | GET | Admin view with full subscription + usage |
+
+### Downgrade Safety
+- KB count check: Blocks if current KBs > new plan's MaxKnowledgeBases
+- Storage check: Blocks if current storage > new plan's MaxStorageMb
+- Seat check: Blocks if current members > new plan's MaxSeats
+- Returns 409 Conflict with blocker details
+
+### Exception Types
+- `DowngradeNotAllowedException` — When KB/storage exceeds new plan limit
+- `SeatLimitExceededException` — When seats exceed new plan limit
