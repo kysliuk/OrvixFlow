@@ -112,6 +112,141 @@ public class AuthServiceTests : IDisposable
         result.IsSuccess.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task RefreshSessionAsync_WithActiveCompanyId_RetainsCompanySwitch()
+    {
+        // BUG REPRODUCER: When a user switches companies, the refresh token should
+        // preserve the active company context, not reset to the default tenant.
+        
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var switchedCompanyId = Guid.NewGuid();
+        
+        // Create secondary company
+        _db.Tenants.Add(new Tenant { Id = switchedCompanyId, Name = "Second Company", Plan = "Free", SubscriptionStatus = "Active" });
+        
+        var user = new User
+        {
+            Id = userId,
+            Email = "multicompany@example.com",
+            DisplayName = "Multi Company User",
+            TenantId = _tenantId // Default tenant
+        };
+        _db.Users.Add(user);
+
+        // Create membership to second company
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = switchedCompanyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Active"
+        });
+
+        var validToken = new RefreshToken
+        {
+            Token = "valid-refresh-token-company-switch",
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            RevokedAt = null
+        };
+        _db.RefreshTokens.Add(validToken);
+        await _db.SaveChangesAsync();
+
+        // Refresh with the switched company context
+        var result = await authService.RefreshSessionAsync("valid-refresh-token-company-switch", switchedCompanyId);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(switchedCompanyId, "Refresh should preserve the switched company context");
+    }
+
+    [Fact]
+    public async Task RefreshSessionAsync_WithInvalidActiveCompanyId_FallsBackToDefault()
+    {
+        // When the provided activeCompanyId is not in user's memberships,
+        // should fall back to the default tenant.
+        
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var invalidCompanyId = Guid.NewGuid(); // Company user doesn't belong to
+        
+        var user = new User
+        {
+            Id = userId,
+            Email = "invalidcompany@example.com",
+            DisplayName = "Invalid Company User",
+            TenantId = _tenantId
+        };
+        _db.Users.Add(user);
+
+        var validToken = new RefreshToken
+        {
+            Token = "valid-refresh-token-invalid-company",
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            RevokedAt = null
+        };
+        _db.RefreshTokens.Add(validToken);
+        await _db.SaveChangesAsync();
+
+        // Refresh with invalid company context - should fallback
+        var result = await authService.RefreshSessionAsync("valid-refresh-token-invalid-company", invalidCompanyId);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(_tenantId, "Should fall back to default tenant when company is invalid");
+    }
+
+    [Fact]
+    public async Task RefreshSessionAsync_WithInactiveMembership_FallsBackToDefault()
+    {
+        // When the user's membership to the company is not Active,
+        // should fall back to the default tenant.
+        
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var inactiveCompanyId = Guid.NewGuid();
+        
+        // Create company with inactive membership
+        _db.Tenants.Add(new Tenant { Id = inactiveCompanyId, Name = "Inactive Company", Plan = "Free", SubscriptionStatus = "Active" });
+        
+        var user = new User
+        {
+            Id = userId,
+            Email = "inactivemembership@example.com",
+            DisplayName = "Inactive Membership User",
+            TenantId = _tenantId
+        };
+        _db.Users.Add(user);
+
+        // Create INACTIVE membership to second company
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = inactiveCompanyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Pending" // Inactive status
+        });
+
+        var validToken = new RefreshToken
+        {
+            Token = "valid-refresh-token-inactive-membership",
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            RevokedAt = null
+        };
+        _db.RefreshTokens.Add(validToken);
+        await _db.SaveChangesAsync();
+
+        // Refresh with inactive company context - should fallback
+        var result = await authService.RefreshSessionAsync("valid-refresh-token-inactive-membership", inactiveCompanyId);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(_tenantId, "Should fall back to default tenant when membership is inactive");
+    }
+
     private class MockTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;

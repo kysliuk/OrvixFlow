@@ -354,7 +354,7 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
     }
 
-    public async Task<AuthResult> RefreshSessionAsync(string refreshToken)
+    public async Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null)
     {
         var tokenRecord = await _db.RefreshTokens
             .Include(r => r.User)
@@ -374,10 +374,37 @@ public class AuthService : IAuthService
         tokenRecord.RevokedAt = DateTime.UtcNow;
 
         var user = tokenRecord.User!;
-        var activeCompanyId = user.TenantId;
 
-        var jwt = await MintJwtAsync(user, activeCompanyId);
-        var profile = await BuildProfileAsync(user, activeCompanyId);
+        // FIX: Determine the active company based on provided context or validate existing company
+        Guid resolvedCompanyId;
+        if (activeCompanyId.HasValue)
+        {
+            // Verify user has Active membership to this company
+            var membership = await _db.UserCompanyMemberships
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.UserId == user.Id 
+                    && m.CompanyId == activeCompanyId.Value 
+                    && m.Status == "Active");
+            
+            if (membership != null)
+            {
+                resolvedCompanyId = activeCompanyId.Value;
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "RefreshSession: Invalid or inactive activeCompanyId {CompanyId} for user {UserId}, falling back to default tenant",
+                    activeCompanyId.Value, user.Id);
+                resolvedCompanyId = user.TenantId;
+            }
+        }
+        else
+        {
+            resolvedCompanyId = user.TenantId;
+        }
+
+        var jwt = await MintJwtAsync(user, resolvedCompanyId);
+        var profile = await BuildProfileAsync(user, resolvedCompanyId);
         var newRefreshToken = await CreateRefreshTokenAsync(user.Id);
 
         await _db.SaveChangesAsync();

@@ -806,3 +806,77 @@ if (!string.IsNullOrEmpty(externalInvoiceId))
 - 3 new tests in `StripeWebhookTests.cs` (T3-1, T3-3)
 - 9 new tests in `UsageAlertTests.cs` (T3-4)
 - Total 371 tests passing (Wave 3 complete)
+
+---
+
+## Auth Fixes Phase 1 (2026-04-17)
+
+### Task 1: RequireModuleAttribute Entitlement Bypass Fix ✅
+**Location:** `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
+
+**Issue:** Company Admins (`CompanyOwner`, `CompanyAdmin`) were bypassing billing entitlement checks because `IsCompanyAdmin()` returned early before `CanUseModuleAsync()` was called.
+
+**Fix:** Moved the `IsCompanyAdmin()` check to AFTER the `CanUseModuleAsync()` billing entitlement check:
+- Platform admins (`SuperAdmin`, `InternalOperator`) still bypass ALL checks
+- Company admins now must pass the billing entitlement check before accessing modules
+- Non-admin users must pass BOTH billing AND user-level permission checks
+
+**Code Change:**
+```csharp
+// Order of checks:
+// 1. Platform admins bypass everything
+if (Roles.IsAdmin(roleClaim)) return;
+
+// 2. Check company billing entitlement (ALL roles including CompanyAdmin must pass)
+var canUseModule = await entitlementResolver.CanUseModuleAsync(companyId, _requiredModule);
+if (!canUseModule)
+{
+    context.Result = new ObjectResult(new { error = "Module Not Available", ... }) { StatusCode = 403 };
+    return;
+}
+
+// 3. Company admins bypass user-level permission checks (after passing billing)
+var parsedRole = UserRoleExtensions.ParseRole(roleClaim);
+if (parsedRole.IsCompanyAdmin()) return;
+
+// 4. Non-admins: check user-level permissions
+```
+
+**Tests Added:** 6 new tests in `RequireModuleAttributeTests.cs`:
+- `CompanyAdmin_CannotAccessModule_WhenCompanyNotEntitled`
+- `CompanyOwner_CannotAccessModule_WhenCompanyNotEntitled`
+- `CompanyAdmin_CanAccessModule_WhenCompanyIsEntitled`
+- `Operator_CannotAccessModule_WhenCompanyNotEntitled`
+- `Operator_CannotAccessModule_WhenUserLacksPermission`
+- `SuperAdmin_BypassesAllChecks`
+
+### Task 2: Refresh Token Company Context Fix ✅
+**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs`, `OrvixFlow.Api/Controllers/AuthController.cs`
+
+**Issue:** `RefreshSessionAsync` always reset `activeCompanyId` to `user.TenantId`, causing multi-company users to lose their company context on token refresh (every 60 minutes).
+
+**Fix:** Added optional `activeCompanyId` parameter to `RefreshSessionAsync`:
+- If provided and user has an Active membership to that company, uses it
+- If invalid or membership inactive, falls back to default tenant (with warning log)
+- Controller now passes `ActiveCompanyId` from the current JWT
+
+**Interface Change:**
+```csharp
+Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null);
+```
+
+**Tests Added:** 3 new tests in `AuthServiceTests.cs`:
+- `RefreshSessionAsync_WithActiveCompanyId_RetainsCompanySwitch`
+- `RefreshSessionAsync_WithInvalidActiveCompanyId_FallsBackToDefault`
+- `RefreshSessionAsync_WithInactiveMembership_FallsBackToDefault`
+
+### Regression Testing
+
+After auth-related changes, run:
+```bash
+dotnet test --filter "FullyQualifiedName~RequireModuleAttributeTests"
+dotnet test --filter "FullyQualifiedName~AuthServiceTests"
+dotnet test
+```
+
+Total tests: 404 passing (1 skipped, pre-existing)

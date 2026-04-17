@@ -80,7 +80,7 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.RefreshToken))
             return BadRequest(new { error = "Refresh token is required." });
 
-        var result = await _authService.RefreshSessionAsync(req.RefreshToken);
+        var result = await _authService.RefreshSessionAsync(req.RefreshToken, req.ActiveCompanyId);
         
         return result.IsSuccess
             ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
@@ -176,5 +176,5 @@ public record LoginRequest(string Email, string Password);
 public record OAuthProvisionRequest(string Email, string DisplayName, string Provider, string ExternalId);
 public record SwitchCompanyRequest(Guid CompanyId);
 public record UpdateProfileRequest(string? DisplayName);
-public record RefreshRequest(string RefreshToken);
+public record RefreshRequest(string RefreshToken, Guid? ActiveCompanyId = null);
 public record VerifyRequest(string Token);

@@ -8,6 +8,9 @@ using OrvixFlow.Core.Interfaces;
 
 namespace OrvixFlow.Api.Filters;
 
+/// <summary>
+/// Authorization filter that enforces module access based on company billing entitlements.
+/// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
 {
@@ -31,12 +34,8 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
         var roleClaim = user.FindFirst("Role")?.Value;
         var companyIdClaim = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value;
 
-        // Platform admins bypass module checks
+        // Platform admins bypass ALL module checks (SuperAdmin, InternalOperator)
         if (Roles.IsAdmin(roleClaim)) return;
-
-        // Company admins (CompanyOwner, CompanyAdmin) bypass user-level permission checks
-        var parsedRole = UserRoleExtensions.ParseRole(roleClaim);
-        if (parsedRole.IsCompanyAdmin()) return;
 
         if (!Guid.TryParse(companyIdClaim, out var companyId))
         {
@@ -51,7 +50,9 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
             return;
         }
 
-        // FIX F-06: Use async instead of .GetAwaiter().GetResult()
+        // FIX: Check company billing entitlement BEFORE user-level permissions.
+        // All roles (including CompanyAdmin and CompanyOwner) must pass this billing check.
+        // The company must be entitled to the module before any user can access it.
         var canUseModule = await entitlementResolver.CanUseModuleAsync(companyId, _requiredModule);
         if (!canUseModule)
         {
@@ -66,7 +67,12 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
             return;
         }
 
-        // FIX F-07: Also check user-level permissions (unless already admin via Roles.IsAdmin above)
+        // Company admins (CompanyOwner, CompanyAdmin) bypass user-level permission checks
+        // after passing the billing entitlement check above.
+        var parsedRole = UserRoleExtensions.ParseRole(roleClaim);
+        if (parsedRole.IsCompanyAdmin()) return;
+
+        // FIX F-07: Check user-level permissions for non-admin users
         var userIdClaim = user.FindFirst("sub")?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
         {

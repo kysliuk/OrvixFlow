@@ -18,8 +18,12 @@ public interface IAuthService
     /// <summary>Accept a pending invitation; provisions the user and returns auth tokens.</summary>
     Task<AuthResult> AcceptInvitationAsync(string token, string? displayName, string? password);
 
-    /// <summary>Rotates the refresh token and returns a new session.</summary>
-    Task<AuthResult> RefreshSessionAsync(string refreshToken);
+    /// <summary>
+    /// Rotates the refresh token and returns a new session.
+    /// </summary>
+    /// <param name="refreshToken">The refresh token to rotate.</param>
+    /// <param name="activeCompanyId">Optional company ID to preserve multi-company context. If null, uses default tenant.</param>
+    Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null);
 
     /// <summary>F-33: Verify user's email with verification token.</summary>
     Task<AuthResult> VerifyEmailAsync(string token);

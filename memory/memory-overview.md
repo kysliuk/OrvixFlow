@@ -314,3 +314,28 @@ Polish and enum conversion completed:
 #### Verification
 - `dotnet build` succeeds
 - `dotnet test` 395 tests passing (1 skipped)
+
+### Auth System Fixes Phase 1 (2026-04-17)
+
+Critical authentication and authorization bugs fixed:
+
+#### Task 1: RequireModuleAttribute Entitlement Bypass Fix
+- **Security Fix**: Company Admins no longer bypass billing entitlement checks
+- Company Admins (`CompanyOwner`, `CompanyAdmin`) must now pass `CanUseModuleAsync()` before accessing modules
+- Platform admins (`SuperAdmin`, `InternalOperator`) still bypass all checks
+- File: `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
+
+#### Task 2: Refresh Token Company Context Fix
+- **UX Fix**: Multi-company users now retain their active company context on token refresh
+- Added optional `activeCompanyId` parameter to `RefreshSessionAsync`
+- Falls back to default tenant with warning log if context is invalid
+- Files: `OrvixFlow.Infrastructure/Auth/AuthService.cs`, `OrvixFlow.Api/Controllers/AuthController.cs`
+
+#### Tests Added
+- 6 new tests in `RequireModuleAttributeTests.cs`
+- 3 new tests in `AuthServiceTests.cs`
+- Total: 404 tests passing (1 skipped)
+
+#### Verification
+- `dotnet build` succeeds
+- `dotnet test` 404 tests passing
