@@ -476,5 +476,12 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<CompanyEntitlementOverride>().HasQueryFilter(o => o.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<CompanyModuleOverride>().HasQueryFilter(o => o.CompanyId == _tenantProvider.GetTenantId());
+
+        // T4-3: Invoice Status (InvoiceStatus enum -> string)
+        modelBuilder.Entity<Invoice>()
+            .Property(i => i.Status)
+            .HasConversion(
+                v => v.ToClaimValue(),
+                v => InvoiceStatusExtensions.ParseStatus(v));
     }
 }

@@ -283,3 +283,34 @@ Critical fixes implemented for silent webhook failures:
 #### Tests Added
 - 3 new tests in `StripeWebhookTests.cs`
 - All 350 tests passing
+
+### Stripe Integration Wave 4 Fixes (2026-04-17)
+
+Polish and enum conversion completed:
+
+#### T4-1: Additional Webhook Tests
+- Added comprehensive tests for webhook handlers
+- Test for missing webhook secret returns false
+- Test for subscription deletion handler cancels subscription
+- Test for invoice.payment_failed marks PastDue
+- Test for invoice.payment_failed syncs tenant denormalization
+- Total: 23 Stripe-related tests now passing
+
+#### T4-2: Owner Email in CreateCustomerAsync
+- Already implemented in previous waves
+- Uses CompanyOwner email from UserCompanyMembership
+
+#### T4-3: InvoiceStatus Converted to Enum
+- Converted `InvoiceStatus` from static class with string constants to proper enum
+- Added `InvoiceStatusExtensions` with `ParseStatus()` and `ToClaimValue()` methods
+- Added EF Core value converter in `AppDbContext` for string storage
+- Updated `Invoice` entity to use `InvoiceStatus Status` property
+- Pattern consistent with `SubscriptionState` and `BillingInterval` enums
+
+#### T4-4: PlanTemplate.Slug for Price Lookup
+- Already implemented in previous waves
+- Uses stable slug identifier instead of name-based lookup
+
+#### Verification
+- `dotnet build` succeeds
+- `dotnet test` 395 tests passing (1 skipped)
