@@ -290,4 +290,10 @@ recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.AuditRetentionJob>(
     job => job.ExecuteAsync(),
     "0 3 * * *");
 
+// T3-4: Notification processor - run every 5 minutes to send queued alerts
+recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.NotificationProcessorJob>(
+    "notification-processor",
+    job => job.ExecuteAsync(),
+    "*/5 * * * *");
+
 app.Run();

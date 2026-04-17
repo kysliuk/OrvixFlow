@@ -44,6 +44,9 @@ public static class DependencyInjection
         services.AddScoped<IStripeService, StripeService>();
         services.AddScoped<StripeWebhookService>();
 
+        // T3-4: Usage Alert Service
+        services.AddScoped<IUsageAlertService, UsageAlertService>();
+
         return services;
     }
 
@@ -169,10 +172,6 @@ public static class DependencyInjection
 
         services.AddScoped<IVirusScanService, NoopVirusScanService>();
         services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
-
-        // Phase 5: Stripe services
-        services.AddScoped<IStripeService, StripeService>();
-        services.AddScoped<StripeWebhookService>();
 
         return services;
     }

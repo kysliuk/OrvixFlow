@@ -33,6 +33,8 @@
 | SubscriptionState | `OrvixFlow.Core/Entities/SubscriptionState.cs` |
 | BillingInterval | `OrvixFlow.Core/Entities/BillingInterval.cs` |
 | UsageMetric | `OrvixFlow.Core/Entities/UsageMetric.cs` |
+| Invoice | `OrvixFlow.Core/Entities/Invoice.cs` |
+| NotificationQueue | `OrvixFlow.Core/Entities/NotificationQueue.cs` |
 
 ## Tests
 
@@ -61,6 +63,8 @@
 | EmbeddingMigrationSmokeTests | `OrvixFlow.Tests/EmbeddingMigrationSmokeTests.cs` |
 | InboxProcessingIntegrationTests | `OrvixFlow.Tests/InboxProcessingIntegrationTests.cs` |
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
+| StripeWebhookTests | `OrvixFlow.Tests/StripeWebhookTests.cs` |
+| UsageAlertTests | `OrvixFlow.Tests/UsageAlertTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 | Load Test Script | `OrvixFlow.Api/load-test.sh` |
 
@@ -92,6 +96,7 @@
 | IVirusScanService | `OrvixFlow.Core/Interfaces/IVirusScanService.cs` |
 | IRagMetricsCollector| `OrvixFlow.Core/Interfaces/IRagMetricsCollector.cs` |
 | IStripeService | `OrvixFlow.Core/Interfaces/IStripeService.cs` |
+| IUsageAlertService | `OrvixFlow.Core/Interfaces/IUsageAlertService.cs` |
 
 ## Controllers
 
@@ -148,6 +153,7 @@
 | UsagePeriodRolloverJob | `OrvixFlow.Api/Jobs/UsagePeriodRolloverJob.cs` |
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
+| NotificationProcessorJob | `OrvixFlow.Api/Jobs/NotificationProcessorJob.cs` |
 | Load Test Script | `scripts/load-test-inbox.sh` |
 | Company Detail Page | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 | Company Audit Page | `orvixflow-web/app/admin/companies/[id]/audit/page.tsx` |
@@ -170,6 +176,7 @@
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
 | NoopVirusScanService | `OrvixFlow.Infrastructure/Services/Security/NoopVirusScanService.cs` |
 | RagMetricsCollector | `OrvixFlow.Infrastructure/Ai/RagMetricsCollector.cs` |
+| UsageAlertService | `OrvixFlow.Infrastructure/Services/UsageAlertService.cs` |
 
 ## API Middleware & Filters
 

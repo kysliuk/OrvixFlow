@@ -55,6 +55,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TenantWebhookLimit> TenantWebhookLimits => Set<TenantWebhookLimit>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<NotificationQueue> NotificationQueues => Set<NotificationQueue>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -431,6 +432,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseImage>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<TenantWebhookLimit>().HasQueryFilter(t => t.TenantId == _tenantProvider.GetTenantId());
+
+        // T3-4: NotificationQueue query filter and relationship
+        modelBuilder.Entity<NotificationQueue>()
+            .HasOne(n => n.Company)
+            .WithMany()
+            .HasForeignKey(n => n.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<NotificationQueue>().HasQueryFilter(n => n.CompanyId == _tenantProvider.GetTenantId());
 
         modelBuilder.Entity<CompanyEntitlementOverride>()
             .HasOne(o => o.Company)

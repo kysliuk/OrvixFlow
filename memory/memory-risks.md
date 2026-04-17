@@ -739,3 +739,70 @@ dotnet test --filter "FullyQualifiedName~CompanySubscription"
 ### Tests
 - 9 new tests in `BillingWave2Tests.cs`
 - Total 360 tests passing
+
+---
+
+## Stripe Integration Wave 3 (2026-04-17)
+
+### T3-1: Idempotency Guard Added ✅
+**Location:** `StripeWebhookService.cs:HandleInvoicePaidAsync`
+
+**Implementation:** Added duplicate check before creating Invoice records:
+```csharp
+if (!string.IsNullOrEmpty(externalInvoiceId))
+{
+    var existingInvoice = await _dbContext.Invoices
+        .IgnoreQueryFilters()
+        .AnyAsync(i => i.ExternalInvoiceId == externalInvoiceId);
+
+    if (!existingInvoice)
+    {
+        // Create invoice record
+    }
+    else
+    {
+        _logger.LogInformation(
+            "Duplicate invoice.paid event {InvoiceId} — skipped (idempotency)",
+            externalInvoiceId);
+    }
+}
+```
+
+### T3-2: Duplicate DI Registrations Removed ✅
+**Location:** `DependencyInjection.cs`
+
+**Fix:** Removed duplicate Phase 5 Stripe services registrations (lines ~173-175).
+
+### T3-3: Invoice Record Creation on invoice.paid ✅
+**Location:** `StripeWebhookService.cs:HandleInvoicePaidAsync`
+
+**Implementation:** When processing `invoice.paid`, the handler now creates an Invoice record with:
+- ExternalInvoiceId (from Stripe)
+- AmountCents, Currency
+- Status = "Paid"
+- InvoicePdfUrl, InvoiceUrl
+- PeriodStart, PeriodEnd
+- PaidAt timestamp
+
+### T3-4: Usage Alerts Phase 4 Implementation ✅
+**Files Added:**
+- `OrvixFlow.Core/Entities/NotificationQueue.cs` - Queue entity for pending notifications
+- `OrvixFlow.Core/Interfaces/IUsageAlertService.cs` - Service interface
+- `OrvixFlow.Infrastructure/Services/UsageAlertService.cs` - Alert logic with idempotency
+- `OrvixFlow.Api/Jobs/NotificationProcessorJob.cs` - Hangfire job for processing queue
+
+**Features:**
+- 80% threshold → "UsageWarning80" notification
+- 100% threshold → "UsageCritical100" notification
+- Idempotency: alerts sent once per billing period
+- Multiple recipients: all CompanyOwners receive notifications
+- Processing: Hangfire job runs every 5 minutes
+
+**Migration:** `AddNotificationQueue` migration created
+
+**Tests:** 9 new tests in `UsageAlertTests.cs`
+
+### Tests
+- 3 new tests in `StripeWebhookTests.cs` (T3-1, T3-3)
+- 9 new tests in `UsageAlertTests.cs` (T3-4)
+- Total 371 tests passing (Wave 3 complete)

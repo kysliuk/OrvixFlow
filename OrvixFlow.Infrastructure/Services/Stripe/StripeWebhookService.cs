@@ -15,6 +15,8 @@ namespace OrvixFlow.Infrastructure.Services.Stripe;
 /// Stripe webhook handler service.
 /// T1-1: Added IgnoreQueryFilters for webhook context (no JWT user)
 /// T1-2: Added tenant sync after subscription status changes
+/// T3-1: Added idempotency guard for duplicate invoice events
+/// T3-3: Added Invoice record creation on invoice.paid
 /// </summary>
 public class StripeWebhookService
 {
@@ -88,6 +90,7 @@ public class StripeWebhookService
         dynamic invoiceData = stripeEvent.Data.Object;
         string? customerId = invoiceData?.CustomerId;
         string? subscriptionId = invoiceData?.Subscription;
+        string externalInvoiceId = invoiceData?.Id ?? string.Empty;
         
         // T1-2: Extract period dates from invoice
         long? rawStart = invoiceData?.PeriodStart;
@@ -136,6 +139,46 @@ public class StripeWebhookService
             // T1-2: Sync Tenant denormalized fields (Plan, SubscriptionStatus)
             foreach (var sub in subscriptions)
                 await _subscriptionService.SyncTenantDenormalizationAsync(sub.CompanyId);
+
+            // T3-1: Idempotency guard - check for duplicate invoice before creating
+            // T3-3: Create Invoice record for the payment
+            if (!string.IsNullOrEmpty(externalInvoiceId))
+            {
+                var existingInvoice = await _dbContext.Invoices
+                    .IgnoreQueryFilters()
+                    .AnyAsync(i => i.ExternalInvoiceId == externalInvoiceId);
+
+                if (!existingInvoice)
+                {
+                    var invoice = new OrvixFlow.Core.Entities.Invoice
+                    {
+                        CompanyId = subscriptions.First().CompanyId,
+                        ExternalInvoiceId = externalInvoiceId,
+                        AmountCents = (int)(invoiceData?.AmountPaid ?? 0),
+                        Currency = invoiceData?.Currency?.ToUpperInvariant() ?? "USD",
+                        Status = InvoiceStatus.Paid,
+                        InvoicePdfUrl = invoiceData?.InvoicePdf,
+                        InvoiceUrl = invoiceData?.HostedInvoiceUrl,
+                        PeriodStart = periodStart ?? DateTime.UtcNow,
+                        PeriodEnd = periodEnd ?? DateTime.UtcNow,
+                        PaidAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _dbContext.Invoices.Add(invoice);
+                    await _dbContext.SaveChangesAsync();
+                    
+                    _logger.LogInformation(
+                        "Created Invoice record {InvoiceId} for customer {CustomerId}",
+                        externalInvoiceId, customerId);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Duplicate invoice.paid event {InvoiceId} — skipped (idempotency)",
+                        externalInvoiceId);
+                }
+            }
 
             _logger.LogInformation("Subscription activated for customer {CustomerId}", customerId);
         }
