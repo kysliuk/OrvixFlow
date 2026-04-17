@@ -60,6 +60,14 @@ services:
       AI__Provider: OpenAI
       AI__OpenAI__ApiKey: ${AI_OPENAI_API_KEY}
       Automation__N8nBaseUrl: ${N8N_BASE_URL:-http://orvix-n8n:5678}
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Stripe__Prices__Starter__Monthly: ${STRIPE_PRICE_STARTER_MONTHLY}
+      Stripe__Prices__Starter__Yearly: ${STRIPE_PRICE_STARTER_YEARLY}
+      Stripe__Prices__Growth__Monthly: ${STRIPE_PRICE_GROWTH_MONTHLY}
+      Stripe__Prices__Growth__Yearly: ${STRIPE_PRICE_GROWTH_YEARLY}
+      Stripe__Prices__Business__Monthly: ${STRIPE_PRICE_BUSINESS_MONTHLY}
+      Stripe__Prices__Business__Yearly: ${STRIPE_PRICE_BUSINESS_YEARLY}
     env_file:
       - .env
     depends_on:

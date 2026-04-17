@@ -252,3 +252,34 @@ Phase 5 implementation created foundation for Stripe payment integration:
 - Invoice recording deferred pending EF Core migration
 - Full Stripe API methods stubbed - requires additional configuration
 - Build success, tests pass
+
+### Stripe Integration Wave 1 Fixes (2026-04-17)
+
+Critical fixes implemented for silent webhook failures:
+
+#### T1-1: IgnoreQueryFilters in Webhook Handlers
+- Added `.IgnoreQueryFilters()` to all `CompanySubscriptions` queries in webhook handlers
+- Without this, webhook events are silently ignored because there's no authenticated JWT user
+- The tenant query filter returns Guid.Empty for unauthenticated requests
+
+#### T1-2: Tenant Denormalization Sync
+- Added `SyncTenantDenormalizationAsync()` calls after subscription status changes
+- Now `Tenant.Plan` and `Tenant.SubscriptionStatus` stay in sync with subscription lifecycle
+- Also added period date sync from Stripe invoice events
+
+#### T1-3: EF Core Migration for Invoice Table
+- Created `AddInvoiceTable` migration
+- Invoice entity now persisted to database
+
+#### T1-4: Stripe Configuration in Docker
+- Added Stripe env vars to `.env.example`
+- Added Stripe env var mappings to `docker-compose.yml`
+
+#### New Features Added
+- Implemented `customer.subscription.updated` handler
+- Implemented `customer.subscription.deleted` handler
+- Added public `SyncTenantDenormalizationAsync` method to `ICompanySubscriptionService`
+
+#### Tests Added
+- 3 new tests in `StripeWebhookTests.cs`
+- All 350 tests passing

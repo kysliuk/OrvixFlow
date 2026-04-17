@@ -3,8 +3,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Stripe;
-using Stripe.Checkout;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
@@ -14,6 +12,9 @@ namespace OrvixFlow.Infrastructure.Services.Stripe;
 /// <summary>
 /// Stripe payment integration service (Phase 5 - minimal implementation).
 /// Uses Stripe.net SDK for checkout and customer management.
+/// T2-2: CreatePortalSessionAsync now makes real Stripe API call
+/// T4-2: CreateCheckoutSessionAsync uses owner email from UserCompanyMembership
+/// T4-4: Uses PlanTemplate.Slug for price lookup
 /// </summary>
 public class StripeService : IStripeService
 {
@@ -24,8 +25,8 @@ public class StripeService : IStripeService
     private readonly IPlanService _planService;
     private readonly bool _isConfigured;
 
-    private CustomerService? _customerService;
-    private SubscriptionService? _subscriptionServiceClient;
+    private global::Stripe.CustomerService? _customerService;
+    private global::Stripe.SubscriptionService? _subscriptionServiceClient;
 
     public StripeService(
         IConfiguration configuration,
@@ -45,9 +46,9 @@ public class StripeService : IStripeService
         
         if (_isConfigured)
         {
-            StripeConfiguration.ApiKey = apiKey;
-            _customerService = new CustomerService();
-            _subscriptionServiceClient = new SubscriptionService();
+            global::Stripe.StripeConfiguration.ApiKey = apiKey;
+            _customerService = new global::Stripe.CustomerService();
+            _subscriptionServiceClient = new global::Stripe.SubscriptionService();
         }
     }
 
@@ -58,7 +59,7 @@ public class StripeService : IStripeService
             throw new InvalidOperationException("Stripe is not configured.");
         }
 
-        var customer = await _customerService.CreateAsync(new CustomerCreateOptions
+        var customer = await _customerService.CreateAsync(new global::Stripe.CustomerCreateOptions
         {
             Email = email,
             Description = companyName ?? $"Company {companyId}",
@@ -108,7 +109,15 @@ public class StripeService : IStripeService
             {
                 throw new CompanyNotFoundException(companyId);
             }
-            customerId = await CreateCustomerAsync(companyId, "billing@example.com", tenant.Name);
+            
+            // T4-2: Use owner email from UserCompanyMembership instead of placeholder
+            var ownerEmail = await _dbContext.UserCompanyMemberships
+                .IgnoreQueryFilters()
+                .Where(m => m.CompanyId == companyId && m.CompanyRole == "CompanyOwner")
+                .Select(m => m.User.Email)
+                .FirstOrDefaultAsync() ?? $"billing+{companyId}@orvixflow.com";
+            
+            customerId = await CreateCustomerAsync(companyId, ownerEmail, tenant.Name);
         }
 
         var priceId = GetPriceIdForPlan(plan);
@@ -117,7 +126,7 @@ public class StripeService : IStripeService
             throw new InvalidOperationException($"No Stripe price for plan {planTemplateId}");
         }
 
-        var session = await new SessionService().CreateAsync(new SessionCreateOptions
+        var session = await new global::Stripe.Checkout.SessionService().CreateAsync(new global::Stripe.Checkout.SessionCreateOptions
         {
             Customer = customerId,
             PaymentMethodTypes = new() { "card" },
@@ -136,6 +145,10 @@ public class StripeService : IStripeService
         return session.Url ?? throw new InvalidOperationException("Checkout URL is null");
     }
 
+    /// <summary>
+    /// T2-2: Creates a real Stripe Customer Portal session.
+    /// Previously returned a fake URL (returnUrl + "?portal=dashboard").
+    /// </summary>
     public async Task<string> CreatePortalSessionAsync(Guid companyId, string returnUrl)
     {
         if (!_isConfigured)
@@ -149,8 +162,16 @@ public class StripeService : IStripeService
             throw new SubscriptionNotFoundException(companyId);
         }
 
-        // Return placeholder - Stripe portal requires additional setup
-        return returnUrl + "?portal=dashboard";
+        // T2-2: Make real Stripe Customer Portal API call
+        var service = new global::Stripe.BillingPortal.SessionService();
+        var session = await service.CreateAsync(new global::Stripe.BillingPortal.SessionCreateOptions
+        {
+            Customer = subscription.ExternalCustomerId,
+            ReturnUrl = returnUrl
+        });
+
+        _logger.LogInformation("Created portal session for customer {CustomerId}", subscription.ExternalCustomerId);
+        return session.Url ?? throw new InvalidOperationException("Portal URL is null");
     }
 
     public async Task<(string customerId, string subscriptionId)> CreateOrUpdateSubscriptionAsync(
@@ -194,11 +215,15 @@ public class StripeService : IStripeService
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// T4-4: Uses PlanTemplate.Slug instead of plan.Name for price lookup.
+    /// This is more stable than name-based lookup.
+    /// </summary>
     private string? GetPriceIdForPlan(PlanTemplate plan)
     {
         return plan.BillingInterval switch
         {
-            BillingInterval.Monthly => plan.Name.ToLowerInvariant() switch
+            BillingInterval.Monthly => plan.Slug.ToLowerInvariant() switch
             {
                 "free" => null,
                 "starter" => _configuration["Stripe:Prices:Starter:Monthly"],
@@ -206,7 +231,7 @@ public class StripeService : IStripeService
                 "business" => _configuration["Stripe:Prices:Business:Monthly"],
                 _ => null
             },
-            BillingInterval.Yearly => plan.Name.ToLowerInvariant() switch
+            BillingInterval.Yearly => plan.Slug.ToLowerInvariant() switch
             {
                 "free" => null,
                 "starter" => _configuration["Stripe:Prices:Starter:Yearly"],

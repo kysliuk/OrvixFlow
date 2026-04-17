@@ -353,6 +353,18 @@ public class CompanySubscriptionService : ICompanySubscriptionService
     }
 
     /// <summary>
+    /// Public sync method exposed for webhook handlers.
+    /// </summary>
+    public async Task SyncTenantDenormalizationAsync(Guid companyId)
+    {
+        var subscription = await GetSubscriptionAsync(companyId);
+        if (subscription == null) return;
+
+        var planSlug = subscription.PlanTemplate?.Slug ?? "Free";
+        await SyncTenantDenormalizationAsync(companyId, planSlug, subscription.Status);
+    }
+
+    /// <summary>
     /// Syncs Tenant denormalized fields (Plan, SubscriptionStatus) with the authoritative CompanySubscription.
     /// This ensures Tenant.Plan and Tenant.SubscriptionStatus stay in sync with the subscription lifecycle.
     /// </summary>

@@ -686,3 +686,56 @@ dotnet test --filter "FullyQualifiedName~CompanySubscription"
 ### Tests
 - 11 new tests in `BillingPhase4Tests.cs`
 - Total 29 billing tests passing
+
+---
+
+## Stripe Integration Wave 2 (2026-04-17)
+
+### T2-1: Billing Endpoints Implemented
+**Location:** `BillingController.cs`
+
+**Features Added:**
+- `POST /api/billing/checkout` - Creates Stripe checkout session for subscription
+- `GET /api/billing/portal` - Creates Stripe customer portal session
+- `GET /api/billing/invoices` - Returns invoice history for company
+
+**IStripeService Injection:** Controller now injects `IStripeService` for Stripe operations.
+
+### T2-2: Real Portal Session Implementation
+**Location:** `StripeService.cs:CreatePortalSessionAsync`
+
+**Before:** Returned fake URL (`returnUrl + "?portal=dashboard"`)
+**After:** Makes real Stripe Customer Portal API call via `BillingPortal.SessionService`
+
+### T2-3: Subscription Event Handlers (Already Implemented in Wave 1)
+**Location:** `StripeWebhookService.cs:185-262`
+
+**Handlers Implemented:**
+- `HandleSubscriptionUpdatedAsync` - Maps Stripe statuses (active/past_due/trialing/canceled) to `SubscriptionState`
+- `HandleSubscriptionDeletedAsync` - Sets subscription to `Cancelled` and syncs tenant
+
+### T2-4: Startup Warnings for Missing Stripe Config
+**Location:** `Program.cs`
+
+**Warnings Added:**
+- Missing `Stripe:WebhookSecret` → SECURITY warning (webhooks will be rejected)
+- Missing `Stripe:SecretKey` → WARNING (checkout/portal will throw)
+
+### T2-5: Invoice Payment Failed Tenant Sync (Already Implemented in Wave 1)
+**Location:** `StripeWebhookService.cs:146-183`
+
+**Handler:** `HandleInvoiceFailedAsync` marks subscription as `PastDue` and calls `SyncTenantDenormalizationAsync()`
+
+### Stripe Webhook Security (Updated)
+**Location:** `BillingController.cs:145-166`
+
+**Design:** `[AllowAnonymous]` + Stripe signature validation via `EventUtility.ConstructEvent`
+- Webhook is public but validates HMAC signature using `Stripe:WebhookSecret`
+- Signature header: `Stripe-Signature`
+- Invalid signatures return 400 BadRequest
+
+**Note:** This replaces the previous `[Authorize(Policy = "SuperAdminOnly")]` design that was incorrectly documented.
+
+### Tests
+- 9 new tests in `BillingWave2Tests.cs`
+- Total 360 tests passing

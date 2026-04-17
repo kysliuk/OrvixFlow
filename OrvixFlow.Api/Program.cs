@@ -237,6 +237,31 @@ if (!app.Environment.IsDevelopment())
     }
 }
 
+// T2-4: Warn on startup if Stripe is not configured
+var webhookSecret = builder.Configuration["Stripe:WebhookSecret"];
+if (string.IsNullOrEmpty(webhookSecret))
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║  SECURITY: Stripe:WebhookSecret is NOT configured.               ║");
+    Console.WriteLine("║  Stripe webhook endpoint will reject all requests.                ║");
+    Console.WriteLine("║  Configure Stripe__WebhookSecret in environment.                  ║");
+    Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+    Console.ResetColor();
+}
+
+var stripeKey = builder.Configuration["Stripe:SecretKey"];
+if (string.IsNullOrEmpty(stripeKey))
+{
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║  WARNING: Stripe:SecretKey is NOT configured.                    ║");
+    Console.WriteLine("║  Checkout and portal endpoints will throw InvalidOperationException.║");
+    Console.WriteLine("║  Configure Stripe__SecretKey in environment.                     ║");
+    Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+    Console.ResetColor();
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OrvixFlow.Infrastructure.Data.AppDbContext>();

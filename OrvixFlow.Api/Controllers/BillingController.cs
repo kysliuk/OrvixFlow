@@ -22,6 +22,7 @@ public class BillingController : ControllerBase
     private readonly IEntitlementResolver _entitlementResolver;
     private readonly ICompanySubscriptionService _subscriptionService;
     private readonly IPlanService _planService;
+    private readonly IStripeService _stripeService;
     private readonly StripeWebhookService _stripeWebhookService;
 
     public BillingController(
@@ -29,12 +30,14 @@ public class BillingController : ControllerBase
         IEntitlementResolver entitlementResolver,
         ICompanySubscriptionService subscriptionService,
         IPlanService planService,
+        IStripeService stripeService,
         StripeWebhookService stripeWebhookService)
     {
         _db = db;
         _entitlementResolver = entitlementResolver;
         _subscriptionService = subscriptionService;
         _planService = planService;
+        _stripeService = stripeService;
         _stripeWebhookService = stripeWebhookService;
     }
 
@@ -163,6 +166,119 @@ public class BillingController : ControllerBase
         }
 
         return Ok();
+    }
+
+    /// <summary>
+    /// T2-1: Create a Stripe checkout session for subscription upgrade/purchase.
+    /// </summary>
+    [HttpPost("checkout")]
+    public async Task<IActionResult> CreateCheckout([FromBody] CreateCheckoutRequest req)
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        if (!IsCompanyAdminOrAbove())
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var successUrl = req.SuccessUrl ?? $"{Request.Scheme}://{Request.Host}/billing/success";
+            var cancelUrl = req.CancelUrl ?? $"{Request.Scheme}://{Request.Host}/billing";
+
+            var checkoutUrl = await _stripeService.CreateCheckoutSessionAsync(
+                companyId.Value, req.PlanTemplateId, successUrl, cancelUrl);
+
+            return Ok(new { checkoutUrl });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not configured"))
+        {
+            return BadRequest(new { error = "Stripe is not configured. Please contact support." });
+        }
+        catch (PlanNotFoundException)
+        {
+            return NotFound(new { error = "Plan not found" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// T2-1: Create a Stripe customer portal session for self-service plan management.
+    /// </summary>
+    [HttpGet("portal")]
+    public async Task<IActionResult> CreatePortalSession([FromQuery] string? returnUrl = null)
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        if (!IsCompanyAdminOrAbove())
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var url = returnUrl ?? $"{Request.Scheme}://{Request.Host}/billing";
+            var portalUrl = await _stripeService.CreatePortalSessionAsync(companyId.Value, url);
+
+            return Ok(new { portalUrl });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not configured"))
+        {
+            return BadRequest(new { error = "Stripe is not configured. Please contact support." });
+        }
+        catch (SubscriptionNotFoundException)
+        {
+            return NotFound(new { error = "No active subscription found. Please subscribe first." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// T2-1: Get invoice history for the current company.
+    /// </summary>
+    [HttpGet("invoices")]
+    public async Task<IActionResult> GetInvoices()
+    {
+        var companyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        if (companyId == null)
+        {
+            return Unauthorized();
+        }
+
+        var invoices = await _db.Invoices
+            .Where(i => i.CompanyId == companyId.Value)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new
+            {
+                i.Id,
+                i.ExternalInvoiceId,
+                i.AmountCents,
+                i.Currency,
+                i.Status,
+                i.InvoicePdfUrl,
+                i.InvoiceUrl,
+                i.PeriodStart,
+                i.PeriodEnd,
+                i.PaidAt,
+                i.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(invoices);
     }
 
     /// <summary>
@@ -426,3 +542,4 @@ public class BillingController : ControllerBase
 public record TrackUsageRequest(string ModuleKey, string MetricType, decimal Quantity, Guid? DepartmentId);
 public record ChangePlanRequest(Guid PlanTemplateId, bool Immediate = true);
 public record ChangePlanResponse(bool Success, string Message, string? PendingChangeAt);
+public record CreateCheckoutRequest(Guid PlanTemplateId, string? SuccessUrl, string? CancelUrl);

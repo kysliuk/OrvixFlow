@@ -14,6 +14,11 @@ public interface ICompanySubscriptionService
     Task<CompanySubscription> ReactivateSubscriptionAsync(Guid companyId);
     Task<CompanySubscription> CancelSubscriptionAsync(Guid companyId);
     Task<bool> IsPlanChangeAllowedAsync(Guid companyId, Guid newPlanTemplateId);
+    
+    /// <summary>
+    /// Syncs tenant denormalized fields (Plan, SubscriptionStatus) from subscription.
+    /// </summary>
+    Task SyncTenantDenormalizationAsync(Guid companyId);
 }
 
 public class SubscriptionException : Exception

@@ -2,7 +2,8 @@
 
 **Author:** OrvixFlow Audit  
 **Date:** 2026-04-17  
-**Status:** Ready for Implementation  
+**Wave 1 Completed:** 2026-04-17  
+**Status:** Wave 1-2 Complete — Ready for Wave 3  
 **Based on:** Audit of `STRIPE_CONFIGURATION_PLAN.md`, `STRIPE_SETUP_GUIDE.md`, and last 7 commits  
 
 ---
@@ -14,6 +15,32 @@ bugs that make the webhook integration silently inoperative, plus several high-s
 endpoints, missing env config, missing EF migration). This plan resolves all issues in priority order.
 
 ---
+
+
+## Wave 1 Completion Summary ✅
+
+| Task | Status | Changes |
+|------|--------|---------|
+| T1-1: IgnoreQueryFilters | ✅ Complete | StripeWebhookService.cs |
+| T1-2: Tenant Sync | ✅ Complete | ICompanySubscriptionService.cs, CompanySubscriptionService.cs |
+| T1-3: EF Migration | ✅ Complete | AddInvoiceTable migration, unique index on ExternalInvoiceId |
+| T1-4: Env Config | ✅ Complete | .env.example, docker-compose.yml |
+
+**Verification:** `dotnet build` ✅ | `dotnet test` 350+ ✅ | `docker compose config` ✅
+
+---
+
+## Wave 2 Completion Summary ✅
+
+| Task | Status | Changes |
+|------|--------|---------|
+| T2-1: Billing Endpoints | ✅ Complete | BillingController.cs - checkout, portal, invoices endpoints |
+| T2-2: Real Portal Session | ✅ Complete | StripeService.cs - real BillingPortal API call |
+| T2-3: subscription.updated handler | ✅ Complete | Already implemented in Wave 1 |
+| T2-4: Startup Warning | ✅ Complete | Program.cs - Stripe config warnings |
+| T2-5: invoice.payment_failed sync | ✅ Complete | Already implemented in Wave 1 |
+
+**Verification:** `dotnet build` ✅ | `dotnet test` 360 ✅
 
 ## Summary of Problems Found
 

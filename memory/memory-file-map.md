@@ -91,6 +91,7 @@
 | LimitCheckResult | `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs` |
 | IVirusScanService | `OrvixFlow.Core/Interfaces/IVirusScanService.cs` |
 | IRagMetricsCollector| `OrvixFlow.Core/Interfaces/IRagMetricsCollector.cs` |
+| IStripeService | `OrvixFlow.Core/Interfaces/IStripeService.cs` |
 
 ## Controllers
 
@@ -162,6 +163,8 @@
 | PlanService | `OrvixFlow.Infrastructure/Services/PlanService.cs` |
 | EntitlementResolver | `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs` |
 | CompanySubscriptionService | `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs` |
+| StripeService | `OrvixFlow.Infrastructure/Services/Stripe/StripeService.cs` |
+| StripeWebhookService | `OrvixFlow.Infrastructure/Services/Stripe/StripeWebhookService.cs` |
 | DraftFeedbackService | `OrvixFlow.Infrastructure/Services/DraftFeedbackService.cs` |
 | AuditService (Shadow) | `OrvixFlow.Infrastructure/Shadow/AuditService.cs` |
 | UsageService (Shadow) | `OrvixFlow.Infrastructure/Shadow/UsageService.cs` |
