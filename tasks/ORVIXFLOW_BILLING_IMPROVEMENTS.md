@@ -15,8 +15,8 @@
 | **Phase 1** | Critical Security & Consistency Fixes | ✅ Complete (2026-04-15) |
 | **Phase 2** | Billing Model Stabilization (enum types, merge entities, jobs) | ✅ Complete (2026-04-16) |
 | **Phase 3** | Usage Tracking & Enforcement (gateway, unified period) | ✅ Complete (2026-04-16) |
-| **Phase 4** | Admin Panel & UX (downgrade safety, effective entitlements) | ⏳ Planned |
-| **Phase 5** | Stripe Integration (real payments, webhooks) | ⏳ Planned |
+| **Phase 4** | Admin Panel & UX (downgrade safety, effective entitlements) | ✅ Complete (2026-04-17) |
+| **Phase 5** | Stripe Integration (real payments, webhooks) | ✅ Complete (2026-04-17) |
 
 ---
 
@@ -1026,7 +1026,7 @@ When Stripe is integrated:
 ### Remaining Phase 4 Tasks
 | ID | Fix | Status |
 |----|-----|--------|
-| T4-4 | Usage alert hooks at 80%/100% thresholds | ⏳ Deferred to Phase 5 (Stripe integration) |
+| T4-4 | Usage alert hooks at 80%/100% thresholds | ✅ Completed (Commit `99a40d1` - Usage Alert Service & Background Processor) |
 
 ---
 
@@ -1039,33 +1039,23 @@ When Stripe is integrated:
 - **IStripeService interface** - Core interface with methods for customer/subscription management
 - **StripeService** - Implementation with Checkout session creation
 - **StripeWebhookService** - Webhook handling with signature validation
-- **Invoice entity** - Created in Core/Entities for future invoice tracking
+- **Invoice entity** - Created in Core/Entities for tracking recurring payments
 
-#### Files Created
+#### Files Created / Modified
 - `OrvixFlow.Core/Interfaces/IStripeService.cs` (new)
-- `OrvixFlow.Core/Entities/Invoice.cs` (new)
-- `OrvixFlow.Infrastructure/Services/Stripe/StripeService.cs` (new)
-- `OrvixFlow.Infrastructure/Services/Stripe/StripeWebhookService.cs` (new)
+- `OrvixFlow.Core/Entities/Invoice.cs` (new, converted to mapped `InvoiceStatus` enum)
+- `OrvixFlow.Infrastructure/Services/Stripe/StripeService.cs` (full portal, accurate plan lookups, owner email parsing)
+- `OrvixFlow.Infrastructure/Services/Stripe/StripeWebhookService.cs` (idempotent invoice handling, ignore queries bypassed, tenant properties synced fully)
 
-#### Notes
-- Webhook signature validation properly implemented using Stripe.EventUtility
-- Checkout session creation flow ready
-- Invoice recording deferred pending EF Core migration
-- Portal session returns placeholder URL (requires additional Stripe setup)
-- All methods requiring DB changes return NotImplementedException - need migration
-- Build succeeds, all 347 tests pass
-
-### Remaining Phase 5 Tasks
-| ID | Feature | Notes |
+#### Task Verification (Final Last Miles)
+| ID | Feature | Status |
 |----|--------|-------|
-| T5-1 | Invoice DbSet + migration | Add to AppDbContext, run migration |
-| T5-2 | Stripe price configuration | Add to .env (prices for each plan) |
-| T5-3 | Portal full implementation | Requires Customer Portal add-on |
-| T5-4 | Checkout success handling | Stripe webhook integration |
-| T5-5 | Tests for webhook validation | Signature verification tests |
+| T5-1 | Invoice DbSet + migration | ✅ Completed (Commit `c616f2e`) |
+| T5-2 | Stripe price configuration | ✅ Completed (Commit `c616f2e`) |
+| T5-3 | Portal full implementation | ✅ Completed (Commit `c616f2e`) |
+| T5-4 | Checkout success handling | ✅ Completed (`StripeWebhookService.cs` expanded logic) |
+| T5-5 | Tests for webhook validation | ✅ Completed (Commit `a3c211e`) |
 
-### Next Steps (Post Phase 5)
-- Run EF Core migration for Invoice table
-- Configure Stripe prices in .env
-- Add webhook tests
-- Connect checkout success to subscription activation
+### Final Status
+All phases (Phase 1 through 5) outlined in this billing improvements plan are **100% complete**. 
+The implementation maps exactly to the last 11 consecutive repository commits, fulfilling all security, multi-tenancy, usage enforcement, and real-payment stripe webhook integration milestones.
