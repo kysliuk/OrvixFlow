@@ -125,8 +125,8 @@ public class BillingController : ControllerBase
             return Unauthorized();
         }
 
-        var role = User.FindFirst("Role")?.Value;
-        if (!Roles.IsAdmin(role))
+        
+        if (!IsCompanyAdminOrAbove())
         {
             return Forbid();
         }

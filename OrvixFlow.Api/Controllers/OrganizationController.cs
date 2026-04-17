@@ -225,8 +225,8 @@ public class OrganizationController : ControllerBase
     [HttpPost("invite")]
     public async Task<IActionResult> Invite([FromBody] InviteUserRequest req)
     {
-        var inviterRole = User.FindFirst("Role")?.Value;
-        if (!Roles.IsAdmin(inviterRole))
+        var inviterRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!inviterRole.IsCompanyAdminOrAbove())
         {
             return Forbid();
         }

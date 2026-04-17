@@ -37,19 +37,27 @@ This document outlines the findings and the phased, step-by-step implementation 
 
 ---
 
-## Phase 2: Fix Broken Endpoints & Role Mismatches 
+## Phase 2: Fix Broken Endpoints & Role Mismatches ✅ COMPLETE (2026-04-17)
 
-**Status**: Pending
-
-### Task 3: Fix `OrganizationController` Invites
+### Task 3: Fix `OrganizationController` Invites ✅
 - **File**: `OrvixFlow.Api/Controllers/OrganizationController.cs`
 - **Issue**: `OrganizationController.Invite` uses `Roles.IsAdmin(inviterRole)`, which evaluates `"CompanyOwner"` to `false`. Company Owners get 403 Forbidden when trying to invite users.
-- **Action**: Replace `if (!Roles.IsAdmin(inviterRole))` with `if (!UserRoleExtensions.ParseRole(inviterRole).IsCompanyAdminOrAbove())`.
+- **Action**: Replaced `if (!Roles.IsAdmin(inviterRole))` with `if (!inviterRole.IsCompanyAdminOrAbove())` using `UserRoleExtensions.ParseRole()`.
+- **Verification**: CompanyOwners, CompanyAdmins, SuperAdmins, and InternalOperators now pass the role check.
+- **Status**: ✅ Fixed and tested
 
-### Task 4: Fix `BillingController` Usage Summary
+### Task 4: Fix `BillingController` Usage Summary ✅
 - **File**: `OrvixFlow.Api/Controllers/BillingController.cs`
 - **Issue**: `BillingController.Summary` uses `Roles.IsAdmin(role)`, throwing 403 for company owners.
-- **Action**: Replace `if (!Roles.IsAdmin(role))` with `if (!UserRoleExtensions.ParseRole(role).IsCompanyAdminOrAbove())`. 
+- **Action**: Replaced `if (!Roles.IsAdmin(role))` with `if (!IsCompanyAdminOrAbove())` using the existing helper method.
+- **Verification**: CompanyOwners, CompanyAdmins, SuperAdmins, and InternalOperators now pass the role check.
+- **Status**: ✅ Fixed and tested
+
+### Root Cause
+The `OrvixFlow.Api/Roles.cs` defines `Owner = "Owner"` but `UserRole.CompanyOwner.ToClaimValue()` returns `"CompanyOwner"`. When a CompanyOwner's JWT contains `"Role": "CompanyOwner"`, `Roles.IsAdmin("CompanyOwner")` fails because `AdminRoles` has `"Owner"`, not `"CompanyOwner"`.
+
+### Tests
+- **Total**: 404 tests passing (no regressions)
 
 ---
 
@@ -80,4 +88,5 @@ This document outlines the findings and the phased, step-by-step implementation 
 --- 
 **Prepared**: 2026-04-16
 **Phase 1 Completed**: 2026-04-17
-**Status**: Phase 1 Complete, Phase 2-4 Pending
+**Phase 2 Completed**: 2026-04-17
+**Status**: Phases 1-2 Complete, Phase 3-4 Pending
