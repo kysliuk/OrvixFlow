@@ -339,3 +339,26 @@ Critical authentication and authorization bugs fixed:
 #### Verification
 - `dotnet build` succeeds
 - `dotnet test` 404 tests passing
+
+### Auth System Fixes Phase 3 - Threading Resilience (2026-04-17)
+
+Critical threading issue fixed to prevent thread starvation:
+
+#### Task 5: ScopeContext Sync-Over-Async Starvation Fix
+- **Issue**: `.GetAwaiter().GetResult()` blocked threads when resolving data boundaries in sync property getters
+- **Solution**: 
+  - Added `InitializeAsync()` method to `IScopeContext` interface
+  - `ScopeContext` now provides async initialization path
+  - `AccessResolver` calls `await _scope.InitializeAsync()` before accessing sync properties
+  - Backward compatibility maintained via fallback sync properties
+- **Files Changed**:
+  - `OrvixFlow.Core/Interfaces/IScopeContext.cs` - Added `Task InitializeAsync()`
+  - `OrvixFlow.Infrastructure/Auth/ScopeContext.cs` - Implemented async init with fallback
+  - `OrvixFlow.Infrastructure/Auth/AccessResolver.cs` - Uses async initialization
+  - `OrvixFlow.Tests/ScopeContextTests.cs` - 4 new tests
+
+#### Verification
+- `dotnet build` succeeds
+- `dotnet test` 408 tests passing (1 skipped)
+
+(End of file - total 362 lines)

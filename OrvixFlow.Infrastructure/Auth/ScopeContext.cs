@@ -29,15 +29,28 @@ public sealed class ScopeContext : IScopeContext
     private bool _hasCompanyWideAccess;
     private IReadOnlyList<Guid> _allowedDepartmentIds = Array.Empty<Guid>();
     private bool _resolved;
+    private readonly UserRole _role;
 
     public bool HasCompanyWideAccess
     {
-        get { EnsureResolved(); return _hasCompanyWideAccess; }
+        get
+        {
+            // Fallback for synchronous access (e.g., legacy code that hasn't been migrated yet)
+            // This path exists for backward compatibility but should be avoided in new code.
+            EnsureResolved();
+            return _hasCompanyWideAccess;
+        }
     }
 
     public IReadOnlyList<Guid> AllowedDepartmentIds
     {
-        get { EnsureResolved(); return _allowedDepartmentIds; }
+        get
+        {
+            // Fallback for synchronous access (e.g., legacy code that hasn't been migrated yet)
+            // This path exists for backward compatibility but should be avoided in new code.
+            EnsureResolved();
+            return _allowedDepartmentIds;
+        }
     }
 
     public ScopeContext(IHttpContextAccessor httpContextAccessor, AppDbContext db)
@@ -56,10 +69,25 @@ public sealed class ScopeContext : IScopeContext
 
         // Parse role at the string-boundary
         var roleString = user?.FindFirst("Role")?.Value;
-        var role = UserRoleExtensions.ParseRole(roleString);
+        _role = UserRoleExtensions.ParseRole(roleString);
 
         _lazyScope = new Lazy<Task<(bool, List<Guid>)>>(() =>
-            ResolveAsync(role, userId, companyId, db));
+            ResolveAsync(_role, userId, companyId, db));
+    }
+
+    /// <summary>
+    /// Initializes the scope context by resolving data boundaries asynchronously.
+    /// This MUST be called before accessing <see cref="HasCompanyWideAccess"/> or <see cref="AllowedDepartmentIds"/>
+    /// from an async context to avoid thread starvation from sync-over-async.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        if (_resolved) return;
+
+        var result = await _lazyScope.Value;
+        _hasCompanyWideAccess = result.companyWide;
+        _allowedDepartmentIds = result.deptIds;
+        _resolved = true;
     }
 
     private static async Task<(bool companyWide, List<Guid> deptIds)> ResolveAsync(
@@ -83,7 +111,8 @@ public sealed class ScopeContext : IScopeContext
     }
 
     // Synchronous accessor — resolves async scope via .GetAwaiter().GetResult()
-    // This is intentional: called only from within an ASP.NET request thread.
+    // DEPRECATED: This method exists for backward compatibility only.
+    // New code should use InitializeAsync() instead to avoid thread starvation.
     private void EnsureResolved()
     {
         if (_resolved) return;

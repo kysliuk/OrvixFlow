@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace OrvixFlow.Core.Interfaces;
 
@@ -32,4 +33,11 @@ public interface IScopeContext
     /// Returning an empty set means "no department access".
     /// </summary>
     IReadOnlyList<Guid> AllowedDepartmentIds { get; }
+
+    /// <summary>
+    /// Initializes the scope context by resolving data boundaries asynchronously.
+    /// This MUST be called before accessing <see cref="HasCompanyWideAccess"/> or <see cref="AllowedDepartmentIds"/>
+    /// from an async context to avoid thread starvation from sync-over-async.
+    /// </summary>
+    Task InitializeAsync();
 }

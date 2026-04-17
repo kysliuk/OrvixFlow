@@ -22,6 +22,10 @@ public class AccessResolver : IAccessResolver
 
     public async Task<ModulePermissionResult> GetEffectivePermissionsAsync(Guid userId, Guid companyId, string moduleKey)
     {
+        // CRITICAL: Initialize scope context asynchronously to avoid thread starvation
+        // This resolves data boundaries without blocking the thread.
+        await _scope.InitializeAsync();
+
         // Check global role first — platform admins always have full access
         var user = await _db.Users
             .AsNoTracking()
@@ -55,6 +59,7 @@ public class AccessResolver : IAccessResolver
             return Empty();
 
         // Scope: use IScopeContext to get allowed department IDs for this user
+        // Now safely accessed after InitializeAsync() - no thread blocking!
         List<Guid> departmentIds;
         if (_scope.HasCompanyWideAccess)
         {
