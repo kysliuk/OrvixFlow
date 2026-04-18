@@ -26,10 +26,8 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=UTC
-      # Egress restriction: limit external destinations
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      # Disable external integrations that could exfiltrate data
       - EXECUTIONS_MODE=internal
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-dev-encryption-key-change-me}
       # Optional: N8N basic auth - SHOULD BE SET in production
       # - N8N_BASIC_AUTH_ACTIVE=true
       # - N8N_BASIC_AUTH_USER=admin
@@ -62,12 +60,6 @@ services:
       Automation__N8nBaseUrl: ${N8N_BASE_URL:-http://orvix-n8n:5678}
       Stripe__SecretKey: ${STRIPE_SECRET_KEY}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
-      Stripe__Prices__Starter__Monthly: ${STRIPE_PRICE_STARTER_MONTHLY}
-      Stripe__Prices__Starter__Yearly: ${STRIPE_PRICE_STARTER_YEARLY}
-      Stripe__Prices__Growth__Monthly: ${STRIPE_PRICE_GROWTH_MONTHLY}
-      Stripe__Prices__Growth__Yearly: ${STRIPE_PRICE_GROWTH_YEARLY}
-      Stripe__Prices__Business__Monthly: ${STRIPE_PRICE_BUSINESS_MONTHLY}
-      Stripe__Prices__Business__Yearly: ${STRIPE_PRICE_BUSINESS_YEARLY}
     env_file:
       - .env
     depends_on:
@@ -80,7 +72,7 @@ services:
       - uploads_data:/app/uploads
     networks:
       - internal
-      - external  # api needs to reach n8n for webhook callbacks
+      - external # api needs to reach n8n for webhook callbacks
 
   orvix-web:
     build:
@@ -115,6 +107,7 @@ volumes:
   pgdata:
   n8n_data:
   uploads_data:
+
 
 networks:
   internal:

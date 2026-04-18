@@ -87,7 +87,7 @@ public class PlanService : IPlanService
             query = query.Where(p => p.IsActive);
         }
 
-        return await query.ToListAsync();
+        return await query.OrderBy(p => p.SortOrder).ToListAsync();
     }
 
     public async Task<IEnumerable<PlanTemplate>> GetActivePlansAsync()
@@ -127,6 +127,8 @@ public class PlanService : IPlanService
         existingPlan.IsTrialAllowed = plan.IsTrialAllowed;
         existingPlan.TrialDays = plan.TrialDays;
         existingPlan.LegacyLocked = plan.LegacyLocked;
+        existingPlan.StripeMonthlyPriceId = plan.StripeMonthlyPriceId;
+        existingPlan.StripeYearlyPriceId = plan.StripeYearlyPriceId;
 
         await _dbContext.SaveChangesAsync();
 

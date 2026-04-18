@@ -34,7 +34,7 @@ public class PlansController : ControllerBase
         if (!IsSuperAdmin()) return Forbid();
 
         var plans = await _planService.GetAllPlansAsync(includeInactive);
-        return Ok(plans.Select(MapToDto));
+        return Ok(plans.Select(MapToAdminDto));
     }
 
     [HttpGet("active")]
@@ -52,7 +52,7 @@ public class PlansController : ControllerBase
         var plan = await _planService.GetPlanByIdAsync(id);
         if (plan == null) return NotFound();
 
-        return Ok(MapToDto(plan));
+        return Ok(MapToAdminDto(plan));
     }
 
     [HttpGet("slug/{slug}")]
@@ -89,7 +89,9 @@ public class PlansController : ControllerBase
             IsFree = request.IsFree,
             IsTrialAllowed = request.IsTrialAllowed,
             TrialDays = request.TrialDays,
-            LegacyLocked = request.LegacyLocked
+            LegacyLocked = request.LegacyLocked,
+            StripeMonthlyPriceId = request.StripeMonthlyPriceId,
+            StripeYearlyPriceId = request.StripeYearlyPriceId
         };
 
         try
@@ -113,7 +115,7 @@ public class PlansController : ControllerBase
                 result = await _planService.GetPlanByIdAsync(result.Id);
             }
             
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, MapToDto(result));
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, MapToAdminDto(result));
         }
         catch (PlanSlugAlreadyExistsException)
         {
@@ -152,6 +154,8 @@ public class PlansController : ControllerBase
         existing.IsTrialAllowed = request.IsTrialAllowed;
         existing.TrialDays = request.TrialDays;
         existing.LegacyLocked = request.LegacyLocked;
+        existing.StripeMonthlyPriceId = request.StripeMonthlyPriceId;
+        existing.StripeYearlyPriceId = request.StripeYearlyPriceId;
 
         try
         {
@@ -180,7 +184,8 @@ public class PlansController : ControllerBase
                 result = await _planService.GetPlanByIdAsync(result.Id);
             }
             
-            return Ok(MapToDto(result));
+            return Ok(MapToAdminDto(result));
+
         }
         catch (PlanSlugAlreadyExistsException)
         {
@@ -309,6 +314,43 @@ public class PlansController : ControllerBase
             } : null
         };
     }
+
+    private static AdminPlanDto MapToAdminDto(PlanTemplate plan)
+    {
+        return new AdminPlanDto
+        {
+            Id = plan.Id,
+            Name = plan.Name,
+            Slug = plan.Slug,
+            Description = plan.Description,
+            MonthlyPriceCents = plan.MonthlyPriceCents,
+            YearlyPriceCents = plan.YearlyPriceCents,
+            Currency = plan.Currency,
+            BillingInterval = plan.BillingInterval.ToClaimValue(),
+            SortOrder = plan.SortOrder,
+            IsPubliclyVisible = plan.IsPubliclyVisible,
+            MaxSeats = plan.MaxSeats,
+            IsActive = plan.IsActive,
+            IsFree = plan.IsFree,
+            IsTrialAllowed = plan.IsTrialAllowed,
+            TrialDays = plan.TrialDays,
+            LegacyLocked = plan.LegacyLocked,
+            StripeMonthlyPriceId = plan.StripeMonthlyPriceId,
+            StripeYearlyPriceId = plan.StripeYearlyPriceId,
+            CreatedAt = plan.CreatedAt,
+            ArchivedAt = plan.ArchivedAt,
+            ModuleIds = plan.ModuleInclusions?.Select(m => m.ModuleDefinitionId).ToList() ?? new List<Guid>(),
+            Entitlements = plan.Entitlements != null ? new EntitlementsDto
+            {
+                MaxMonthlyTokens = plan.Entitlements.MaxMonthlyTokens,
+                MaxApiRequestsPerDay = plan.Entitlements.MaxApiRequestsPerDay,
+                MaxStorageMb = plan.Entitlements.MaxStorageMb,
+                MaxKnowledgeBases = plan.Entitlements.MaxKnowledgeBases,
+                MaxInboxMessagesPerMonth = plan.Entitlements.MaxInboxMessagesPerMonth,
+                MaxMailboxConnections = plan.Entitlements.MaxMailboxConnections
+            } : null
+        };
+    }
 }
 
 public record CreatePlanRequest(
@@ -326,6 +368,8 @@ public record CreatePlanRequest(
     bool IsTrialAllowed,
     int TrialDays,
     bool LegacyLocked,
+    string? StripeMonthlyPriceId,
+    string? StripeYearlyPriceId,
     IEnumerable<Guid>? ModuleIds,
     EntitlementsInput? Entitlements
 );
@@ -345,6 +389,8 @@ public record UpdatePlanRequest(
     bool IsTrialAllowed,
     int TrialDays,
     bool LegacyLocked,
+    string? StripeMonthlyPriceId,
+    string? StripeYearlyPriceId,
     IEnumerable<Guid>? ModuleIds,
     EntitlementsInput? Entitlements
 );
@@ -389,6 +435,12 @@ public record PlanDto
     public DateTime? ArchivedAt { get; init; }
     public List<Guid> ModuleIds { get; init; } = new();
     public EntitlementsDto? Entitlements { get; init; }
+}
+
+public record AdminPlanDto : PlanDto
+{
+    public string? StripeMonthlyPriceId { get; init; }
+    public string? StripeYearlyPriceId { get; init; }
 }
 
 public record EntitlementsDto

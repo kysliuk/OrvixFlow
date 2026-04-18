@@ -216,29 +216,18 @@ public class StripeService : IStripeService
     }
 
     /// <summary>
-    /// T4-4: Uses PlanTemplate.Slug instead of plan.Name for price lookup.
-    /// This is more stable than name-based lookup.
+    /// T4-4: Uses PlanTemplate properties directly rather than hardcoded appsettings.
+    /// Safely resolves price IDs dynamically for any new plans created in Admin UI.
     /// </summary>
     private string? GetPriceIdForPlan(PlanTemplate plan)
     {
+        if (plan.IsFree) return null;
+
         return plan.BillingInterval switch
         {
-            BillingInterval.Monthly => plan.Slug.ToLowerInvariant() switch
-            {
-                "free" => null,
-                "starter" => _configuration["Stripe:Prices:Starter:Monthly"],
-                "growth" => _configuration["Stripe:Prices:Growth:Monthly"],
-                "business" => _configuration["Stripe:Prices:Business:Monthly"],
-                _ => null
-            },
-            BillingInterval.Yearly => plan.Slug.ToLowerInvariant() switch
-            {
-                "free" => null,
-                "starter" => _configuration["Stripe:Prices:Starter:Yearly"],
-                "growth" => _configuration["Stripe:Prices:Growth:Yearly"],
-                "business" => _configuration["Stripe:Prices:Business:Yearly"],
-                _ => null
-            },
+            BillingInterval.Monthly => plan.StripeMonthlyPriceId,
+            BillingInterval.Yearly => plan.StripeYearlyPriceId,
+            BillingInterval.Custom => plan.StripeMonthlyPriceId, // Fallback if custom
             _ => null
         };
     }

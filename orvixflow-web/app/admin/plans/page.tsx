@@ -24,6 +24,8 @@ interface Plan {
   moduleIds: string[];
   isPubliclyVisible: boolean;
   sortOrder: number;
+  stripeMonthlyPriceId?: string;
+  stripeYearlyPriceId?: string;
   entitlements: {
     maxMonthlyTokens: number;
     maxApiRequestsPerDay: number;
@@ -63,6 +65,8 @@ interface PlanFormData {
   legacyLocked: boolean;
   isPubliclyVisible: boolean;
   sortOrder: number;
+  stripeMonthlyPriceId: string;
+  stripeYearlyPriceId: string;
   entitlements: {
     maxMonthlyTokens: number;
     maxApiRequestsPerDay: number;
@@ -86,6 +90,8 @@ const initialFormData: PlanFormData = {
   legacyLocked: false,
   isPubliclyVisible: true,
   sortOrder: 0,
+  stripeMonthlyPriceId: "",
+  stripeYearlyPriceId: "",
   entitlements: {
     maxMonthlyTokens: 50000,
     maxApiRequestsPerDay: 500,
@@ -111,7 +117,7 @@ export default function PlansPage() {
 
   const fetchPlans = () => {
     if (!apiToken) return;
-    
+
     fetch(`${apiUrl}/api/plans?includeInactive=true`, {
       headers: { Authorization: `Bearer ${apiToken}` }
     })
@@ -131,7 +137,7 @@ export default function PlansPage() {
 
   const fetchModules = () => {
     if (!apiToken) return;
-    
+
     fetch(`${apiUrl}/api/admin/modules`, {
       headers: { Authorization: `Bearer ${apiToken}` }
     })
@@ -139,7 +145,7 @@ export default function PlansPage() {
       .then(data => {
         setAvailableModules((Array.isArray(data) ? data : []).filter((m: ModuleDef) => m.isActive));
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -175,6 +181,8 @@ export default function PlansPage() {
       legacyLocked: plan.legacyLocked,
       isPubliclyVisible: plan.isPubliclyVisible !== undefined ? plan.isPubliclyVisible : true,
       sortOrder: plan.sortOrder || 0,
+      stripeMonthlyPriceId: plan.stripeMonthlyPriceId || "",
+      stripeYearlyPriceId: plan.stripeYearlyPriceId || "",
       entitlements: plan.entitlements || {
         maxMonthlyTokens: 50000,
         maxApiRequestsPerDay: 500,
@@ -208,15 +216,17 @@ export default function PlansPage() {
       legacyLocked: formData.legacyLocked,
       isPubliclyVisible: formData.isPubliclyVisible,
       sortOrder: formData.sortOrder,
+      stripeMonthlyPriceId: formData.stripeMonthlyPriceId !== "" ? formData.stripeMonthlyPriceId : null,
+      stripeYearlyPriceId: formData.stripeYearlyPriceId !== "" ? formData.stripeYearlyPriceId : null,
       entitlements: formData.entitlements,
       moduleIds: formData.moduleIds.map(m => m.moduleId),
     };
 
     try {
-      const url = editingPlan 
+      const url = editingPlan
         ? `${apiUrl}/api/plans/${editingPlan.id}`
         : `${apiUrl}/api/plans`;
-      
+
       const res = await fetch(url, {
         method: editingPlan ? "PUT" : "POST",
         headers: {
@@ -266,14 +276,14 @@ export default function PlansPage() {
 
   const handleArchive = async (planId: string) => {
     if (!confirm("Are you sure you want to archive this plan?")) return;
-    
+
     try {
       const res = await fetch(`${apiUrl}/api/plans/${planId}/archive`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiToken}` },
       });
       if (!res.ok) throw new Error("Failed to archive plan");
-      
+
       setPlans(plans.map(p => p.id === planId ? { ...p, isActive: false, archivedAt: new Date().toISOString() } : p));
     } catch (e) {
       alert("Failed to archive plan");
@@ -287,7 +297,7 @@ export default function PlansPage() {
         headers: { Authorization: `Bearer ${apiToken}` },
       });
       if (!res.ok) throw new Error("Failed to reactivate plan");
-      
+
       setPlans(plans.map(p => p.id === planId ? { ...p, isActive: true, archivedAt: null } : p));
     } catch (e) {
       alert("Failed to reactivate plan");
@@ -334,13 +344,12 @@ export default function PlansPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {plans.map(plan => (
-          <div 
-            key={plan.id} 
-            className={`bg-black/40 border rounded-xl p-5 relative overflow-hidden ${
-              plan.isActive 
-                ? "border-danger/20 hover:border-danger/40" 
+          <div
+            key={plan.id}
+            className={`bg-black/40 border rounded-xl p-5 relative overflow-hidden ${plan.isActive
+                ? "border-danger/20 hover:border-danger/40"
                 : "border-white/10 opacity-60"
-            }`}
+              }`}
           >
             {!plan.isActive && (
               <div className="absolute top-3 right-3">
@@ -349,7 +358,7 @@ export default function PlansPage() {
                 </span>
               </div>
             )}
-            
+
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
@@ -409,14 +418,14 @@ export default function PlansPage() {
             )}
 
             <div className="flex gap-2 pt-4 border-t border-white/10">
-              <button 
+              <button
                 onClick={() => handleEditClick(plan)}
                 className="flex-1 px-3 py-2 bg-danger/10 text-danger text-xs font-medium rounded hover:bg-danger/20 transition-colors flex items-center justify-center gap-1"
               >
                 <Edit className="w-3 h-3" /> Edit
               </button>
               {!plan.isActive && !plan.legacyLocked && (
-                <button 
+                <button
                   onClick={() => handleReactivate(plan.id)}
                   className="px-3 py-2 bg-success/10 text-success text-xs font-medium rounded hover:bg-success/20 transition-colors"
                   title="Reactivate plan"
@@ -425,7 +434,7 @@ export default function PlansPage() {
                 </button>
               )}
               {plan.isActive && !plan.legacyLocked && (
-                <button 
+                <button
                   onClick={() => handleArchive(plan.id)}
                   className="px-3 py-2 bg-white/5 text-white/50 text-xs font-medium rounded hover:bg-white/10 transition-colors"
                 >
@@ -444,14 +453,14 @@ export default function PlansPage() {
               <h2 className="text-lg font-semibold text-white">
                 {editingPlan ? "Edit Plan" : "Create New Plan"}
               </h2>
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="text-muted hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="flex flex-col max-h-[75vh]">
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -598,7 +607,32 @@ export default function PlansPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-white/10 pt-4">
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Stripe Monthly Price ID</label>
+                    <input
+                      type="text"
+                      value={formData.stripeMonthlyPriceId}
+                      onChange={e => setFormData({ ...formData, stripeMonthlyPriceId: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger disabled:opacity-50"
+                      placeholder="price_..."
+                      disabled={formData.monthlyPriceCents === 0}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Stripe Yearly Price ID</label>
+                    <input
+                      type="text"
+                      value={formData.stripeYearlyPriceId}
+                      onChange={e => setFormData({ ...formData, stripeYearlyPriceId: e.target.value })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger disabled:opacity-50"
+                      placeholder="price_..."
+                      disabled={formData.yearlyPriceCents === 0}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 pt-4 mt-4">
                   <label className="block text-xs font-medium text-white/70 mb-3">Entitlements</label>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

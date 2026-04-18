@@ -38,6 +38,16 @@ public class PlanTemplate
     /// </summary>
     public bool IsPubliclyVisible { get; set; } = true;
 
+    /// <summary>
+    /// Stripe Price ID for Monthly billing. Manageable from SuperAdmin UI.
+    /// </summary>
+    public string? StripeMonthlyPriceId { get; set; }
+
+    /// <summary>
+    /// Stripe Price ID for Yearly billing. Manageable from SuperAdmin UI.
+    /// </summary>
+    public string? StripeYearlyPriceId { get; set; }
+
     public ICollection<PlanModuleInclusion> ModuleInclusions { get; set; } = new List<PlanModuleInclusion>();
     public PlanEntitlements? Entitlements { get; set; }
     public ICollection<CompanySubscription> CompanySubscriptions { get; set; } = new List<CompanySubscription>();
