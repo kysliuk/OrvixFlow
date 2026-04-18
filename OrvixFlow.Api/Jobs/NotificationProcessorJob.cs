@@ -69,6 +69,12 @@ public class NotificationProcessorJob
     
     private async Task SendEmailAsync(Core.Entities.NotificationQueue notification)
     {
+        if (!string.IsNullOrWhiteSpace(notification.Subject) && !string.IsNullOrWhiteSpace(notification.Body))
+        {
+            await _emailService.SendEmailAsync(notification.RecipientEmail, notification.Subject, notification.Body);
+            return;
+        }
+
         var subject = notification.Type switch
         {
             "UsageWarning80" => "⚠️ Usage Alert: 80% Threshold Reached",

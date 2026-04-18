@@ -225,66 +225,7 @@ public class OrganizationController : ControllerBase
     [HttpPost("invite")]
     public async Task<IActionResult> Invite([FromBody] InviteUserRequest req)
     {
-        var inviterRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
-        if (!inviterRole.IsCompanyAdminOrAbove())
-        {
-            return Forbid();
-        }
-
-        var company = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == req.CompanyId);
-        if (company == null)
-        {
-            return NotFound(new { error = "Company not found." });
-        }
-
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant());
-        if (user == null)
-        {
-            user = new Core.Entities.User
-            {
-                Email = req.Email.ToLowerInvariant(),
-                DisplayName = req.DisplayName,
-                OAuthProvider = "invited",
-                TenantId = req.CompanyId
-            };
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
-        }
-
-        var existing = await _db.UserCompanyMemberships
-            .AnyAsync(m => m.UserId == user.Id && m.CompanyId == req.CompanyId);
-        if (!existing)
-        {
-            _db.UserCompanyMemberships.Add(new Core.Entities.UserCompanyMembership
-            {
-                UserId = user.Id,
-                CompanyId = req.CompanyId,
-                CompanyRole = req.CompanyRole,
-                Status = "Invited",
-                InvitedAt = DateTime.UtcNow,
-                InvitedByUserId = ParseGuid("sub")
-            });
-        }
-
-        foreach (var departmentId in req.DepartmentIds.Distinct())
-        {
-            var depExists = await _db.UserDepartmentMemberships.AnyAsync(m =>
-                m.UserId == user.Id && m.CompanyId == req.CompanyId && m.DepartmentId == departmentId);
-            if (!depExists)
-            {
-                _db.UserDepartmentMemberships.Add(new Core.Entities.UserDepartmentMembership
-                {
-                    UserId = user.Id,
-                    CompanyId = req.CompanyId,
-                    DepartmentId = departmentId,
-                    DepartmentRole = req.DepartmentRole,
-                    Status = "Invited"
-                });
-            }
-        }
-
-        await _db.SaveChangesAsync();
-        return Ok(new { invitedUserId = user.Id });
+        return StatusCode(410, new { error = "This legacy invite endpoint is retired. Use /api/invite instead." });
     }
 
     [HttpPut("companies/{companyId}")]

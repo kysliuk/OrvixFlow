@@ -74,6 +74,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return null;
       },
     }),
+    CredentialsProvider({
+      id: "invite-accept",
+      name: "Accept Invitation",
+      credentials: {
+        token: { label: "Token", type: "text" },
+        displayName: { label: "Display Name", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const res = await fetch(`${apiBaseUrl}/api/invite/accept`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: credentials?.token,
+            displayName: credentials?.displayName,
+            password: credentials?.password,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.token) {
+          return {
+            id: data.profile.userId,
+            name: data.profile.displayName,
+            email: data.profile.email,
+            apiToken: data.token,
+            refreshToken: data.refreshToken,
+            tenantId: data.profile.tenantId,
+            activeCompanyId: data.profile.activeCompanyId,
+            plan: data.profile.plan,
+            role: data.profile.role,
+            globalRole: data.profile.globalRole,
+            companies: data.profile.companies ?? [],
+          };
+        }
+
+        if (data.error) {
+          throw new CustomAuthError(data.error);
+        }
+
+        return null;
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {

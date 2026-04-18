@@ -23,7 +23,7 @@ public class Invitation
     /// <summary>Optional: department the user is pre-assigned to.</summary>
     public Guid? DepartmentId { get; set; }
 
-    /// <summary>Opaque token sent in the invitation email link.</summary>
+    /// <summary>SHA-256 hash of the opaque token sent in the invitation email link.</summary>
     public string Token { get; set; } = string.Empty;
 
     public string Status { get; set; } = "Pending"; // Pending | Accepted | Expired | Revoked

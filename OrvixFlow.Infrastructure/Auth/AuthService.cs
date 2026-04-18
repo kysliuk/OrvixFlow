@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,11 @@ public class AuthService : IAuthService
         if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == normalizedEmail))
             return new AuthResult(false, Error: "An account with this email already exists.");
 
+        var useTransaction = _db.Database.IsRelational();
+        await using var transaction = useTransaction
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+
         var tenant = new Tenant
         {
             Name = displayName,
@@ -54,6 +60,7 @@ public class AuthService : IAuthService
         };
         _db.Tenants.Add(tenant);
 
+        var verificationToken = GenerateOpaqueToken();
         var user = new User
         {
             TenantId = tenant.Id,
@@ -62,16 +69,19 @@ public class AuthService : IAuthService
             OAuthProvider = "local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             EmailVerified = false,
-            VerificationToken = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
+            VerificationToken = ComputeTokenHash(verificationToken),
+            VerificationTokenExpiresAt = DateTime.UtcNow.AddHours(48),
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        
-        // F-33: Send verification email
+
+        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
+        await EnsureFreePlanSubscriptionAsync(tenant.Id);
+
         var frontendUrl = _config["Frontend:BaseUrl"] ?? "http://localhost:3000";
-        var verificationLink = $"{frontendUrl}/verify?token={user.VerificationToken}";
-        
-        await _emailService.SendEmailAsync(
+        var verificationLink = $"{frontendUrl}/verify?token={verificationToken}";
+        QueueEmailNotification(
+            tenant.Id,
             user.Email,
             "Verify your OrvixFlow account",
             $@"<div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
@@ -81,16 +91,18 @@ public class AuthService : IAuthService
                 <div style='text-align: center; margin: 30px 0;'>
                     <a href='{verificationLink}' style='background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Verify Email Address</a>
                 </div>
+                <p style='font-size: 0.875rem; color: #64748b;'>This link expires in 48 hours.</p>
                 <p style='font-size: 0.875rem; color: #64748b;'>If the button doesn't work, copy and paste this link into your browser:</p>
                 <p style='font-size: 0.875rem; color: #6366f1; word-break: break-all;'>{verificationLink}</p>
                 <hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
                 <p style='font-size: 0.75rem; color: #94a3b8; text-align: center;'>&copy; {DateTime.UtcNow.Year} OrvixFlow Enterprise. All rights reserved.</p>
             </div>");
 
-        _logger.LogInformation("Verification email sent to {Email}", normalizedEmail);
+        await _db.SaveChangesAsync();
+        if (transaction != null)
+            await transaction.CommitAsync();
 
-        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
-        await EnsureFreePlanSubscriptionAsync(tenant.Id);
+        _logger.LogInformation("Queued verification email for {Email}", normalizedEmail);
 
         // F-33: Return success without tokens, user must verify email before logging in
         return new AuthResult(true);
@@ -479,8 +491,7 @@ public class AuthService : IAuthService
         foreach (var old in existing)
             old.Status = "Revoked";
 
-        var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
-                           .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var token = GenerateOpaqueToken();
 
         var invitation = new Invitation
         {
@@ -488,12 +499,29 @@ public class AuthService : IAuthService
             CompanyId      = request.CompanyId,
             AssignedRole   = role.ToClaimValue(),
             DepartmentId   = request.DepartmentId,
-            Token          = token,
+            Token          = ComputeTokenHash(token),
             Status         = "Pending",
             InvitedByUserId = request.InvitedByUserId,
             ExpiresAt      = DateTime.UtcNow.AddDays(7),
         };
         _db.Invitations.Add(invitation);
+
+        var frontendUrl = _config["Frontend:BaseUrl"] ?? "http://localhost:3000";
+        var inviteLink = $"{frontendUrl}/invite?token={token}";
+        QueueEmailNotification(
+            request.CompanyId,
+            request.Email,
+            "You're invited to join OrvixFlow",
+            $@"<div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                <h2 style='color: #6366f1; text-align: center;'>You're invited to OrvixFlow</h2>
+                <p>You have been invited to join a company workspace in OrvixFlow as <strong>{role.ToClaimValue()}</strong>.</p>
+                <div style='text-align: center; margin: 30px 0;'>
+                    <a href='{inviteLink}' style='background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Accept Invitation</a>
+                </div>
+                <p style='font-size: 0.875rem; color: #64748b;'>This invitation expires in 7 days.</p>
+                <p style='font-size: 0.875rem; color: #64748b;'>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style='font-size: 0.875rem; color: #6366f1; word-break: break-all;'>{inviteLink}</p>
+            </div>");
         await _db.SaveChangesAsync();
 
         return new InviteResult(true, Token: token, InvitationId: invitation.Id);
@@ -501,9 +529,22 @@ public class AuthService : IAuthService
 
     public async Task<AuthResult> AcceptInvitationAsync(string token, string? displayName, string? password)
     {
+        var tokenHash = ComputeTokenHash(token);
         var invitation = await _db.Invitations
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(i => i.Token == token && i.Status == "Pending");
+            .FirstOrDefaultAsync(i => i.Token == tokenHash && i.Status == "Pending");
+
+        if (invitation == null)
+        {
+            invitation = await _db.Invitations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(i => i.Token == token && i.Status == "Pending");
+
+            if (invitation != null)
+            {
+                invitation.Token = tokenHash;
+            }
+        }
 
         if (invitation == null)
             return new AuthResult(false, Error: "Invitation not found or already used.");
@@ -526,19 +567,28 @@ public class AuthService : IAuthService
         {
             if (string.IsNullOrWhiteSpace(displayName))
                 return new AuthResult(false, Error: "displayName is required for new accounts.");
+            if (string.IsNullOrWhiteSpace(password))
+                return new AuthResult(false, Error: "password is required for new local accounts.");
+
+            var passwordValidation = ValidatePasswordComplexity(password);
+            if (!passwordValidation.IsValid)
+                return new AuthResult(false, Error: passwordValidation.ErrorMessage);
 
             user = new User
             {
                 Email        = normalizedEmail,
                 DisplayName  = displayName,
                 OAuthProvider = "local",
-                PasswordHash = string.IsNullOrWhiteSpace(password)
-                               ? null
-                               : BCrypt.Net.BCrypt.HashPassword(password),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                 TenantId     = invitation.CompanyId,
+                EmailVerified = true,
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
+        }
+        else if (!user.EmailVerified)
+        {
+            user.EmailVerified = true;
         }
 
         // Apply company membership with pre-assigned role
@@ -632,9 +682,23 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(token))
             return new AuthResult(false, Error: "Verification token is required.");
 
+        var tokenHash = ComputeTokenHash(token);
+
         var user = await _db.Users
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.VerificationToken == token);
+            .FirstOrDefaultAsync(u => u.VerificationToken == tokenHash);
+
+        if (user == null)
+        {
+            user = await _db.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.VerificationToken == token);
+
+            if (user != null)
+            {
+                user.VerificationToken = tokenHash;
+            }
+        }
 
         if (user == null)
         {
@@ -642,8 +706,18 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "Invalid or expired verification token.");
         }
 
+        if (user.VerificationTokenExpiresAt.HasValue && user.VerificationTokenExpiresAt.Value < DateTime.UtcNow)
+        {
+            _logger.LogWarning("Email verification failed: expired token for {Email}", user.Email);
+            user.VerificationToken = null;
+            user.VerificationTokenExpiresAt = null;
+            await _db.SaveChangesAsync();
+            return new AuthResult(false, Error: "Invalid or expired verification token.");
+        }
+
         user.EmailVerified = true;
         user.VerificationToken = null; // Invalidate after use
+        user.VerificationTokenExpiresAt = null;
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("Email verified for user {Email}", user.Email);
@@ -674,6 +748,38 @@ public class AuthService : IAuthService
             return (false, $"Password must contain at least one {string.Join(", ", missing)}.");
 
         return (true, string.Empty);
+    }
+
+    private void QueueEmailNotification(Guid companyId, string recipientEmail, string subject, string body)
+    {
+        _db.NotificationQueues.Add(new NotificationQueue
+        {
+            CompanyId = companyId,
+            Type = "AuthEmail",
+            Channel = "Email",
+            RecipientEmail = recipientEmail,
+            Subject = subject,
+            Body = body,
+            MetricType = string.Empty,
+            CurrentUsage = 0,
+            Limit = 0,
+            Percentage = 0,
+            Processed = false
+        });
+    }
+
+    private static string GenerateOpaqueToken()
+    {
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static string ComputeTokenHash(string token)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hash);
     }
 
     private async Task<Guid?> ResolveActiveCompanyIdAsync(User user, Guid? requestedCompanyId)

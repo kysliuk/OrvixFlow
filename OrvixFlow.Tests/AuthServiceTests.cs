@@ -1,4 +1,7 @@
 using System;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -296,6 +299,129 @@ public class AuthServiceTests : IDisposable
         storedToken.RevokedAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task RegisterAsync_Should_QueueVerificationEmail_And_StoreHashedToken()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        _configMock.Setup(c => c["Frontend:BaseUrl"]).Returns("http://localhost:3000");
+
+        var result = await authService.RegisterAsync("queued@example.com", "ValidPassword123!", "Queued User");
+
+        result.IsSuccess.Should().BeTrue();
+
+        var user = await _db.Users.IgnoreQueryFilters().FirstAsync(u => u.Email == "queued@example.com");
+        user.VerificationToken.Should().NotBeNullOrWhiteSpace();
+        user.VerificationTokenExpiresAt.Should().NotBeNull();
+
+        var notification = await _db.NotificationQueues.IgnoreQueryFilters().SingleAsync();
+        notification.RecipientEmail.Should().Be("queued@example.com");
+        notification.Subject.Should().Be("Verify your OrvixFlow account");
+        notification.Body.Should().Contain("/verify?token=");
+    }
+
+    [Fact]
+    public async Task VerifyEmailAsync_Should_Fail_When_TokenExpired()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "expired-verification-token";
+
+        _db.Users.Add(new User
+        {
+            Email = "verify-expired@example.com",
+            DisplayName = "Expired Verify User",
+            TenantId = _tenantId,
+            OAuthProvider = "local",
+            VerificationToken = ComputeTokenHash(rawToken),
+            VerificationTokenExpiresAt = DateTime.UtcNow.AddMinutes(-5),
+            EmailVerified = false,
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.VerifyEmailAsync(rawToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("expired");
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_Should_QueueInvitationEmail_And_StoreHashedToken()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        _configMock.Setup(c => c["Frontend:BaseUrl"]).Returns("http://localhost:3000");
+        var invitedByUserId = Guid.NewGuid();
+        AddActiveMembership(invitedByUserId, _tenantId, "CompanyOwner");
+        await _db.SaveChangesAsync();
+
+        var result = await authService.InviteUserAsync(new InviteRequest(
+            invitedByUserId,
+            _tenantId,
+            "invitee@example.com",
+            "Operator",
+            null));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Token.Should().NotBeNullOrWhiteSpace();
+
+        var invitation = await _db.Invitations.IgnoreQueryFilters().SingleAsync();
+        invitation.Token.Should().Be(ComputeTokenHash(result.Token!));
+
+        var notification = await _db.NotificationQueues.IgnoreQueryFilters()
+            .OrderByDescending(n => n.CreatedAt)
+            .FirstAsync();
+        notification.RecipientEmail.Should().Be("invitee@example.com");
+        notification.Subject.Should().Be("You're invited to join OrvixFlow");
+        notification.Body.Should().Contain(result.Token!);
+    }
+
+    [Fact]
+    public async Task AcceptInvitationAsync_Should_RequirePassword_For_NewLocalUser()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "invite-password-required";
+
+        _db.Invitations.Add(new Invitation
+        {
+            Email = "newinvite@example.com",
+            CompanyId = _tenantId,
+            AssignedRole = "Operator",
+            Token = ComputeTokenHash(rawToken),
+            Status = "Pending",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            InvitedByUserId = Guid.NewGuid()
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.AcceptInvitationAsync(rawToken, "New Invitee", null);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("password is required");
+    }
+
+    [Fact]
+    public async Task AcceptInvitationAsync_Should_Verify_NewUser_Email_When_InviteAccepted()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "invite-verifies-user";
+
+        _db.Invitations.Add(new Invitation
+        {
+            Email = "verifiedinvite@example.com",
+            CompanyId = _tenantId,
+            AssignedRole = "Operator",
+            Token = ComputeTokenHash(rawToken),
+            Status = "Pending",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            InvitedByUserId = Guid.NewGuid()
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.AcceptInvitationAsync(rawToken, "Verified Invitee", "ValidPassword123!");
+
+        result.IsSuccess.Should().BeTrue();
+        var user = await _db.Users.IgnoreQueryFilters().FirstAsync(u => u.Email == "verifiedinvite@example.com");
+        user.EmailVerified.Should().BeTrue();
+    }
+
     private void AddActiveMembership(Guid userId, Guid companyId, string role)
     {
         _db.UserCompanyMemberships.Add(new UserCompanyMembership
@@ -305,6 +431,12 @@ public class AuthServiceTests : IDisposable
             CompanyRole = role,
             Status = "Active"
         });
+    }
+
+    private static string ComputeTokenHash(string token)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hash);
     }
 
     private class MockTenantProvider : ITenantProvider

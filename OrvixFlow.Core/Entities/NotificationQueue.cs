@@ -26,6 +26,16 @@ public class NotificationQueue
     /// Target email address or webhook URL.
     /// </summary>
     public string RecipientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional explicit subject for general-purpose queued email notifications.
+    /// </summary>
+    public string? Subject { get; set; }
+
+    /// <summary>
+    /// Optional explicit HTML/text body for general-purpose queued email notifications.
+    /// </summary>
+    public string? Body { get; set; }
     
     /// <summary>
     /// The metric being reported (e.g., "ai-tokens", "storage-mb").

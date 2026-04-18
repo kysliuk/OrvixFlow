@@ -26,8 +26,11 @@ public class User
     /// <summary>F-33: Email verified via verification token.</summary>
     public bool EmailVerified { get; set; } = false;
 
-    /// <summary>F-33: Verification token (single-use, expires after 48h).</summary>
+    /// <summary>F-33: SHA-256 hash of the verification token (single-use).</summary>
     public string? VerificationToken { get; set; }
+
+    /// <summary>F-33: Expiration time for the verification token.</summary>
+    public DateTime? VerificationTokenExpiresAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
