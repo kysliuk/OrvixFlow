@@ -22,6 +22,8 @@ interface Plan {
   createdAt: string;
   archivedAt: string | null;
   moduleIds: string[];
+  isPubliclyVisible: boolean;
+  sortOrder: number;
   entitlements: {
     maxMonthlyTokens: number;
     maxApiRequestsPerDay: number;
@@ -59,6 +61,8 @@ interface PlanFormData {
   isActive: boolean;
   billingInterval: string;
   legacyLocked: boolean;
+  isPubliclyVisible: boolean;
+  sortOrder: number;
   entitlements: {
     maxMonthlyTokens: number;
     maxApiRequestsPerDay: number;
@@ -80,6 +84,8 @@ const initialFormData: PlanFormData = {
   isActive: true,
   billingInterval: "Monthly",
   legacyLocked: false,
+  isPubliclyVisible: true,
+  sortOrder: 0,
   entitlements: {
     maxMonthlyTokens: 50000,
     maxApiRequestsPerDay: 500,
@@ -167,6 +173,8 @@ export default function PlansPage() {
       isActive: plan.isActive,
       billingInterval: plan.billingInterval || "Monthly",
       legacyLocked: plan.legacyLocked,
+      isPubliclyVisible: plan.isPubliclyVisible !== undefined ? plan.isPubliclyVisible : true,
+      sortOrder: plan.sortOrder || 0,
       entitlements: plan.entitlements || {
         maxMonthlyTokens: 50000,
         maxApiRequestsPerDay: 500,
@@ -198,6 +206,8 @@ export default function PlansPage() {
       isActive: formData.isActive,
       billingInterval: formData.billingInterval,
       legacyLocked: formData.legacyLocked,
+      isPubliclyVisible: formData.isPubliclyVisible,
+      sortOrder: formData.sortOrder,
       entitlements: formData.entitlements,
       moduleIds: formData.moduleIds.map(m => m.moduleId),
     };
@@ -561,6 +571,29 @@ export default function PlansPage() {
                         className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
                       />
                       Legacy Locked
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Sort Order</label>
+                    <input
+                      type="number"
+                      value={formData.sortOrder}
+                      onChange={e => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 bg-background border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-danger"
+                    />
+                  </div>
+                  <div className="flex items-center gap-4 pt-6">
+                    <label className="flex items-center gap-2 text-sm text-white">
+                      <input
+                        type="checkbox"
+                        checked={formData.isPubliclyVisible}
+                        onChange={e => setFormData({ ...formData, isPubliclyVisible: e.target.checked })}
+                        className="w-4 h-4 rounded border-white/20 bg-background text-danger focus:ring-danger"
+                      />
+                      Publicly Visible (show on billing page)
                     </label>
                   </div>
                 </div>
