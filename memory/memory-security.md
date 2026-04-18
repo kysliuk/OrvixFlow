@@ -100,7 +100,6 @@ Stored in `UserCompanyMembership.CompanyRole`. One row per user-company pair.
 
 **Key files:**
 - `OrvixFlow.Core/Authorization/Roles.cs` — canonical enum + extension methods (`IsHigherThan`, `IsPlatformAdmin`, `IsCompanyAdmin`, `ParseRole`).
-- `OrvixFlow.Api/Roles.cs` — static string constants used specifically for impersonation gating in `TenantProvider`. **Contains different role name strings** — be careful when adding roles.
 - `OrvixFlow.Infrastructure/Auth/AccessResolver.cs` — reads `UserCompanyMembership.CompanyRole` for permission resolution.
 - `OrvixFlow.Infrastructure/Auth/ScopeContext.cs` — reads JWT `Role` claim.
 
@@ -162,7 +161,7 @@ _db.Entity.IgnoreQueryFilters()
 ### Admin Impersonation
 
 Path: `X-Impersonate-Tenant: <guid>` header.
-- Only accepted if `Roles.IsAdmin(roleClaim)` — this checks `Api/Roles.cs` static constants.
+- Only accepted if `UserRoleExtensions.ParseRole(roleClaim).IsPlatformAdmin()`.
 - Produces a structured `LogWarning` on every use: `"SECURITY: Admin impersonation started"` with `AdminUserId`, `ImpersonatedTenantId`, `RemoteIp`.
 - **Limitation:** Logging only (no `AuditTrail` DB write yet). Future improvement: write to `AuditTrail` for DB-level traceability.
 

@@ -35,7 +35,7 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
         var companyIdClaim = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value;
 
         // Platform admins bypass ALL module checks (SuperAdmin, InternalOperator)
-        if (Roles.IsAdmin(roleClaim)) return;
+        if (UserRoleExtensions.ParseRole(roleClaim).IsPlatformAdmin()) return;
 
         if (!Guid.TryParse(companyIdClaim, out var companyId))
         {

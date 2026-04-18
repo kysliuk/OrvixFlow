@@ -296,15 +296,15 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
-## Critical: Two Roles Classes
+## Low: Unified Role System Logic
 
-**Locations:**
-1. `OrvixFlow.Core/Authorization/Roles.cs` — enum + extension methods (`IsHigherThan`, `IsPlatformAdmin`, etc.)  
-2. `OrvixFlow.Api/Roles.cs` — static class with string constants (`"Admin"`, `"Owner"`, `"SuperAdmin"`)
+**Location:** `OrvixFlow.Core/Authorization/Roles.cs`
 
-**TenantProvider impersonation:** `TenantProvider.GetTenantId()` uses `Roles.IsAdmin(roleClaim)` (from `Api/Roles.cs`) which only recognizes `"Admin"`, `"Owner"`, `"SuperAdmin"` — NOT `"CompanyAdmin"` or `"CompanyOwner"`. This means company-level admins cannot use the `X-Impersonate-Tenant` header for impersonation; only platform admins (SuperAdmin) can.
+**Status:** FIXED. Legacy `OrvixFlow.Api/Roles.cs` has been removed.
 
-**When adding roles:** Add to BOTH files if applicable. `Core/Authorization/Roles.cs` for enum/extension logic, `Api/Roles.cs` for impersonation.
+**Pattern:** All role checks must use `UserRoleExtensions.ParseRole(roleClaim)` followed by extension methods (`IsPlatformAdmin()`, `IsCompanyAdmin()`, etc.).
+
+**TenantProvider impersonation:** Strictly gated to platform admins (`IsPlatformAdmin()`).
 
 ---
 
@@ -454,7 +454,7 @@ if (isLoggedIn && pathname.startsWith("/admin")) {
 
 **Code added:**
 ```csharp
-// FIX F-07: Also check user-level permissions (unless already admin via Roles.IsAdmin above)
+// FIX F-07: Also check user-level permissions (unless already admin via IsPlatformAdmin() above)
 var userIdClaim = user.FindFirst("sub")?.Value;
 if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
 {
@@ -825,7 +825,7 @@ if (!string.IsNullOrEmpty(externalInvoiceId))
 ```csharp
 // Order of checks:
 // 1. Platform admins bypass everything
-if (Roles.IsAdmin(roleClaim)) return;
+if (UserRoleExtensions.ParseRole(roleClaim).IsPlatformAdmin()) return;
 
 // 2. Check company billing entitlement (ALL roles including CompanyAdmin must pass)
 var canUseModule = await entitlementResolver.CanUseModuleAsync(companyId, _requiredModule);

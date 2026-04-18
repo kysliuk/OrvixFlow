@@ -124,8 +124,6 @@ public class AuthService : IAuthService
         }
 
         var activeCompanyId = user.TenantId;
-        // Migrate existing users who have no subscription yet (registered before this fix was deployed)
-        await EnsureFreePlanSubscriptionAsync(activeCompanyId);
         var token = await MintJwtAsync(user, activeCompanyId);
         var profile = await BuildProfileAsync(user, activeCompanyId);
         var refreshToken = await CreateRefreshTokenAsync(user.Id);
@@ -144,6 +142,7 @@ public class AuthService : IAuthService
         if (existing != null)
         {
             await EnsureOwnerMembershipAsync(existing.Id, existing.TenantId);
+            await EnsureFreePlanSubscriptionAsync(existing.TenantId);
             var existingToken = await MintJwtAsync(existing, existing.TenantId);
             var existingProfile = await BuildProfileAsync(existing, existing.TenantId);
             var existingRefreshToken = await CreateRefreshTokenAsync(existing.Id);

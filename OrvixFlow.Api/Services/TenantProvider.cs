@@ -1,6 +1,7 @@
 using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Interfaces;
 
 namespace OrvixFlow.Api.Services;
@@ -29,8 +30,8 @@ public class TenantProvider : ITenantProvider
         var roleClaim = user?.FindFirst("Role")?.Value;
         var userIdClaim = user?.FindFirst("sub")?.Value;
 
-        // Check if an Admin is trying to impersonate a different tenant
-        if (Roles.IsAdmin(roleClaim))
+        // Check if a platform admin is trying to impersonate a different tenant
+        if (UserRoleExtensions.ParseRole(roleClaim).IsPlatformAdmin())
         {
             var impersonateHeader = _httpContextAccessor.HttpContext?.Request.Headers["X-Impersonate-Tenant"].ToString();
             if (!string.IsNullOrEmpty(impersonateHeader) && Guid.TryParse(impersonateHeader, out var impersonateGuid))
