@@ -10,6 +10,7 @@ using Moq;
 using OrvixFlow.Api.Controllers;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
+using OrvixFlow.Infrastructure.Auth;
 using OrvixFlow.Infrastructure.Data;
 using Xunit;
 
@@ -26,6 +27,8 @@ public class OrgHierarchyTests : IDisposable
 {
     private readonly AppDbContext _db;
     private readonly Mock<ITenantProvider> _tenantProviderMock;
+    private readonly CompanyBootstrapService _companyBootstrapService;
+    private readonly IAuthService _authService;
 
     // The companyId returned by the tenant provider — set this before seeding
     // so that EF Core global query filters allow access to the seeded rows.
@@ -43,6 +46,22 @@ public class OrgHierarchyTests : IDisposable
             .Options;
 
         _db = new AppDbContext(options, _tenantProviderMock.Object);
+        _db.PlanTemplates.Add(new PlanTemplate
+        {
+            Id = PlanCatalog.FreeId,
+            Name = "Free",
+            Slug = "free",
+            IsActive = true,
+            MaxSeats = 5
+        });
+        _db.SaveChanges();
+        _companyBootstrapService = new CompanyBootstrapService(_db, Mock.Of<ILogger<CompanyBootstrapService>>());
+
+        var configMock = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
+        configMock.Setup(c => c["Jwt:Secret"]).Returns("test-secret-key-for-testing-min-32-chars");
+        configMock.Setup(c => c["Jwt:Issuer"]).Returns("test-issuer");
+        configMock.Setup(c => c["Jwt:Audience"]).Returns("test-audience");
+        _authService = new AuthService(_db, configMock.Object, Mock.Of<ILogger<AuthService>>(), Mock.Of<IEmailService>(), _companyBootstrapService);
     }
 
     public void Dispose() => _db.Dispose();
@@ -68,7 +87,7 @@ public class OrgHierarchyTests : IDisposable
         var identity = new ClaimsIdentity(claims, "Test");
         var principal = new ClaimsPrincipal(identity);
 
-        var controller = new OrganizationController(_db, Mock.Of<ILogger<OrganizationController>>());
+        var controller = new OrganizationController(_db, Mock.Of<ILogger<OrganizationController>>(), _companyBootstrapService, _authService);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = principal }
@@ -214,10 +233,10 @@ public class OrgHierarchyTests : IDisposable
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // 7. GetOrgStatus returns the FIRST active membership (deterministic)
+    // 7. GetOrgStatus honors the active company claim when present
     // ────────────────────────────────────────────────────────────────────────
     [Fact]
-    public async Task GetOrgStatus_WithMultipleMemberships_ReturnsFirstActive()
+    public async Task GetOrgStatus_WithMultipleMemberships_ReturnsClaimSelectedCompany()
     {
         var userId = Guid.NewGuid();
         var c1 = Guid.NewGuid();
@@ -229,13 +248,15 @@ public class OrgHierarchyTests : IDisposable
         _db.UserCompanyMemberships.Add(new UserCompanyMembership { UserId = userId, CompanyId = c2, Status = "Active", CompanyRole = "CompanyAdmin" });
         await _db.SaveChangesAsync();
 
-        var ctrl = BuildController(userId, c1);
+        var ctrl = BuildController(userId, c2, role: "CompanyAdmin");
         var result = await ctrl.GetOrgStatus() as OkObjectResult;
 
         Assert.NotNull(result);
         var val = result!.Value!;
         var hasOrg = (bool)val.GetType().GetProperty("hasOrganization")!.GetValue(val)!;
+        var activeId = (Guid?)val.GetType().GetProperty("activeCompanyId")!.GetValue(val);
         Assert.True(hasOrg);
+        Assert.Equal(c2, activeId);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -262,9 +283,15 @@ public class OrgHierarchyTests : IDisposable
         var val = ok.Value!;
         var newCompanyId = (Guid)val.GetType().GetProperty("companyId")!.GetValue(val)!;
         var role = (string)val.GetType().GetProperty("role")!.GetValue(val)!;
+        var token = (string)val.GetType().GetProperty("token")!.GetValue(val)!;
+        var refreshToken = (string)val.GetType().GetProperty("refreshToken")!.GetValue(val)!;
+        var profile = val.GetType().GetProperty("profile")!.GetValue(val);
 
         Assert.NotEqual(Guid.Empty, newCompanyId);
         Assert.Equal("CompanyOwner", role);
+        Assert.False(string.IsNullOrWhiteSpace(token));
+        Assert.False(string.IsNullOrWhiteSpace(refreshToken));
+        Assert.NotNull(profile);
 
         // Verify DB - set tenant filter to the new company so query filter allows access
         _activeTenantId = newCompanyId;
@@ -275,6 +302,14 @@ public class OrgHierarchyTests : IDisposable
         Assert.NotNull(membership);
         Assert.Equal("CompanyOwner", membership.CompanyRole);
         Assert.Equal("Active", membership.Status);
+
+        var department = await _db.Departments.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.CompanyId == newCompanyId && d.Code == "general");
+        Assert.NotNull(department);
+
+        var subscription = await _db.CompanySubscriptions.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.CompanyId == newCompanyId);
+        Assert.NotNull(subscription);
     }
 
     [Fact]

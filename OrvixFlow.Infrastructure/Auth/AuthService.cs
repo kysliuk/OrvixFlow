@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using OrvixFlow.Core.Authorization;
 using OrvixFlow.Core.Entities;
@@ -23,17 +24,29 @@ public class AuthService : IAuthService
     private readonly IConfiguration _config;
     private readonly ILogger<AuthService> _logger;
     private readonly IEmailService _emailService;
+    private readonly ICompanyBootstrapService _companyBootstrapService;
 
     public AuthService(
         AppDbContext db, 
         IConfiguration config, 
         ILogger<AuthService> logger,
-        IEmailService emailService)
+        IEmailService emailService,
+        ICompanyBootstrapService companyBootstrapService)
     {
         _db = db;
         _config = config;
         _logger = logger;
         _emailService = emailService;
+        _companyBootstrapService = companyBootstrapService;
+    }
+
+    public AuthService(
+        AppDbContext db,
+        IConfiguration config,
+        ILogger<AuthService> logger,
+        IEmailService emailService)
+        : this(db, config, logger, emailService, new CompanyBootstrapService(db, NullLogger<CompanyBootstrapService>.Instance))
+    {
     }
 
     public async Task<AuthResult> RegisterAsync(string email, string password, string displayName)
@@ -75,8 +88,8 @@ public class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
-        await EnsureFreePlanSubscriptionAsync(tenant.Id);
+        await _companyBootstrapService.EnsureOwnerBootstrapAsync(user.Id, tenant.Id);
+        await _companyBootstrapService.EnsureDefaultSubscriptionAsync(tenant.Id);
 
         var frontendUrl = _config["Frontend:BaseUrl"] ?? "http://localhost:3000";
         var verificationLink = $"{frontendUrl}/verify?token={verificationToken}";
@@ -159,8 +172,8 @@ public class AuthService : IAuthService
 
         if (existing != null)
         {
-            await EnsureOwnerMembershipAsync(existing.Id, existing.TenantId);
-            await EnsureFreePlanSubscriptionAsync(existing.TenantId);
+            await _companyBootstrapService.EnsureOwnerBootstrapAsync(existing.Id, existing.TenantId);
+            await _companyBootstrapService.EnsureDefaultSubscriptionAsync(existing.TenantId);
             var existingToken = await MintJwtAsync(existing, existing.TenantId);
             var existingProfile = await BuildProfileAsync(existing, existing.TenantId);
             var existingRefreshToken = await CreateRefreshTokenAsync(existing.Id);
@@ -180,7 +193,7 @@ public class AuthService : IAuthService
                 byEmail.ExternalId = externalId;
                 await _db.SaveChangesAsync();
 
-                await EnsureOwnerMembershipAsync(byEmail.Id, byEmail.TenantId);
+                await _companyBootstrapService.EnsureOwnerBootstrapAsync(byEmail.Id, byEmail.TenantId);
                 var existingToken = await MintJwtAsync(byEmail, byEmail.TenantId);
                 var existingProfile = await BuildProfileAsync(byEmail, byEmail.TenantId);
                 var existingRefreshToken = await CreateRefreshTokenAsync(byEmail.Id);
@@ -207,8 +220,8 @@ public class AuthService : IAuthService
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
-        await EnsureFreePlanSubscriptionAsync(tenant.Id);
+        await _companyBootstrapService.EnsureOwnerBootstrapAsync(user.Id, tenant.Id);
+        await _companyBootstrapService.EnsureDefaultSubscriptionAsync(tenant.Id);
 
         var token = await MintJwtAsync(user, tenant.Id);
         var profile = await BuildProfileAsync(user, tenant.Id);
@@ -320,97 +333,6 @@ public class AuthService : IAuthService
             memberships,
             user.Role // GlobalRole
         );
-    }
-
-    private async Task EnsureOwnerMembershipAsync(Guid userId, Guid companyId)
-    {
-        var exists = await _db.UserCompanyMemberships
-            .IgnoreQueryFilters()
-            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId);
-        if (exists)
-        {
-            return;
-        }
-
-        _db.UserCompanyMemberships.Add(new UserCompanyMembership
-        {
-            UserId = userId,
-            CompanyId = companyId,
-            CompanyRole = UserRole.CompanyOwner.ToClaimValue(),
-            Status = "Active",
-            InvitedAt = DateTime.UtcNow,
-            JoinedAt = DateTime.UtcNow
-        });
-
-        var defaultDepartment = await _db.Departments
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(d => d.CompanyId == companyId && d.Code == "general");
-        if (defaultDepartment == null)
-        {
-            defaultDepartment = new Department
-            {
-                CompanyId = companyId,
-                Name = "General",
-                Code = "general",
-                IsActive = true
-            };
-            _db.Departments.Add(defaultDepartment);
-            await _db.SaveChangesAsync();
-        }
-
-        var departmentMembershipExists = await _db.UserDepartmentMemberships
-            .AnyAsync(m => m.UserId == userId && m.CompanyId == companyId && m.DepartmentId == defaultDepartment.Id);
-        if (!departmentMembershipExists)
-        {
-            _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
-            {
-                UserId = userId,
-                CompanyId = companyId,
-                DepartmentId = defaultDepartment.Id,
-                DepartmentRole = "Manager",
-                Status = "Active"
-            });
-        }
-
-        await _db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Ensures a CompanySubscription on the Free plan exists for a freshly-provisioned tenant.
-    /// Idempotent — does nothing if a subscription already exists.
-    /// This is required so that RequireModule checks can resolve plan module inclusions.
-    /// </summary>
-    private async Task EnsureFreePlanSubscriptionAsync(Guid companyId)
-    {
-        var exists = await _db.CompanySubscriptions
-            .IgnoreQueryFilters()
-            .AnyAsync(s => s.CompanyId == companyId);
-
-        if (exists) return;
-
-        // Verify Free plan template is present (always seeded via HasData)
-        var freePlanExists = await _db.PlanTemplates
-            .IgnoreQueryFilters()
-            .AnyAsync(p => p.Id == PlanCatalog.FreeId);
-
-        if (!freePlanExists)
-        {
-            _logger.LogWarning("Free plan template {PlanId} not found in DB — cannot create subscription for company {CompanyId}", PlanCatalog.FreeId, companyId);
-            return;
-        }
-
-        _db.CompanySubscriptions.Add(new CompanySubscription
-        {
-            CompanyId = companyId,
-            PlanTemplateId = PlanCatalog.FreeId,
-            Status = SubscriptionState.Active,
-            BillingInterval = BillingInterval.Monthly,
-            CurrentPeriodStart = DateTime.UtcNow,
-            CurrentPeriodEnd = DateTime.UtcNow.AddYears(100) // Free plan never expires
-        });
-
-        await _db.SaveChangesAsync();
-        _logger.LogInformation("Created Free plan subscription for company {CompanyId}", companyId);
     }
 
     public async Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null)

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Core.Authorization;
 
@@ -17,11 +18,19 @@ public class OrganizationController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ILogger<OrganizationController> _logger;
+    private readonly ICompanyBootstrapService _companyBootstrapService;
+    private readonly IAuthService _authService;
 
-    public OrganizationController(AppDbContext db, ILogger<OrganizationController> logger)
+    public OrganizationController(
+        AppDbContext db,
+        ILogger<OrganizationController> logger,
+        ICompanyBootstrapService companyBootstrapService,
+        IAuthService authService)
     {
         _db = db;
         _logger = logger;
+        _companyBootstrapService = companyBootstrapService;
+        _authService = authService;
     }
 
     [HttpGet("companies")]
@@ -55,7 +64,10 @@ public class OrganizationController : ControllerBase
         var userId = ParseGuid("sub");
         if (userId == null) return Unauthorized();
 
-        var membership = await _db.UserCompanyMemberships
+        var activeCompanyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+
+        var memberships = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .Where(m => m.UserId == userId.Value && m.Status == "Active")
             .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new
             {
@@ -63,14 +75,18 @@ public class OrganizationController : ControllerBase
                 companyName = c.Name,
                 role = m.CompanyRole
             })
-            .FirstOrDefaultAsync();
+            .ToListAsync();
+
+        var currentMembership = activeCompanyId.HasValue
+            ? memberships.FirstOrDefault(m => m.companyId == activeCompanyId.Value)
+            : memberships.FirstOrDefault();
 
         return Ok(new
         {
-            hasOrganization = membership != null,
-            activeCompanyId = membership?.companyId,
-            companyName = membership?.companyName,
-            role = membership?.role
+            hasOrganization = currentMembership != null,
+            activeCompanyId = currentMembership?.companyId,
+            companyName = currentMembership?.companyName,
+            role = currentMembership?.role
         });
     }
 
@@ -87,13 +103,13 @@ public class OrganizationController : ControllerBase
             return Unauthorized();
         }
 
-        if (!await _db.Users.AnyAsync(u => u.Id == userId.Value))
+        if (!await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == userId.Value))
             return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(dto.Name))
             return BadRequest(new { error = "Organization name is required." });
 
-        if (await _db.Tenants.AnyAsync(t => t.Name.ToLower() == dto.Name.ToLower()))
+        if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Name.ToLower() == dto.Name.ToLower()))
             return Conflict(new { error = "An organization with this name already exists." });
 
         var tenant = new Core.Entities.Tenant
@@ -105,21 +121,21 @@ public class OrganizationController : ControllerBase
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(); // generate tenant Id
 
-        var membership = new Core.Entities.UserCompanyMembership
-        {
-            UserId = userId.Value,
-            CompanyId = tenant.Id,
-            CompanyRole = OrvixFlow.Core.Authorization.UserRole.CompanyOwner.ToClaimValue(),
-            Status = "Active"
-        };
-        _db.UserCompanyMemberships.Add(membership);
-        await _db.SaveChangesAsync();
+        await _companyBootstrapService.EnsureOwnerBootstrapAsync(userId.Value, tenant.Id);
+        await _companyBootstrapService.EnsureDefaultSubscriptionAsync(tenant.Id);
+
+        var sessionResult = await _authService.SwitchCompanyAsync(userId.Value, tenant.Id);
+        if (!sessionResult.IsSuccess)
+            return BadRequest(new { error = sessionResult.Error ?? "Organization created but session could not be updated." });
 
         return Ok(new
         {
+            token = sessionResult.Token,
+            profile = sessionResult.Profile,
+            refreshToken = sessionResult.RefreshToken,
             companyId = tenant.Id,
             companyName = tenant.Name,
-            role = membership.CompanyRole,
+            role = UserRole.CompanyOwner.ToClaimValue(),
             plan = tenant.Plan
         });
     }
