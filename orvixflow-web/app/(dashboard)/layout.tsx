@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [visibleModules, setVisibleModules] = useState<string[]>([]);
   const [modulesLoaded, setModulesLoaded] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -73,6 +74,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return path.charAt(0).toUpperCase() + path.slice(1).replace("-", " ");
   };
 
+  const handleLogoutAll = async () => {
+    const token = (session as any)?.apiToken;
+    if (!token || isLoggingOutAll) return;
+
+    setIsLoggingOutAll(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/auth/logout-all`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error("Failed to revoke all sessions", await res.text());
+      }
+    } catch (error) {
+      console.error("Failed to revoke all sessions", error);
+    } finally {
+      await signOut({ callbackUrl: "/login" });
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-background text-white font-sans overflow-hidden">
       {/* Fixed Sidebar */}
@@ -121,13 +146,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="text-xs text-muted truncate">{session?.user?.email}</div>
             </div>
           </div>
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+              onClick={handleLogoutAll}
+              disabled={isLoggingOutAll}
+            >
+              <LogOut className="w-4 h-4" />
+              {isLoggingOutAll ? "Ending All Sessions..." : "Sign Out All Sessions"}
+            </button>
+          </div>
         </div>
       </aside>
 

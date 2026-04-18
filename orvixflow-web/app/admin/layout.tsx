@@ -4,12 +4,13 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ShieldAlert, Users, LayoutDashboard, Database, Activity, LogOut, ArrowLeft, CreditCard, Building, Mail, Key } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   const role = (session?.user as any)?.globalRole || session?.user?.role;
   const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
@@ -41,6 +42,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/logs", label: "Kernel Trace Logs", icon: Activity },
     { href: "/admin/vector-db", label: "Raw pgvector", icon: Database },
   ];
+
+  const handleLogoutAll = async () => {
+    const token = (session as any)?.apiToken;
+    if (!token || isLoggingOutAll) return;
+
+    setIsLoggingOutAll(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/auth/logout-all`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error("Failed to revoke all sessions", await res.text());
+      }
+    } catch (error) {
+      console.error("Failed to revoke all sessions", error);
+    } finally {
+      await signOut({ callbackUrl: "/login" });
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#0a0505] text-white overflow-hidden selection:bg-danger/30">
@@ -93,10 +118,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="text-danger/70 mt-1 uppercase font-bold tracking-widest text-[9px]">{session?.user?.role}</div>
           </div>
           <button 
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-danger/80 hover:text-danger hover:bg-danger/10 rounded-lg transition-colors w-full"
           >
             <LogOut className="w-4 h-4" /> Terminate Session
+          </button>
+          <button 
+            onClick={handleLogoutAll}
+            disabled={isLoggingOutAll}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full disabled:opacity-50"
+          >
+            <LogOut className="w-4 h-4" /> {isLoggingOutAll ? "Ending All Sessions..." : "Terminate All Sessions"}
           </button>
         </div>
       </aside>
