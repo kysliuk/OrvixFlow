@@ -123,6 +123,8 @@
 | PlansController | `OrvixFlow.Api/Controllers/PlansController.cs` |
 | FileIngestionController | `OrvixFlow.Api/Controllers/FileIngestionController.cs` |
 | RagEmailController | `OrvixFlow.Api/Controllers/RagEmailController.cs` |
+| RagDebugController | `OrvixFlow.Api/Controllers/RagDebugController.cs` |
+| InboxGuardianController | `OrvixFlow.Api/Controllers/InboxGuardianController.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 
 ## Infrastructure Services

@@ -37,7 +37,7 @@
 1. JWT claim `TenantId` or `ActiveCompanyId`
 2. For webhooks: `X-Tenant-ID` header fallback
 
-### Override Hierarchy (Phase 2)
+### Override Hierarchy
 
 **Entitlements:**
 ```
@@ -95,7 +95,7 @@ CompanyOwner (full access)
 - Supports: OpenAI, Groq, or Mock (for testing)
 - Plugins: KnowledgeBaseSearchPlugin, N8nAutomationPlugin
 
-**RAG Ingestion Pipeline (Phase 3):**
+**RAG Ingestion Pipeline:**
 - **Abstractions**: `IDocumentParser` (PDF, DOCX, TXT, Image), `IChunker` (Overlap), `IFileStorage` (Local).
 - **Service**: `IngestionPipelineService` (Orchestrates Parse -> Chunk -> Embed + Image Extraction).
 - **Parsers**: `PdfParser` (PdfPig), `DocxParser` (OpenXML), `ImageFileParser` (ImageSharp).
@@ -108,13 +108,13 @@ CompanyOwner (full access)
 - **Reranker**: `LlmScorerReranker` (Semantic Kernel scoring).
 - **Image Resolution**: `ImageResolver` (Retrieves top relevant images based on snippet context).
 
-**RAG Orchestration Flow (Phase 4):**
+**RAG Orchestration Flow:**
 - **Service**: `RagEmailService` (The main entry point for automated RAG responses).
 - **Logic**: Intent Classify → Hybrid Search → Rerank → Draft Gen → Image Citation Extraction → N8n Payload Assembly.
 - **Contract**: `N8nEmailPayload` (A rigid JSON structure for reliable n8n workflow triggers).
 - **Citations**: AI-generated drafts are scanned for `[image:GUID]` tags to selectively attach relevant knowledge base images.
 
-**RAG Security & Observability (Phase 5):**
+**RAG Security & Observability:**
 - **Rate Limiting**: Native .NET 8+ `FixedWindowLimiter` on upload endpoint (10 req/min, 429 on breach).
 - **Validation**: MIME type whitelist + 10MB size cap enforced pre-ingestion.
 - **Virus Scan Hook**: `IVirusScanService` / `NoopVirusScanService` — swap for ClamAV without pipeline changes.

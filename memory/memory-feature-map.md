@@ -173,163 +173,24 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | **Load Test Script** | `scripts/load-test-inbox.sh` | - | - |
 | **Company Actions** | AdminController | CompanySubscriptionService | - |
 
-### Billing Type System (Phase 2)
-- **SubscriptionState enum** (`Trialing`, `Active`, `PastDue`, `Suspended`, `Cancelled`) — replaces string constants
-- **BillingInterval enum** (`Monthly`, `Yearly`, `Custom`) — replaces freeform strings
-- **Inbox limits per plan** — `MaxInboxMessagesPerMonth`, `MaxMailboxConnections` in `PlanEntitlements`
-- **Plan sorting** — `SortOrder` field on `PlanTemplate` for upgrade/downgrade UI (Free=0, Starter=1, Growth=2, Business=3, Enterprise=4)
+### Billing Subsystems & Endpoints
+| Component | Purpose |
+|----------|---------|
+| `/api/billing/subscription` | GET current subscription with effective entitlements |
+| `/api/billing/plans` | GET available plans |
+| `/api/billing/change-plan` | POST change subscription (Downgrade safety checks KB/Storage/Seats) |
+| `/api/admin/companies/{id}/subscription` | GET full company subscription details + current usage |
+| `TrialExpirationJob` | Background service to auto-downgrade expired plans |
+| `UsagePeriodRolloverJob` | Background service to advance expired billing periods |
 
-### Limit Check Methods (Agent 1)
-- `IsWithinTokenLimitAsync()` - Check if can consume tokens
-- `IsWithinApiLimitAsync()` - Check if can make API request
-- `IsWithinStorageLimitAsync()` - Check if can add storage
-- `IsWithinKnowledgeBaseLimitAsync()` - Check if can create KB
-- `CheckLimitAsync()` - Get detailed limit info with UpgradeUrl
-
-### Billing API Endpoints (Phase 2)
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/billing/subscription` | GET | Get current subscription with entitlements |
-| `/api/billing/plans` | GET | Get available plans for upgrade |
-| `/api/billing/change-plan` | POST | Change subscription plan |
-| `/api/billing/proration` | GET | Calculate proration (placeholder) |
-| `/api/billing/usage` | GET | Get current usage |
-| `/api/billing/summary` | GET | Get usage summary (admin) |
-
-### Usage Tracking Metrics
-- **ai-tokens**: AI token consumption (AgentService, InboxGuardianService)
-- **storage-mb**: Knowledge base storage (IngestionService)
-- **knowledge-bases**: KB count (IngestionService)
-- **inbox-messages**: Processed messages (InboxGuardianService)
+### Usage Tracking
+- **ai-tokens**: AI token consumption
+- **storage-mb**: Knowledge base storage
+- **knowledge-bases**: KB count
+- **inbox-messages**: Processed messages
 - **n8n-nodes**: Workflow executions
 
-**Files:**
-- `OrvixFlow.Api/Controllers/PlansController.cs`
-- `OrvixFlow.Api/Controllers/BillingController.cs`
-- `OrvixFlow.Api/Controllers/InviteController.cs`
-- `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
-- `OrvixFlow.Core/Entities/PlanTemplate.cs`
-- `OrvixFlow.Core/Entities/PlanModuleInclusion.cs`
-- `OrvixFlow.Core/Entities/PlanEntitlements.cs`
-- `OrvixFlow.Core/Entities/PlanCatalog.cs`
-- `OrvixFlow.Core/Entities/CompanySubscription.cs`
-- `OrvixFlow.Core/Entities/SubscriptionState.cs`
-- `OrvixFlow.Core/Entities/BillingInterval.cs`
-- `OrvixFlow.Core/Entities/BillingSubscription.cs`
-- `OrvixFlow.Core/Entities/UsageEvent.cs`
-- `OrvixFlow.Core/Entities/AuditTrail.cs`
-- `OrvixFlow.Core/Interfaces/IPlanService.cs`
-- `OrvixFlow.Core/Interfaces/IEntitlementResolver.cs`
-- `OrvixFlow.Core/Interfaces/ICompanySubscriptionService.cs`
-- `OrvixFlow.Core/Interfaces/IAuditService.cs`
-- `OrvixFlow.Infrastructure/Services/PlanService.cs`
-- `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs`
-- `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs`
-- `OrvixFlow.Infrastructure/Shadow/UsageService.cs`
-- `OrvixFlow.Infrastructure/Shadow/AuditService.cs`
-- `OrvixFlow.Infrastructure/Data/AppDbContext.cs`
-- `OrvixFlow.Infrastructure/Migrations/AddPlanSystem.cs`
+### Enforcement
+- **Downgrade Safety:** `ChangePlanAsync` throws `DowngradeNotAllowedException` or `SeatLimitExceededException` (409 Conflict) if limits are breached.
+- **Entitlement Checks:** Limit checks (`IsWithinTokenLimitAsync`, etc.) respect admin overrides via `GetEffectiveEntitlementsAsync()`.
 
-**Test Files:**
-- `OrvixFlow.Tests/SeatLimitTests.cs`
-- `OrvixFlow.Tests/EntitlementResolverIntegrationTests.cs`
-- `OrvixFlow.Tests/AuditLogTests.cs`
-
-## Audit & Compliance
-
-| Feature | Controller | Entity |
-|---------|-----------|--------|
-| Audit Log | AuditController | AuditTrail |
-
-**Files:**
-- `OrvixFlow.Api/Controllers/AuditController.cs`
-- `OrvixFlow.Core/Entities/AuditTrail.cs`
-- `OrvixFlow.Infrastructure/Shadow/AuditService.cs`
-
-## Workflow Policies
-
-| Feature | Controller | Service | Entity |
-|---------|-----------|---------|--------|
-| Policy CRUD | InboxSettingsController | PolicyGateService | WorkflowPolicy |
-| Policy Gates | ActionsController | PolicyGateService | WorkflowPolicy |
-| Action Requests | ActionsController | - | ActionRequest |
-| Workflow Logs | - | - | WorkflowLog |
-
-**Files:**
-- `OrvixFlow.Api/Controllers/ActionsController.cs`
-- `OrvixFlow.Api/Controllers/InboxSettingsController.cs`
-- `OrvixFlow.Infrastructure/Services/PolicyGateService.cs`
-- `OrvixFlow.Core/Entities/WorkflowPolicy.cs`
-- `OrvixFlow.Core/Entities/ActionRequest.cs`
-
-## Administration
-
-| Feature | Controller |
-|---------|-----------|
-| Admin Panel | AdminController |
-| Organization | OrganizationController |
-
-**Files:**
-- `OrvixFlow.Api/Controllers/AdminController.cs`
-- `OrvixFlow.Api/Controllers/OrganizationController.cs`
-
-## Admin Frontend Pages
-
-| Page | Route | Purpose |
-|------|-------|---------|
-| Admin Dashboard | `/admin` | Global platform metrics |
-| Plan Templates | `/admin/plans` | Plan CRUD, module assignments |
-| Plan Detail | `/admin/plans/[id]` | Plan detail with module assignments and entitlements |
-| Companies List | `/admin/tenants` | Company listing, plan assignment |
-| Company Detail | `/admin/companies/[id]` | 3 tabs: Overview, Entitlements (overrides), Modules (overrides) |
-| Company Audit Log | `/admin/companies/[id]/audit` | Paginated audit trail per company |
-| Modules Definitions | `/admin/modules` | Module CRUD with toggle active/inactive |
-| Inbox Metrics | `/admin/inbox-metrics` | Global inbox guardian metrics |
-| Inbox Simulator | `/admin/test` | Test inbox processing |
-| Kernel Logs | `/admin/logs` | RAG kernel trace logs |
-| Raw pgvector | `/admin/vector-db` | Direct vector DB inspection |
-
-### Admin Access Control
-- **SuperAdmin**: Full read/write access to all admin endpoints
-- **InternalOperator**: Read-only access to GET endpoints (metrics, companies, usage, overrides, modules, audit)
-- **Policy**: `SuperAdminOnly` for mutations, `PlatformAdmin` for reads
-
-## Frontend Pages
-
-| Page | Route | Auth Required |
-|------|-------|---------------|
-| Login | /login | No |
-| Register | /register | No |
-| Dashboard | /(dashboard)/page.tsx | Yes |
-| Inbox | /(dashboard)/inbox/page.tsx | Yes |
-| Pending Items | /(dashboard)/inbox/pending/page.tsx | Yes |
-| Inbox History | /(dashboard)/inbox/history/page.tsx | Yes |
-| Inbox Settings | /(dashboard)/settings/inbox/page.tsx | Yes |
-| Knowledge | /(dashboard)/knowledge/page.tsx | Yes |
-| Settings | /(dashboard)/settings/page.tsx | Yes |
-| Settings/Billing | /(dashboard)/settings/billing/page.tsx | Yes |
-| Billing | /(dashboard)/billing/page.tsx | Yes |
-| Admin | /admin/page.tsx | Yes |
-| Admin Inbox Metrics | /admin/inbox-metrics/page.tsx | Yes (SuperAdmin) |
-
-### Billing Phase 4 Features
-- **Effective Entitlements** — `GetSubscription` uses `GetEffectiveEntitlementsAsync` (respects overrides)
-- **Target Status Parameter** — `AssignPlanAsync` accepts `targetStatus` for post-payment scenarios
-- **Downgrade Safety** — `ChangePlanAsync` blocks when KBs/storage exceed new plan limits
-- **Admin Subscription View** — `GET /api/admin/companies/{id}/subscription` returns full details
-
-### Billing API Endpoints (Phase 4)
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/billing/subscription` | GET | Get subscription with effective entitlements |
-| `/api/admin/companies/{id}/subscription` | GET | Admin view with full subscription + usage |
-
-### Downgrade Safety
-- KB count check: Blocks if current KBs > new plan's MaxKnowledgeBases
-- Storage check: Blocks if current storage > new plan's MaxStorageMb
-- Seat check: Blocks if current members > new plan's MaxSeats
-- Returns 409 Conflict with blocker details
-
-### Exception Types
-- `DowngradeNotAllowedException` — When KB/storage exceeds new plan limit
-- `SeatLimitExceededException` — When seats exceed new plan limit
