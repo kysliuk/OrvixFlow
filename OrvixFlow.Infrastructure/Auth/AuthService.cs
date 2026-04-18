@@ -68,8 +68,8 @@ public class AuthService : IAuthService
         var tenant = new Tenant
         {
             Name = displayName,
-            Plan = "Trialing",
-            SubscriptionStatus = "Trialing"
+            Plan = "Free",
+            SubscriptionStatus = "Active"
         };
         _db.Tenants.Add(tenant);
 

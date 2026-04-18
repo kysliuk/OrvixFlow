@@ -74,25 +74,34 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
 
         // FIX F-07: Check user-level permissions for non-admin users
         var userIdClaim = user.FindFirst("sub")?.Value;
-        if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
-            var accessResolver = context.HttpContext.RequestServices.GetService(typeof(IAccessResolver)) as IAccessResolver;
-            if (accessResolver != null)
+            context.Result = new UnauthorizedObjectResult(new
             {
-                var permissions = await accessResolver.GetEffectivePermissionsAsync(userId, companyId, _requiredModule);
-                if (!permissions.CanUse)
-                {
-                    context.Result = new ObjectResult(new 
-                    { 
-                        error = "Access Denied",
-                        message = $"You do not have permission to use the '{_requiredModule}' module."
-                    })
-                    {
-                        StatusCode = 403
-                    };
-                    return;
-                }
-            }
+                error = "Invalid user context",
+                message = "A valid user identifier is required to evaluate module permissions."
+            });
+            return;
+        }
+
+        var accessResolver = context.HttpContext.RequestServices.GetService(typeof(IAccessResolver)) as IAccessResolver;
+        if (accessResolver == null)
+        {
+            context.Result = new StatusCodeResult(500);
+            return;
+        }
+
+        var permissions = await accessResolver.GetEffectivePermissionsAsync(userId, companyId, _requiredModule);
+        if (!permissions.CanUse)
+        {
+            context.Result = new ObjectResult(new 
+            { 
+                error = "Access Denied",
+                message = $"You do not have permission to use the '{_requiredModule}' module."
+            })
+            {
+                StatusCode = 403
+            };
         }
     }
 }

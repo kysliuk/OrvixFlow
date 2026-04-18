@@ -65,17 +65,6 @@ builder.Services.AddOpenApiDocument(config =>
 {
     config.DocumentName = "v1";
     config.Title = "OrvixFlow API";
-    
-    // Add a global header input in Swagger UI for the Tenant ID
-    config.AddSecurity("TenantId", System.Linq.Enumerable.Empty<string>(), new NSwag.OpenApiSecurityScheme
-    {
-        Type = NSwag.OpenApiSecuritySchemeType.ApiKey,
-        Name = "X-Tenant-ID",
-        In = NSwag.OpenApiSecurityApiKeyLocation.Header,
-        Description = "Enter Tenant ID (e.g., 00000000-0000-0000-0000-000000000001)"
-    });
-    config.OperationProcessors.Add(
-        new NSwag.Generation.Processors.Security.AspNetCoreOperationSecurityScopeProcessor("TenantId"));
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();

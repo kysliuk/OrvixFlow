@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
             var result = await _authService.RegisterAsync(req.Email, req.Password, req.DisplayName);
             return result.IsSuccess
                 ? Ok(new { token = result.Token, profile = result.Profile })
-                : Conflict(new { error = result.Error });
+                : BuildRegisterFailure(result.Error);
         }
         catch (System.Exception ex)
         {
@@ -71,7 +71,7 @@ public class AuthController : ControllerBase
         var result = await _authService.ProvisionOAuthUserAsync(req.Email, req.DisplayName, req.Provider, req.ExternalId);
         return result.IsSuccess
             ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
-            : StatusCode(500, new { error = result.Error });
+            : BuildOAuthProvisionFailure(result.Error);
     }
 
     [HttpPost("refresh")]
@@ -106,7 +106,7 @@ public class AuthController : ControllerBase
         {
             userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                   ?? user.FindFirst("sub")?.Value,
-            email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+            email = user.FindFirst("email")?.Value ?? user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
             tenantId = user.FindFirst("TenantId")?.Value,
             activeCompanyId = user.FindFirst("ActiveCompanyId")?.Value ?? user.FindFirst("TenantId")?.Value,
             plan = user.FindFirst("Plan")?.Value,
@@ -185,6 +185,25 @@ public class AuthController : ControllerBase
     {
         var value = HttpContext.User.FindFirst(claimType)?.Value;
         return Guid.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private IActionResult BuildRegisterFailure(string? error)
+    {
+        if (string.Equals(error, "An account with this email already exists.", StringComparison.Ordinal))
+            return Conflict(new { error });
+
+        return BadRequest(new { error = error ?? "Registration failed." });
+    }
+
+    private IActionResult BuildOAuthProvisionFailure(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return StatusCode(500, new { error = "OAuth provisioning failed." });
+
+        if (error.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            return Conflict(new { error });
+
+        return BadRequest(new { error });
     }
 }
 

@@ -1,5 +1,7 @@
 using System.Threading.Tasks;
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using OrvixFlow.Api.Controllers;
@@ -72,6 +74,19 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task Register_WithValidationFailure_ShouldReturnBadRequest()
+    {
+        _authServiceMock.Setup(x => x.RegisterAsync("test@example.com", "weak", "Test User"))
+            .ReturnsAsync(new AuthResult(false, Error: "Password must be at least 12 characters long."));
+
+        var result = await _controller.Register(new RegisterRequest("test@example.com", "weak", "Test User"));
+
+        var badRequest = result as BadRequestObjectResult;
+        badRequest.Should().NotBeNull();
+        badRequest!.StatusCode.Should().Be(400);
+    }
+
+    [Fact]
     public async Task Register_WhenExceptionOccurs_ShouldReturn500()
     {
         // Arrange
@@ -137,5 +152,43 @@ public class AuthControllerTests
         var unauthorizedResult = result as UnauthorizedObjectResult;
         unauthorizedResult.Should().NotBeNull();
         unauthorizedResult!.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task OAuthProvision_WithExistingAccountConflict_ShouldReturnConflict()
+    {
+        _authServiceMock.Setup(x => x.ProvisionOAuthUserAsync("test@example.com", "Test User", "google", "ext-1"))
+            .ReturnsAsync(new AuthResult(false, Error: "An account with this email already exists. Please sign in with your original authentication method."));
+
+        var result = await _controller.OAuthProvision(new OAuthProvisionRequest("test@example.com", "Test User", "google", "ext-1"));
+
+        var conflict = result as ConflictObjectResult;
+        conflict.Should().NotBeNull();
+        conflict!.StatusCode.Should().Be(409);
+    }
+
+    [Fact]
+    public void Me_ReadsJwtEmailClaim_WhenClaimMappingIsCleared()
+    {
+        var claims = new[]
+        {
+            new Claim("sub", System.Guid.NewGuid().ToString()),
+            new Claim("email", "jwt@example.com"),
+            new Claim("TenantId", System.Guid.NewGuid().ToString()),
+            new Claim("Role", "Operator")
+        };
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"))
+            }
+        };
+
+        var result = _controller.Me() as OkObjectResult;
+
+        result.Should().NotBeNull();
+        var payload = result!.Value!;
+        payload.GetType().GetProperty("email")!.GetValue(payload).Should().Be("jwt@example.com");
     }
 }

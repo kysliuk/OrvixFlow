@@ -115,8 +115,8 @@ public class OrganizationController : ControllerBase
         var tenant = new Core.Entities.Tenant
         {
             Name = dto.Name,
-            Plan = "Trialing",
-            SubscriptionStatus = "Trialing" // Default to trialing for freshly created orgs
+            Plan = "Free",
+            SubscriptionStatus = "Active"
         };
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(); // generate tenant Id

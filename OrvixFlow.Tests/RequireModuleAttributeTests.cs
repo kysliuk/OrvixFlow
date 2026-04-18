@@ -203,6 +203,38 @@ public class RequireModuleAttributeTests
         context.Result.Should().BeNull("SuperAdmin should bypass all checks");
     }
 
+    [Fact]
+    public async Task Operator_WithMissingSubClaim_FailsClosed()
+    {
+        var entitlementResolver = new Mock<IEntitlementResolver>();
+        entitlementResolver.Setup(x => x.CanUseModuleAsync(_companyId, "knowledge")).ReturnsAsync(true);
+
+        var accessResolver = new Mock<IAccessResolver>();
+        var context = CreateAuthorizationFilterContextWithoutSub("Operator", _companyId);
+        RegisterServices(context.HttpContext.RequestServices, entitlementResolver.Object, accessResolver.Object);
+
+        var attr = new RequireModuleAttribute("knowledge");
+        await attr.OnAuthorizationAsync(context);
+
+        context.Result.Should().BeAssignableTo<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Operator_WithMissingAccessResolver_FailsClosed()
+    {
+        var entitlementResolver = new Mock<IEntitlementResolver>();
+        entitlementResolver.Setup(x => x.CanUseModuleAsync(_companyId, "knowledge")).ReturnsAsync(true);
+
+        var context = CreateAuthorizationFilterContext("Operator", _companyId, _userId);
+        RegisterServices(context.HttpContext.RequestServices, entitlementResolver.Object, accessResolver: null);
+
+        var attr = new RequireModuleAttribute("knowledge");
+        await attr.OnAuthorizationAsync(context);
+
+        context.Result.Should().BeAssignableTo<StatusCodeResult>();
+        ((StatusCodeResult)context.Result!).StatusCode.Should().Be(500);
+    }
+
     private AuthorizationFilterContext CreateAuthorizationFilterContext(string role, Guid companyId, Guid userId)
     {
         var claims = new List<Claim>
@@ -229,11 +261,37 @@ public class RequireModuleAttributeTests
         return new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
     }
 
-    private static void RegisterServices(IServiceProvider services, IEntitlementResolver entitlementResolver, IAccessResolver accessResolver)
+    private AuthorizationFilterContext CreateAuthorizationFilterContextWithoutSub(string role, Guid companyId)
+    {
+        var claims = new List<Claim>
+        {
+            new("Role", role),
+            new("ActiveCompanyId", companyId.ToString()),
+            new("TenantId", companyId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext
+        {
+            User = principal
+        };
+        httpContext.RequestServices = new TestServiceProvider();
+
+        var actionContext = new ActionContext(
+            httpContext,
+            new RouteData(),
+            new ActionDescriptor());
+
+        return new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
+    }
+
+    private static void RegisterServices(IServiceProvider services, IEntitlementResolver entitlementResolver, IAccessResolver? accessResolver)
     {
         var testProvider = services as TestServiceProvider;
         testProvider?.Register<IEntitlementResolver>(entitlementResolver);
-        testProvider?.Register<IAccessResolver>(accessResolver);
+        if (accessResolver != null)
+            testProvider?.Register<IAccessResolver>(accessResolver);
     }
 }
 
