@@ -97,6 +97,21 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Logged out successfully." });
     }
 
+    [HttpPost("logout-all")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> LogoutAll()
+    {
+        var user = HttpContext.User;
+        var userIdValue = user.FindFirst("sub")?.Value
+            ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return Unauthorized(new { error = "Invalid user context." });
+
+        await _authService.LogoutAllAsync(userId);
+        return Ok(new { message = "All sessions logged out successfully." });
+    }
+
     [HttpGet("me")]
     [Microsoft.AspNetCore.Authorization.Authorize]
     public IActionResult Me()

@@ -137,6 +137,43 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task LogoutAll_WithInvalidUserContext_ShouldReturnUnauthorized()
+    {
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "not-a-guid")], "TestAuth"))
+            }
+        };
+
+        var result = await _controller.LogoutAll();
+
+        var unauthorized = result as UnauthorizedObjectResult;
+        unauthorized.Should().NotBeNull();
+        unauthorized!.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task LogoutAll_WithValidUserContext_ShouldInvokeService()
+    {
+        var userId = System.Guid.NewGuid();
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", userId.ToString())], "TestAuth"))
+            }
+        };
+
+        var result = await _controller.LogoutAll();
+
+        var ok = result as OkObjectResult;
+        ok.Should().NotBeNull();
+        _authServiceMock.Verify(x => x.LogoutAllAsync(userId), Times.Once);
+    }
+
+    [Fact]
     public async Task Login_WithInvalidCredentials_ShouldReturnUnauthorized()
     {
         // Arrange

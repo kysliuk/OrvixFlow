@@ -366,14 +366,14 @@ public class AuthService : IAuthService
 
         var jwt = await MintJwtAsync(user, resolvedCompanyId.Value);
         var profile = await BuildProfileAsync(user, resolvedCompanyId.Value);
-        var newRefreshToken = await CreateRefreshTokenAsync(user.Id);
+        var newRefreshToken = await CreateRefreshTokenAsync(user.Id, tokenRecord.FamilyId);
 
         await _db.SaveChangesAsync();
 
         return new AuthResult(true, Token: jwt, Profile: profile, RefreshToken: newRefreshToken);
     }
 
-    private async Task<string> CreateRefreshTokenAsync(Guid userId)
+    private async Task<string> CreateRefreshTokenAsync(Guid userId, Guid? familyId = null)
     {
         var lookupKey = Guid.NewGuid().ToString("N");
         var secret = GenerateOpaqueToken();
@@ -383,6 +383,7 @@ public class AuthService : IAuthService
         {
             UserId = userId,
             LookupKey = lookupKey,
+            FamilyId = familyId ?? Guid.NewGuid(),
             Token = ComputeTokenHash(token),
             ExpiresAt = DateTime.UtcNow.AddDays(7),
         };
@@ -592,7 +593,22 @@ public class AuthService : IAuthService
         if (tokenRecord == null || tokenRecord.RevokedAt != null)
             return;
 
-        tokenRecord.RevokedAt = DateTime.UtcNow;
+        await RevokeRefreshTokenFamilyAsync(tokenRecord.FamilyId);
+    }
+
+    public async Task LogoutAllAsync(Guid userId)
+    {
+        var now = DateTime.UtcNow;
+        var activeTokens = await _db.RefreshTokens
+            .Where(r => r.UserId == userId && r.RevokedAt == null)
+            .ToListAsync();
+
+        if (activeTokens.Count == 0)
+            return;
+
+        foreach (var token in activeTokens)
+            token.RevokedAt = now;
+
         await _db.SaveChangesAsync();
     }
 
@@ -730,6 +746,22 @@ public class AuthService : IAuthService
         var leftBytes = Encoding.UTF8.GetBytes(left);
         var rightBytes = Encoding.UTF8.GetBytes(right);
         return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
+    }
+
+    private async Task RevokeRefreshTokenFamilyAsync(Guid familyId)
+    {
+        var now = DateTime.UtcNow;
+        var familyTokens = await _db.RefreshTokens
+            .Where(r => r.FamilyId == familyId && r.RevokedAt == null)
+            .ToListAsync();
+
+        if (familyTokens.Count == 0)
+            return;
+
+        foreach (var token in familyTokens)
+            token.RevokedAt = now;
+
+        await _db.SaveChangesAsync();
     }
 
     private async Task<Guid?> ResolveActiveCompanyIdAsync(User user, Guid? requestedCompanyId)

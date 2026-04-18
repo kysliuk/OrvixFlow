@@ -354,6 +354,104 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task LogoutAsync_Should_Revoke_AllTokens_InSameFamily()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var familyId = Guid.NewGuid();
+        var tokenOne = CreateStructuredRefreshToken("familylookup1");
+        var tokenTwo = CreateStructuredRefreshToken("familylookup2");
+
+        _db.RefreshTokens.AddRange(
+            new RefreshToken
+            {
+                UserId = Guid.NewGuid(),
+                LookupKey = "familylookup1",
+                FamilyId = familyId,
+                Token = ComputeTokenHash(tokenOne),
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            },
+            new RefreshToken
+            {
+                UserId = Guid.NewGuid(),
+                LookupKey = "familylookup2",
+                FamilyId = familyId,
+                Token = ComputeTokenHash(tokenTwo),
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+        await _db.SaveChangesAsync();
+
+        await authService.LogoutAsync(tokenOne);
+
+        var familyTokens = await _db.RefreshTokens.Where(r => r.FamilyId == familyId).ToListAsync();
+        familyTokens.Should().OnlyContain(t => t.RevokedAt != null);
+    }
+
+    [Fact]
+    public async Task LogoutAllAsync_Should_Revoke_AllActiveUserTokens()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+
+        _db.RefreshTokens.AddRange(
+            new RefreshToken
+            {
+                UserId = userId,
+                LookupKey = "alllogout1",
+                FamilyId = Guid.NewGuid(),
+                Token = ComputeTokenHash(CreateStructuredRefreshToken("alllogout1")),
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            },
+            new RefreshToken
+            {
+                UserId = userId,
+                LookupKey = "alllogout2",
+                FamilyId = Guid.NewGuid(),
+                Token = ComputeTokenHash(CreateStructuredRefreshToken("alllogout2")),
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+        await _db.SaveChangesAsync();
+
+        await authService.LogoutAllAsync(userId);
+
+        var userTokens = await _db.RefreshTokens.Where(r => r.UserId == userId).ToListAsync();
+        userTokens.Should().OnlyContain(t => t.RevokedAt != null);
+    }
+
+    [Fact]
+    public async Task RefreshSessionAsync_Should_PreserveTokenFamily_OnRotation()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var familyId = Guid.NewGuid();
+        var rawToken = CreateStructuredRefreshToken("rotatefamily");
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "family-rotate@example.com",
+            DisplayName = "Rotate Family User",
+            TenantId = _tenantId
+        });
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            LookupKey = "rotatefamily",
+            FamilyId = familyId,
+            Token = ComputeTokenHash(rawToken),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.RefreshSessionAsync(rawToken);
+
+        result.IsSuccess.Should().BeTrue();
+        var familyTokens = await _db.RefreshTokens.Where(r => r.UserId == userId).OrderBy(r => r.CreatedAt).ToListAsync();
+        familyTokens.Should().HaveCount(2);
+        familyTokens.Should().OnlyContain(t => t.FamilyId == familyId);
+    }
+
+    [Fact]
     public async Task RegisterAsync_Should_QueueVerificationEmail_And_StoreHashedToken()
     {
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);

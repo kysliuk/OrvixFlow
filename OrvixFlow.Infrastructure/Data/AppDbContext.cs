@@ -112,6 +112,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<RefreshToken>().HasIndex(r => r.Token).IsUnique();
         modelBuilder.Entity<RefreshToken>().HasIndex(r => r.LookupKey).IsUnique();
+        modelBuilder.Entity<RefreshToken>().HasIndex(r => r.FamilyId);
 
         // Organizations / Access control constraints & seeds
         modelBuilder.Entity<UserCompanyMembership>()

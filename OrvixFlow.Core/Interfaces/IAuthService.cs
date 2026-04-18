@@ -30,6 +30,9 @@ public interface IAuthService
 
     /// <summary>Revokes the supplied refresh token if it exists.</summary>
     Task LogoutAsync(string refreshToken);
+
+    /// <summary>Revokes all refresh tokens issued to the supplied user.</summary>
+    Task LogoutAllAsync(Guid userId);
 }
 
 public record AuthResult(bool IsSuccess, string? Token = null, string? Error = null, UserProfile? Profile = null, string? RefreshToken = null);
