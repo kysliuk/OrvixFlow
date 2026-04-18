@@ -111,6 +111,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
 
         modelBuilder.Entity<RefreshToken>().HasIndex(r => r.Token).IsUnique();
+        modelBuilder.Entity<RefreshToken>().HasIndex(r => r.LookupKey).IsUnique();
 
         // Organizations / Access control constraints & seeds
         modelBuilder.Entity<UserCompanyMembership>()

@@ -337,10 +337,7 @@ public class AuthService : IAuthService
 
     public async Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null)
     {
-        var tokenRecord = await _db.RefreshTokens
-            .Include(r => r.User)
-            .ThenInclude(u => u!.Tenant)
-            .FirstOrDefaultAsync(r => r.Token == refreshToken);
+        var tokenRecord = await FindRefreshTokenAsync(refreshToken);
 
         if (tokenRecord == null)
             return new AuthResult(false, Error: "Invalid refresh token.");
@@ -378,13 +375,15 @@ public class AuthService : IAuthService
 
     private async Task<string> CreateRefreshTokenAsync(Guid userId)
     {
-        var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-            
+        var lookupKey = Guid.NewGuid().ToString("N");
+        var secret = GenerateOpaqueToken();
+        var token = $"{lookupKey}.{secret}";
+             
         var refreshToken = new RefreshToken
         {
             UserId = userId,
-            Token = token,
+            LookupKey = lookupKey,
+            Token = ComputeTokenHash(token),
             ExpiresAt = DateTime.UtcNow.AddDays(7),
         };
         
@@ -588,8 +587,7 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(refreshToken))
             return;
 
-        var tokenRecord = await _db.RefreshTokens
-            .FirstOrDefaultAsync(r => r.Token == refreshToken);
+        var tokenRecord = await FindRefreshTokenAsync(refreshToken, includeUser: false);
 
         if (tokenRecord == null || tokenRecord.RevokedAt != null)
             return;
@@ -702,6 +700,36 @@ public class AuthService : IAuthService
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(hash);
+    }
+
+    private async Task<RefreshToken?> FindRefreshTokenAsync(string presentedToken, bool includeUser = true)
+    {
+        IQueryable<RefreshToken> query = _db.RefreshTokens;
+        if (includeUser)
+        {
+            query = query
+                .Include(r => r.User)
+                .ThenInclude(u => u!.Tenant);
+        }
+
+        var separatorIndex = presentedToken.IndexOf('.');
+        if (separatorIndex > 0)
+        {
+            var lookupKey = presentedToken[..separatorIndex];
+            var hashedToken = ComputeTokenHash(presentedToken);
+            var tokenRecord = await query.FirstOrDefaultAsync(r => r.LookupKey == lookupKey);
+            if (tokenRecord != null && FixedTimeEquals(tokenRecord.Token, hashedToken))
+                return tokenRecord;
+        }
+
+        return await query.FirstOrDefaultAsync(r => r.LookupKey == null && r.Token == presentedToken);
+    }
+
+    private static bool FixedTimeEquals(string left, string right)
+    {
+        var leftBytes = Encoding.UTF8.GetBytes(left);
+        var rightBytes = Encoding.UTF8.GetBytes(right);
+        return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
     }
 
     private async Task<Guid?> ResolveActiveCompanyIdAsync(User user, Guid? requestedCompanyId)

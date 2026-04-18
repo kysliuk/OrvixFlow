@@ -300,6 +300,60 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshSessionAsync_Should_Validate_HashedRefreshToken_AndRotate()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var rawToken = CreateStructuredRefreshToken("lookup123");
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "hashed-refresh@example.com",
+            DisplayName = "Hashed Refresh User",
+            TenantId = _tenantId
+        });
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            LookupKey = "lookup123",
+            Token = ComputeTokenHash(rawToken),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.RefreshSessionAsync(rawToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.RefreshToken.Should().Contain(".");
+
+        var revokedToken = await _db.RefreshTokens.FirstAsync(r => r.LookupKey == "lookup123");
+        revokedToken.RevokedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task LogoutAsync_Should_Revoke_HashedRefreshToken()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var rawToken = CreateStructuredRefreshToken("logoutlookup");
+
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = Guid.NewGuid(),
+            LookupKey = "logoutlookup",
+            Token = ComputeTokenHash(rawToken),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await _db.SaveChangesAsync();
+
+        await authService.LogoutAsync(rawToken);
+
+        var storedToken = await _db.RefreshTokens.FirstAsync(r => r.LookupKey == "logoutlookup");
+        storedToken.RevokedAt.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task RegisterAsync_Should_QueueVerificationEmail_And_StoreHashedToken()
     {
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
@@ -437,6 +491,11 @@ public class AuthServiceTests : IDisposable
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(hash);
+    }
+
+    private static string CreateStructuredRefreshToken(string lookupKey)
+    {
+        return $"{lookupKey}.refresh-secret-value";
     }
 
     private class MockTenantProvider : ITenantProvider
