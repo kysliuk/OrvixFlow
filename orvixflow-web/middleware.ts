@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
 
-export default auth((req) => {
+export function handleAuthRouting(req: Parameters<Parameters<typeof auth>[0]>[0]) {
   const isLoggedIn = !!(req.auth && (req.auth as any).apiToken);
   const { pathname } = req.nextUrl;
 
@@ -28,7 +28,9 @@ export default auth((req) => {
     // Redirect authenticated users away from auth pages
     return Response.redirect(new URL("/", req.nextUrl));
   }
-})
+}
+
+export default auth(handleAuthRouting)
 
 // Optionally, don't invoke Middleware on some paths
 export const config = {
