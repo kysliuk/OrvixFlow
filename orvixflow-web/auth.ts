@@ -64,13 +64,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             companies: data.profile.companies ?? [],
           };
         }
-        
+
         // If we have a specific error message from the backend, throw it as an AuthError
         // In NextAuth 5, this allows it to be passed gracefully to the error= parameter
         if (data.error) {
           throw new CustomAuthError(data.error);
         }
-        
+
         return null;
       },
     }),
@@ -89,7 +89,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               externalId: account.providerAccountId,
             }),
           });
-          
+
           if (res.ok) {
             const data = await res.json();
             // Attach data to user so jwt callback can read it
@@ -130,15 +130,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (account.type === "oauth" || account.type === "oidc" || account.provider !== "credentials") {
           const data = (user as any).apiData;
           if (data && data.profile) {
-              token.apiToken = data.token;
-              token.refreshToken = data.refreshToken;
-              token.sub = data.profile.userId;
-              token.tenantId = data.profile.tenantId;
-              token.activeCompanyId = data.profile.activeCompanyId;
-              token.plan = data.profile.plan;
-              token.role = data.profile.role;
-              (token as any).globalRole = data.profile.globalRole;
-              token.companies = data.profile.companies ?? [];
+            token.apiToken = data.token;
+            token.refreshToken = data.refreshToken;
+            token.sub = data.profile.userId;
+            token.tenantId = data.profile.tenantId;
+            token.activeCompanyId = data.profile.activeCompanyId;
+            token.plan = data.profile.plan;
+            token.role = data.profile.role;
+            (token as any).globalRole = data.profile.globalRole;
+            token.companies = data.profile.companies ?? [];
           }
         } else if (account.type === "credentials") {
           // Local login already has the token bundled inside `user`
@@ -165,29 +165,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const refreshRes = await fetch(`${apiBaseUrl}/api/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                  refreshToken: token.refreshToken,
-                  activeCompanyId: (token.activeCompanyId as string) || null,
-                }),
+                body: JSON.stringify({ refreshToken: token.refreshToken }),
               });
-              
+
               if (refreshRes.ok) {
                 const data = await refreshRes.json();
                 token.apiToken = data.token;
                 token.refreshToken = data.refreshToken;
               } else {
                 console.warn(`Failed to refresh token. API returned: ${refreshRes.status}`);
-                // Invalidate API token and set error to ensure frontend can detect dead session
+                // Invalidate API token to force re-auth
                 token.apiToken = "";
                 token.refreshToken = "";
-                token.error = "RefreshTokenExpired";
               }
             } catch (e) {
               console.error("Refresh token fetch failed", e);
-              // Network error or backend offline — treat session as dead
-              token.apiToken = "";
-              token.refreshToken = "";
-              token.error = "RefreshTokenExpired";
             }
           }
         }
@@ -207,11 +199,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as string;
         (session.user as any).globalRole = (token as any).globalRole as string;
         session.user.companies = (token.companies as any[]) || [];
-        
-        // Expose error code if set (e.g. RefreshTokenExpired)
-        if (token.error) {
-          session.error = token.error;
-        }
       }
       return session;
     },

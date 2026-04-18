@@ -1,11 +1,7 @@
 import { auth } from "@/auth"
 
 export default auth((req) => {
-  const session = req.auth;
-  const apiToken = session?.apiToken;
-  // A session exists but the API token was cleared (e.g. refresh failure) 
-  // → treat as logged out to break redirect loops.
-  const isLoggedIn = !!session && !!apiToken;
+  const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
 
   // Public routes that don't require authentication
@@ -20,7 +16,7 @@ export default auth((req) => {
 
   // Server-side role check for admin routes (F-25)
   if (isLoggedIn && pathname.startsWith("/admin")) {
-    const role = (req.auth?.user)?.globalRole || req.auth?.user?.role;
+    const role = (req.auth?.user as any)?.globalRole || req.auth?.user?.role;
     const isSuperAdmin = role === "SuperAdmin" || role === "InternalOperator";
     if (!isSuperAdmin) {
       // Redirect non-admins away from admin pages

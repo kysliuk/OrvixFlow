@@ -2,15 +2,15 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { 
-  Home, 
-  Inbox, 
-  Database, 
-  Settings, 
-  CreditCard, 
-  LogOut, 
+import {
+  Home,
+  Inbox,
+  Database,
+  Settings,
+  CreditCard,
+  LogOut,
   TerminalSquare,
   Search,
   ChevronDown,
@@ -18,16 +18,8 @@ import {
 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const pathname = usePathname();
-  const router = useRouter();
-
-  // Defense-in-depth: force redirect to login if session is dead
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [status, router]);
 
   const [visibleModules, setVisibleModules] = useState<string[]>([]);
   const [modulesLoaded, setModulesLoaded] = useState(false);
@@ -38,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    const token = session?.apiToken;
+    const token = (session as any)?.apiToken;
     if (!token) {
       setModulesLoaded(true);
       return;
@@ -51,27 +43,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       headers: { "Authorization": `Bearer ${token}` },
       signal: controller.signal
     })
-    .then(res => res.json())
-    .then(data => {
-      setVisibleModules(data.modules || []);
-      setModulesLoaded(true);
-    })
-    .catch(err => {
-      console.error("Failed to load visible modules", err);
-      setModulesLoaded(true);
-    })
-    .finally(() => clearTimeout(timeoutId));
+      .then(res => res.json())
+      .then(data => {
+        setVisibleModules(data.modules || []);
+        setModulesLoaded(true);
+      })
+      .catch(err => {
+        console.error("Failed to load visible modules", err);
+        setModulesLoaded(true);
+      })
+      .finally(() => clearTimeout(timeoutId));
   }, [session]);
 
   const allLinks = [
     { name: "Dashboard", href: "/", icon: Home, moduleKey: null },
     { name: "Inbox Guardian", href: "/inbox", icon: Inbox, moduleKey: "inbox-guardian" },
-    { name: "Knowledge Base", href: "/knowledge", icon: Database, moduleKey: "doc-intel" },
+    { name: "Knowledge Base", href: "/knowledge", icon: Database, moduleKey: "knowledge-base" },
     { name: "Settings", href: "/settings", icon: Settings, moduleKey: null },
     { name: "Billing", href: "/billing", icon: CreditCard, moduleKey: null },
   ];
 
-  const links = allLinks.filter(link => 
+  const links = allLinks.filter(link =>
     !link.moduleKey || visibleModules.includes(link.moduleKey)
   );
 
@@ -93,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-semibold text-lg tracking-tight hover:text-white transition-colors">OrvixFlow</span>
           </Link>
         </div>
-        
+
         <div className="flex-1 py-6 px-3 flex flex-col gap-1 overflow-y-auto">
           <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-3">Main Navigation</div>
           {!modulesLoaded ? (
@@ -103,14 +95,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               const Icon = link.icon;
               const isActive = pathname === link.href;
               return (
-                <Link 
-                  key={link.href} 
+                <Link
+                  key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive 
-                      ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_var(--accent-primary)]" 
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
+                      ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_var(--accent-primary)]"
                       : "text-muted hover:text-white hover:bg-white/5"
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "text-muted"}`} />
                   {link.name}
@@ -130,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="text-xs text-muted truncate">{session?.user?.email}</div>
             </div>
           </div>
-          <button 
+          <button
             className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-muted hover:text-danger hover:bg-danger/10 transition-colors"
             onClick={() => signOut({ callbackUrl: "/login" })}
           >
@@ -142,13 +133,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content Pane */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#0a0710] relative">
-        
+
         {/* Subtle background glow effect for depth */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-[300px] bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
 
         {/* Topbar */}
         <header className="h-16 shrink-0 border-b border-white/5 flex items-center justify-between px-8 relative z-10 backdrop-blur-md bg-background/80">
-          
+
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2 text-muted">
               <TerminalSquare className="w-4 h-4" />
@@ -157,9 +148,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-white font-medium">{getBreadcrumb()}</span>
             </div>
             <div className="h-4 w-px bg-white/10 mx-2" />
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase border ${
-              session?.user?.plan === "Free" ? "border-white/10 text-muted" : "border-primary/30 text-primary bg-primary/10"
-            }`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase border ${session?.user?.plan === "Free" ? "border-white/10 text-muted" : "border-primary/30 text-primary bg-primary/10"
+              }`}>
               {session?.user?.plan || "Free"} Plan
             </span>
           </div>
@@ -167,9 +157,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-6">
             <div className="relative group">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Search resources... (Cmd+K)" 
+              <input
+                type="text"
+                placeholder="Search resources... (Cmd+K)"
                 className="w-64 bg-surface border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-sm text-white placeholder:text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
               />
             </div>

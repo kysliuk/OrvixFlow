@@ -119,6 +119,8 @@ public class PlanService : IPlanService
         existingPlan.YearlyPriceCents = plan.YearlyPriceCents;
         existingPlan.Currency = plan.Currency;
         existingPlan.BillingInterval = plan.BillingInterval;
+        existingPlan.SortOrder = plan.SortOrder;
+        existingPlan.IsPubliclyVisible = plan.IsPubliclyVisible;
         existingPlan.MaxSeats = plan.MaxSeats;
         existingPlan.IsActive = plan.IsActive;
         existingPlan.IsFree = plan.IsFree;
@@ -256,6 +258,8 @@ public class PlanService : IPlanService
             plan.Entitlements.MaxApiRequestsPerDay = entitlements.MaxApiRequestsPerDay;
             plan.Entitlements.MaxStorageMb = entitlements.MaxStorageMb;
             plan.Entitlements.MaxKnowledgeBases = entitlements.MaxKnowledgeBases;
+            plan.Entitlements.MaxInboxMessagesPerMonth = entitlements.MaxInboxMessagesPerMonth;
+            plan.Entitlements.MaxMailboxConnections = entitlements.MaxMailboxConnections;
         }
         else
         {

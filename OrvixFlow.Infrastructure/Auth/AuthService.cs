@@ -90,6 +90,7 @@ public class AuthService : IAuthService
         _logger.LogInformation("Verification email sent to {Email}", normalizedEmail);
 
         await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
+        await EnsureFreePlanSubscriptionAsync(tenant.Id);
 
         // F-33: Return success without tokens, user must verify email before logging in
         return new AuthResult(true);
@@ -123,6 +124,8 @@ public class AuthService : IAuthService
         }
 
         var activeCompanyId = user.TenantId;
+        // Migrate existing users who have no subscription yet (registered before this fix was deployed)
+        await EnsureFreePlanSubscriptionAsync(activeCompanyId);
         var token = await MintJwtAsync(user, activeCompanyId);
         var profile = await BuildProfileAsync(user, activeCompanyId);
         var refreshToken = await CreateRefreshTokenAsync(user.Id);
@@ -188,6 +191,7 @@ public class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
         await EnsureOwnerMembershipAsync(user.Id, tenant.Id);
+        await EnsureFreePlanSubscriptionAsync(tenant.Id);
 
         var token = await MintJwtAsync(user, tenant.Id);
         var profile = await BuildProfileAsync(user, tenant.Id);
@@ -352,6 +356,44 @@ public class AuthService : IAuthService
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Ensures a CompanySubscription on the Free plan exists for a freshly-provisioned tenant.
+    /// Idempotent — does nothing if a subscription already exists.
+    /// This is required so that RequireModule checks can resolve plan module inclusions.
+    /// </summary>
+    private async Task EnsureFreePlanSubscriptionAsync(Guid companyId)
+    {
+        var exists = await _db.CompanySubscriptions
+            .IgnoreQueryFilters()
+            .AnyAsync(s => s.CompanyId == companyId);
+
+        if (exists) return;
+
+        // Verify Free plan template is present (always seeded via HasData)
+        var freePlanExists = await _db.PlanTemplates
+            .IgnoreQueryFilters()
+            .AnyAsync(p => p.Id == PlanCatalog.FreeId);
+
+        if (!freePlanExists)
+        {
+            _logger.LogWarning("Free plan template {PlanId} not found in DB — cannot create subscription for company {CompanyId}", PlanCatalog.FreeId, companyId);
+            return;
+        }
+
+        _db.CompanySubscriptions.Add(new CompanySubscription
+        {
+            CompanyId = companyId,
+            PlanTemplateId = PlanCatalog.FreeId,
+            Status = SubscriptionState.Active,
+            BillingInterval = BillingInterval.Monthly,
+            CurrentPeriodStart = DateTime.UtcNow,
+            CurrentPeriodEnd = DateTime.UtcNow.AddYears(100) // Free plan never expires
+        });
+
+        await _db.SaveChangesAsync();
+        _logger.LogInformation("Created Free plan subscription for company {CompanyId}", companyId);
     }
 
     public async Task<AuthResult> RefreshSessionAsync(string refreshToken, Guid? activeCompanyId = null)
