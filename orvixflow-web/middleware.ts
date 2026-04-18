@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+  const isLoggedIn = !!(req.auth && (req.auth as any).apiToken);
   const { pathname } = req.nextUrl;
 
   // Public routes that don't require authentication

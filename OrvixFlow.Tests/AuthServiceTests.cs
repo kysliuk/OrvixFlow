@@ -55,6 +55,7 @@ public class AuthServiceTests : IDisposable
             TenantId = _tenantId
         };
         _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
 
         var validToken = new RefreshToken
         {
@@ -96,6 +97,7 @@ public class AuthServiceTests : IDisposable
             TenantId = _tenantId
         };
         _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
 
         var expiredToken = new RefreshToken
         {
@@ -133,6 +135,7 @@ public class AuthServiceTests : IDisposable
             TenantId = _tenantId // Default tenant
         };
         _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
 
         // Create membership to second company
         _db.UserCompanyMemberships.Add(new UserCompanyMembership
@@ -179,6 +182,7 @@ public class AuthServiceTests : IDisposable
             TenantId = _tenantId
         };
         _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
 
         var validToken = new RefreshToken
         {
@@ -219,6 +223,7 @@ public class AuthServiceTests : IDisposable
             TenantId = _tenantId
         };
         _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
 
         // Create INACTIVE membership to second company
         _db.UserCompanyMemberships.Add(new UserCompanyMembership
@@ -245,6 +250,61 @@ public class AuthServiceTests : IDisposable
         result.IsSuccess.Should().BeTrue();
         result.Profile.Should().NotBeNull();
         result.Profile!.ActiveCompanyId.Should().Be(_tenantId, "Should fall back to default tenant when membership is inactive");
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Fail_When_UserHasNoActiveMembership()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var password = "ValidPassword123!";
+
+        _db.Users.Add(new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "nomembership@example.com",
+            DisplayName = "No Membership User",
+            TenantId = _tenantId,
+            OAuthProvider = "local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            EmailVerified = true
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.LoginAsync("nomembership@example.com", password);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("active company membership");
+    }
+
+    [Fact]
+    public async Task LogoutAsync_Should_Revoke_RefreshToken()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var token = new RefreshToken
+        {
+            Token = "logout-token",
+            UserId = Guid.NewGuid(),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+
+        _db.RefreshTokens.Add(token);
+        await _db.SaveChangesAsync();
+
+        await authService.LogoutAsync("logout-token");
+
+        var storedToken = await _db.RefreshTokens.FirstAsync(r => r.Token == "logout-token");
+        storedToken.RevokedAt.Should().NotBeNull();
+    }
+
+    private void AddActiveMembership(Guid userId, Guid companyId, string role)
+    {
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = companyId,
+            CompanyRole = role,
+            Status = "Active"
+        });
     }
 
     private class MockTenantProvider : ITenantProvider

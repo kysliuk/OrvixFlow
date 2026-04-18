@@ -113,6 +113,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, account, profile, trigger, session }) {
       if (trigger === "update" && session) {
         if (session.token) token.apiToken = session.token;
+        if ((session as any).refreshToken) token.refreshToken = (session as any).refreshToken;
         if (session.profile) {
           token.name = session.profile.displayName;
           token.tenantId = session.profile.tenantId;
@@ -165,21 +166,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const refreshRes = await fetch(`${apiBaseUrl}/api/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refreshToken: token.refreshToken }),
+                body: JSON.stringify({
+                  refreshToken: token.refreshToken,
+                  activeCompanyId: token.activeCompanyId,
+                }),
               });
 
               if (refreshRes.ok) {
                 const data = await refreshRes.json();
                 token.apiToken = data.token;
                 token.refreshToken = data.refreshToken;
+                token.tenantId = data.profile?.tenantId ?? token.tenantId;
+                token.activeCompanyId = data.profile?.activeCompanyId ?? token.activeCompanyId;
+                token.plan = data.profile?.plan ?? token.plan;
+                token.role = data.profile?.role ?? token.role;
+                (token as any).globalRole = data.profile?.globalRole ?? (token as any).globalRole;
+                token.companies = data.profile?.companies ?? token.companies;
               } else {
                 console.warn(`Failed to refresh token. API returned: ${refreshRes.status}`);
-                // Invalidate API token to force re-auth
+                // Invalidate API token to force re-auth on the next protected request.
                 token.apiToken = "";
                 token.refreshToken = "";
+                token.activeCompanyId = undefined;
               }
             } catch (e) {
               console.error("Refresh token fetch failed", e);
+              token.apiToken = "";
+              token.refreshToken = "";
+              token.activeCompanyId = undefined;
             }
           }
         }
@@ -201,6 +215,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.companies = (token.companies as any[]) || [];
       }
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      if (!("token" in message)) return;
+
+      const refreshToken = (message.token as any)?.refreshToken as string | undefined;
+      if (!refreshToken) return;
+
+      try {
+        await fetch(`${apiBaseUrl}/api/auth/logout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch (error) {
+        console.error("Failed to revoke refresh token during sign-out", error);
+      }
     },
   },
   pages: {

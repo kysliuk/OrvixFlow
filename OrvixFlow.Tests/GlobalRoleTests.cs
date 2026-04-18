@@ -89,41 +89,78 @@ public class GlobalRoleTests : IDisposable
     }
 
     [Fact]
-    public async Task DbInitializer_CreatesSuperAdminWithCorrectGlobalRole()
+    public async Task DbInitializer_CreatesSuperAdminWithCorrectGlobalRole_WhenBootstrapEnvVarsArePresent()
     {
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL", "superadmin@orvixflow.local");
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD", "SuperAdmin123!");
+
         var logger = new TestLogger();
-        await DbInitializer.SeedAsync(_db, logger);
+        try
+        {
+            await DbInitializer.SeedAsync(_db, logger);
 
-        var user = await _db.Users.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email == "superadmin@orvixflow.local");
+            var user = await _db.Users.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Email == "superadmin@orvixflow.local");
 
-        user.Should().NotBeNull();
-        user!.Role.Should().Be("SuperAdmin");
+            user.Should().NotBeNull();
+            user!.Role.Should().Be("SuperAdmin");
 
-        var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.UserId == user.Id);
+            var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.UserId == user.Id);
 
-        membership.Should().NotBeNull();
-        membership!.CompanyRole.Should().Be("CompanyOwner");
+            membership.Should().NotBeNull();
+            membership!.CompanyRole.Should().Be("CompanyOwner");
 
-        var tenant = await _db.Tenants.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(t => t.Id == user.TenantId);
+            var tenant = await _db.Tenants.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.Id == user.TenantId);
 
-        tenant.Should().NotBeNull();
-        tenant!.Name.Should().Be("Platform Admin Org");
+            tenant.Should().NotBeNull();
+            tenant!.Name.Should().Be("Platform Admin Org");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL", null);
+            Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD", null);
+        }
     }
 
     [Fact]
     public async Task DbInitializer_IsIdempotent()
     {
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL", "superadmin@orvixflow.local");
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD", "SuperAdmin123!");
+
         var logger = new TestLogger();
-        await DbInitializer.SeedAsync(_db, logger);
+        try
+        {
+            await DbInitializer.SeedAsync(_db, logger);
+            await DbInitializer.SeedAsync(_db, logger);
+
+            var count = await _db.Users.IgnoreQueryFilters()
+                .CountAsync(u => u.Email == "superadmin@orvixflow.local");
+
+            count.Should().Be(1);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL", null);
+            Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD", null);
+        }
+    }
+
+    [Fact]
+    public async Task DbInitializer_DoesNotCreateSuperAdmin_WhenBootstrapEnvVarsAreMissing()
+    {
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL", null);
+        Environment.SetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD", null);
+
+        var logger = new TestLogger();
         await DbInitializer.SeedAsync(_db, logger);
 
         var count = await _db.Users.IgnoreQueryFilters()
-            .CountAsync(u => u.Email == "superadmin@orvixflow.local");
+            .CountAsync(u => u.Role == "SuperAdmin");
 
-        count.Should().Be(1);
+        count.Should().Be(0);
     }
 
     private class MockTenantProvider : OrvixFlow.Core.Interfaces.ITenantProvider

@@ -123,9 +123,15 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "Please verify your email address before logging in.");
         }
 
-        var activeCompanyId = user.TenantId;
-        var token = await MintJwtAsync(user, activeCompanyId);
-        var profile = await BuildProfileAsync(user, activeCompanyId);
+        var activeCompanyId = await ResolveActiveCompanyIdAsync(user, user.TenantId);
+        if (activeCompanyId == null)
+        {
+            _logger.LogWarning("Login blocked: no active company membership for {Email}", normalizedEmail);
+            return new AuthResult(false, Error: "Your account does not have an active company membership.");
+        }
+
+        var token = await MintJwtAsync(user, activeCompanyId.Value);
+        var profile = await BuildProfileAsync(user, activeCompanyId.Value);
         var refreshToken = await CreateRefreshTokenAsync(user.Id);
         return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
@@ -417,35 +423,18 @@ public class AuthService : IAuthService
         var user = tokenRecord.User!;
 
         // FIX: Determine the active company based on provided context or validate existing company
-        Guid resolvedCompanyId;
-        if (activeCompanyId.HasValue)
+        var resolvedCompanyId = await ResolveActiveCompanyIdAsync(user, activeCompanyId);
+        if (resolvedCompanyId == null)
         {
-            // Verify user has Active membership to this company
-            var membership = await _db.UserCompanyMemberships
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(m => m.UserId == user.Id 
-                    && m.CompanyId == activeCompanyId.Value 
-                    && m.Status == "Active");
-            
-            if (membership != null)
-            {
-                resolvedCompanyId = activeCompanyId.Value;
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "RefreshSession: Invalid or inactive activeCompanyId {CompanyId} for user {UserId}, falling back to default tenant",
-                    activeCompanyId.Value, user.Id);
-                resolvedCompanyId = user.TenantId;
-            }
-        }
-        else
-        {
-            resolvedCompanyId = user.TenantId;
+            _logger.LogWarning(
+                "RefreshSession: user {UserId} has no active company membership for requested company {CompanyId}",
+                user.Id,
+                activeCompanyId);
+            return new AuthResult(false, Error: "Your account does not have an active company membership.");
         }
 
-        var jwt = await MintJwtAsync(user, resolvedCompanyId);
-        var profile = await BuildProfileAsync(user, resolvedCompanyId);
+        var jwt = await MintJwtAsync(user, resolvedCompanyId.Value);
+        var profile = await BuildProfileAsync(user, resolvedCompanyId.Value);
         var newRefreshToken = await CreateRefreshTokenAsync(user.Id);
 
         await _db.SaveChangesAsync();
@@ -601,9 +590,9 @@ public class AuthService : IAuthService
         return new AuthResult(true, Token: jwtToken, Profile: profile, RefreshToken: refreshToken);
     }
 
-    public async Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName)
+    public async Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName, Guid? activeCompanyId = null)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null)
             return new AuthResult(false, Error: "User not found.");
 
@@ -612,11 +601,29 @@ public class AuthService : IAuthService
 
         await _db.SaveChangesAsync();
 
-        var activeCompanyId = user.TenantId;
-        var token = await MintJwtAsync(user, activeCompanyId);
-        var profile = await BuildProfileAsync(user, activeCompanyId);
+        var resolvedCompanyId = await ResolveActiveCompanyIdAsync(user, activeCompanyId);
+        if (resolvedCompanyId == null)
+            return new AuthResult(false, Error: "Your account does not have an active company membership.");
+
+        var token = await MintJwtAsync(user, resolvedCompanyId.Value);
+        var profile = await BuildProfileAsync(user, resolvedCompanyId.Value);
         var refreshToken = await CreateRefreshTokenAsync(user.Id);
         return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
+    }
+
+    public async Task LogoutAsync(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return;
+
+        var tokenRecord = await _db.RefreshTokens
+            .FirstOrDefaultAsync(r => r.Token == refreshToken);
+
+        if (tokenRecord == null || tokenRecord.RevokedAt != null)
+            return;
+
+        tokenRecord.RevokedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
     }
 
     // F-33: Verify email with token
@@ -667,5 +674,36 @@ public class AuthService : IAuthService
             return (false, $"Password must contain at least one {string.Join(", ", missing)}.");
 
         return (true, string.Empty);
+    }
+
+    private async Task<Guid?> ResolveActiveCompanyIdAsync(User user, Guid? requestedCompanyId)
+    {
+        var parsedUserRole = UserRoleExtensions.ParseRole(user.Role);
+        if (parsedUserRole.IsPlatformAdmin())
+        {
+            var targetCompanyId = requestedCompanyId ?? user.TenantId;
+            var companyExists = await _db.Tenants
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Id == targetCompanyId);
+
+            return companyExists ? targetCompanyId : null;
+        }
+
+        var activeMemberships = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .Where(m => m.UserId == user.Id && m.Status == "Active")
+            .Select(m => m.CompanyId)
+            .ToListAsync();
+
+        if (activeMemberships.Count == 0)
+            return null;
+
+        if (requestedCompanyId.HasValue && activeMemberships.Contains(requestedCompanyId.Value))
+            return requestedCompanyId.Value;
+
+        if (activeMemberships.Contains(user.TenantId))
+            return user.TenantId;
+
+        return activeMemberships[0];
     }
 }

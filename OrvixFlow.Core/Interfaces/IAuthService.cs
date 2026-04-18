@@ -10,7 +10,7 @@ public interface IAuthService
     Task<AuthResult> LoginAsync(string email, string password);
     Task<AuthResult> ProvisionOAuthUserAsync(string email, string displayName, string provider, string externalId);
     Task<AuthResult> SwitchCompanyAsync(Guid userId, Guid companyId);
-    Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName);
+    Task<AuthResult> UpdateUserAsync(Guid userId, string? displayName, Guid? activeCompanyId = null);
 
     /// <summary>Create a pending invitation; returns the one-time token.</summary>
     Task<InviteResult> InviteUserAsync(InviteRequest request);
@@ -27,6 +27,9 @@ public interface IAuthService
 
     /// <summary>F-33: Verify user's email with verification token.</summary>
     Task<AuthResult> VerifyEmailAsync(string token);
+
+    /// <summary>Revokes the supplied refresh token if it exists.</summary>
+    Task LogoutAsync(string refreshToken);
 }
 
 public record AuthResult(bool IsSuccess, string? Token = null, string? Error = null, UserProfile? Profile = null, string? RefreshToken = null);

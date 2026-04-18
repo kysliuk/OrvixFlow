@@ -143,7 +143,7 @@ public class InviteController : ControllerBase
         if (!result.IsSuccess)
             return BadRequest(new { error = result.Error });
 
-        return Ok(new { token = result.Token, profile = result.Profile });
+        return Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken });
     }
 }
 

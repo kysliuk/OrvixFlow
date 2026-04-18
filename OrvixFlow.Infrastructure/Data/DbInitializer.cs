@@ -26,8 +26,16 @@ public static class DbInitializer
             logger.LogInformation("Backfill complete: {Count} legacy users verified", unverifiedCount);
         }
 
-        var superAdminEmail = "superadmin@orvixflow.local";
-        var superAdminPassword = "SuperAdmin123!";
+        var superAdminEmail = Environment.GetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL");
+        var superAdminPassword = Environment.GetEnvironmentVariable("ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD");
+
+        if (string.IsNullOrWhiteSpace(superAdminEmail) || string.IsNullOrWhiteSpace(superAdminPassword))
+        {
+            logger.LogInformation("SuperAdmin bootstrap skipped: ORVIXFLOW_BOOTSTRAP_SUPERADMIN_EMAIL and ORVIXFLOW_BOOTSTRAP_SUPERADMIN_PASSWORD are not set.");
+            return;
+        }
+
+        superAdminEmail = superAdminEmail.Trim().ToLowerInvariant();
 
         if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == superAdminEmail))
         {

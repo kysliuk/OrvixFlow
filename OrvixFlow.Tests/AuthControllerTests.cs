@@ -94,7 +94,7 @@ public class AuthControllerTests
     {
         // Arrange
         _authServiceMock.Setup(x => x.LoginAsync("test@example.com", "password"))
-            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), System.Guid.NewGuid(), System.Guid.NewGuid(), "test@example.com", "Test User", "CompanyOwner", "Trialing", new System.Collections.Generic.List<CompanyMembershipSummary>())));
+            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), System.Guid.NewGuid(), System.Guid.NewGuid(), "test@example.com", "Test User", "CompanyOwner", "Trialing", new System.Collections.Generic.List<CompanyMembershipSummary>()), "refresh-123"));
 
         var req = new LoginRequest("test@example.com", "password");
 
@@ -105,6 +105,20 @@ public class AuthControllerTests
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
+
+        var payload = okResult.Value;
+        payload.Should().NotBeNull();
+        payload!.GetType().GetProperty("refreshToken")!.GetValue(payload).Should().Be("refresh-123");
+    }
+
+    [Fact]
+    public async Task Logout_WithMissingRefreshToken_ShouldReturnBadRequest()
+    {
+        var result = await _controller.Logout(new LogoutRequest(""));
+
+        var badRequestResult = result as BadRequestObjectResult;
+        badRequestResult.Should().NotBeNull();
+        badRequestResult!.StatusCode.Should().Be(400);
     }
 
     [Fact]

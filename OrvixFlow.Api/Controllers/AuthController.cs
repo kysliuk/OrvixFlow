@@ -58,7 +58,7 @@ public class AuthController : ControllerBase
         }
         
         return result.IsSuccess
-            ? Ok(new { token = result.Token, profile = result.Profile })
+            ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
             : Unauthorized(new { error = result.Error });
     }
 
@@ -85,6 +85,16 @@ public class AuthController : ControllerBase
         return result.IsSuccess
             ? Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken })
             : Unauthorized(new { error = result.Error });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken))
+            return BadRequest(new { error = "Refresh token is required." });
+
+        await _authService.LogoutAsync(req.RefreshToken);
+        return Ok(new { message = "Logged out successfully." });
     }
 
     [HttpGet("me")]
@@ -128,7 +138,7 @@ public class AuthController : ControllerBase
         if (result.IsSuccess)
         {
             _logger.LogInformation("[DEBUG][CompanySwitch] Success. Issuing new JWT for CompanyId: {CompanyId}", req.CompanyId);
-            return Ok(new { token = result.Token, profile = result.Profile });
+            return Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken });
         }
         else
         {
@@ -148,10 +158,11 @@ public class AuthController : ControllerBase
         if (!Guid.TryParse(userIdValue, out var userId))
             return Unauthorized(new { error = "Invalid user context." });
 
-        var result = await _authService.UpdateUserAsync(userId, req.DisplayName);
+        var activeCompanyId = ParseClaimGuid("ActiveCompanyId") ?? ParseClaimGuid("TenantId");
+        var result = await _authService.UpdateUserAsync(userId, req.DisplayName, activeCompanyId);
 
         if (result.IsSuccess)
-            return Ok(new { token = result.Token, profile = result.Profile });
+            return Ok(new { token = result.Token, profile = result.Profile, refreshToken = result.RefreshToken });
         else
             return BadRequest(new { error = result.Error });
     }
@@ -169,6 +180,12 @@ public class AuthController : ControllerBase
             ? Ok(new { message = "Email verified successfully. You can now log in." })
             : BadRequest(new { error = result.Error });
     }
+
+    private Guid? ParseClaimGuid(string claimType)
+    {
+        var value = HttpContext.User.FindFirst(claimType)?.Value;
+        return Guid.TryParse(value, out var parsed) ? parsed : null;
+    }
 }
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
@@ -177,4 +194,5 @@ public record OAuthProvisionRequest(string Email, string DisplayName, string Pro
 public record SwitchCompanyRequest(Guid CompanyId);
 public record UpdateProfileRequest(string? DisplayName);
 public record RefreshRequest(string RefreshToken, Guid? ActiveCompanyId = null);
+public record LogoutRequest(string RefreshToken);
 public record VerifyRequest(string Token);
