@@ -46,7 +46,7 @@ function LoginForm() {
         // In NextAuth 5 with CustomAuthError, res.code holds the backend-specific message.
         // res.error is always "CredentialsSignin" (the class type).
         // res.code is the specific message we set (e.g. "Please verify your email...").
-        const specificMessage = (res as any).code;
+        const specificMessage = res?.error;
         if (specificMessage && specificMessage !== "CredentialsSignin" && specificMessage !== "null") {
           setError(specificMessage);
         } else {

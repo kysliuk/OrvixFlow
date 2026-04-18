@@ -6,21 +6,41 @@ declare module "next-auth" {
    */
   interface Session {
     apiToken: string
+    error?: "RefreshTokenExpired"
     user: {
       tenantId: string
       activeCompanyId: string
       plan: string
       role: string
+      globalRole?: string
       companies?: { companyId: string; companyName: string; role: string }[]
     } & DefaultSession["user"]
   }
 
   interface User {
     apiToken?: string
+    refreshToken?: string
     tenantId?: string
     activeCompanyId?: string
     plan?: string
     role?: string
+    globalRole?: string
     companies?: { companyId: string; companyName: string; role: string }[]
+  }
+}
+
+import { JWT as DefaultJWT } from "next-auth/jwt"
+
+declare module "next-auth/jwt" {
+  interface JWT extends DefaultJWT {
+    apiToken?: string
+    refreshToken?: string
+    tenantId?: string
+    activeCompanyId?: string
+    plan?: string
+    role?: string
+    globalRole?: string
+    companies?: { companyId: string; companyName: string; role: string }[]
+    error?: "RefreshTokenExpired"
   }
 }

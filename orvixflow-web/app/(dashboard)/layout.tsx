@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { 
   Home, 
@@ -18,8 +18,16 @@ import {
 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Defense-in-depth: force redirect to login if session is dead
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
 
   const [visibleModules, setVisibleModules] = useState<string[]>([]);
   const [modulesLoaded, setModulesLoaded] = useState(false);
@@ -30,7 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    const token = (session as any)?.apiToken;
+    const token = session?.apiToken;
     if (!token) {
       setModulesLoaded(true);
       return;

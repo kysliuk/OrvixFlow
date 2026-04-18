@@ -165,7 +165,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const refreshRes = await fetch(`${apiBaseUrl}/api/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refreshToken: token.refreshToken }),
+                body: JSON.stringify({ 
+                  refreshToken: token.refreshToken,
+                  activeCompanyId: (token.activeCompanyId as string) || null,
+                }),
               });
               
               if (refreshRes.ok) {
@@ -174,12 +177,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.refreshToken = data.refreshToken;
               } else {
                 console.warn(`Failed to refresh token. API returned: ${refreshRes.status}`);
-                // Invalidate API token to force re-auth
+                // Invalidate API token and set error to ensure frontend can detect dead session
                 token.apiToken = "";
                 token.refreshToken = "";
+                token.error = "RefreshTokenExpired";
               }
             } catch (e) {
               console.error("Refresh token fetch failed", e);
+              // Network error or backend offline — treat session as dead
+              token.apiToken = "";
+              token.refreshToken = "";
+              token.error = "RefreshTokenExpired";
             }
           }
         }
@@ -199,6 +207,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as string;
         (session.user as any).globalRole = (token as any).globalRole as string;
         session.user.companies = (token.companies as any[]) || [];
+        
+        // Expose error code if set (e.g. RefreshTokenExpired)
+        if (token.error) {
+          session.error = token.error;
+        }
       }
       return session;
     },
