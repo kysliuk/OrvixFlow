@@ -8,13 +8,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrvixFlow.Api.Filters;
-using OrvixFlow.Api.Jobs;
 using OrvixFlow.Infrastructure.Ai.Jobs;
 using OrvixFlow.Core.Entities;
 using OrvixFlow.Core.Interfaces;
+using OrvixFlow.Core.Models;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Infrastructure.Security;
-
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace OrvixFlow.Api.Controllers;
@@ -53,22 +52,19 @@ public class FileIngestionController : ControllerBase
 
     [HttpPost("upload")]
     [RequireModule("knowledge-base")]
-    public async Task<IActionResult> UploadFile(IFormFile file)
+    public async Task<IActionResult> UploadFile(IFormFile file, [FromQuery] Guid? departmentId = null)
     {
         if (file == null || file.Length == 0)
         {
             return BadRequest("No file uploaded.");
         }
 
-        // 1. Validate File Size
         var maxFileSizeMb = _configuration.GetValue("AI:Ingestion:MaxFileSizeMb", 20);
         if (file.Length > maxFileSizeMb * 1024 * 1024)
         {
             return BadRequest($"File size exceeds the limit of {maxFileSizeMb} MB.");
         }
 
-        // 2. F-11 FIX: Validate MIME type using magic bytes, not client-supplied Content-Type.
-        // This prevents attackers from bypassing the type check by setting arbitrary Content-Type headers.
         string detectedMimeType;
         using (var stream = file.OpenReadStream())
         {
@@ -82,17 +78,14 @@ public class FileIngestionController : ControllerBase
             }
         }
 
-        // F-11 FIX: Additionally check that the client-supplied Content-Type
-        // is in the allowlist as a secondary validation layer.
-        var allowedTypes = _configuration.GetSection("AI:Ingestion:AllowedMimeTypes").Get<string[]>() 
+        var allowedTypes = _configuration.GetSection("AI:Ingestion:AllowedMimeTypes").Get<string[]>()
                            ?? new[] { "text/plain", "application/pdf", "image/png", "image/jpeg" };
         var clientContentType = file.ContentType.ToLowerInvariant();
-        if (!System.Linq.Enumerable.Contains(allowedTypes, clientContentType))
+        if (!allowedTypes.Contains(clientContentType))
         {
             return BadRequest($"Content type '{clientContentType}' is not in the allowed list.");
         }
 
-        // 3. Virus Scan
         using (var stream = file.OpenReadStream())
         {
             if (!await _virusScanService.IsFileSafeAsync(stream, file.FileName))
@@ -101,14 +94,18 @@ public class FileIngestionController : ControllerBase
             }
         }
 
+        if (!CanAccessDepartment(departmentId))
+        {
+            return Forbid();
+        }
+
         var tenantId = _tenantProvider.GetTenantId();
-        
-        // 1. Create document record
         var document = new KnowledgeBaseDocument
         {
             TenantId = tenantId,
-            FileName = file.FileName,  // Original filename kept for display purposes
-            ContentType = detectedMimeType, // F-11 FIX: Store the server-detected MIME type, not the client-supplied one
+            DepartmentId = departmentId,
+            FileName = file.FileName,
+            ContentType = detectedMimeType,
             FileSizeBytes = file.Length,
             Status = "Pending"
         };
@@ -116,28 +113,27 @@ public class FileIngestionController : ControllerBase
         _dbContext.KnowledgeBaseDocuments.Add(document);
         await _dbContext.SaveChangesAsync();
 
-        // 2. Save raw file locally before background processing
-        // Note: LocalFileStorage now sanitizes filenames internally (F-12)
         using (var stream = file.OpenReadStream())
         {
-            var storagePath = await _storage.SaveFileAsync(tenantId, document.Id, file.FileName, stream);
+            var storageContext = new StorageContext(tenantId, departmentId, document.Id, file.FileName);
+            var storagePath = await _storage.SaveFileAsync(storageContext, stream);
             document.StoragePath = storagePath;
             await _dbContext.SaveChangesAsync();
         }
 
-        // 3. Enqueue background ingestion job
         _backgroundJobClient.Enqueue<FileIngestionJob>(job => job.ProcessFileAsync(
-            document.Id, 
-            document.StoragePath, 
-            document.FileName, 
-            document.ContentType, 
-            _scope.UserId == Guid.Empty ? null : _scope.UserId, 
-            null,
+            document.Id,
+            document.StoragePath,
+            document.FileName,
+            document.ContentType,
+            _scope.UserId == Guid.Empty ? null : _scope.UserId,
+            departmentId,
             tenantId));
 
         return Ok(new
         {
             documentId = document.Id,
+            departmentId,
             status = "Processing",
             message = "File uploaded successfully and queued for indexing."
         });
@@ -145,20 +141,36 @@ public class FileIngestionController : ControllerBase
 
     [HttpGet("documents")]
     [RequireModule("knowledge-base")]
-    public async Task<IActionResult> GetDocuments([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetDocuments(
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var tenantId = _tenantProvider.GetTenantId();
+        var query = _dbContext.KnowledgeBaseDocuments.AsQueryable();
 
-        var query = _dbContext.KnowledgeBaseDocuments
-            .Where(d => d.TenantId == tenantId)
-            .OrderByDescending(d => d.CreatedAtUtc);
+        if (departmentId.HasValue)
+        {
+            if (!CanAccessDepartment(departmentId))
+            {
+                return Forbid();
+            }
+
+            query = query.Where(d => d.DepartmentId == departmentId);
+        }
+        else if (!_scope.HasCompanyWideAccess)
+        {
+            var allowedDepartmentIds = _scope.AllowedDepartmentIds;
+            query = query.Where(d =>
+                d.DepartmentId != null && allowedDepartmentIds.Contains(d.DepartmentId.Value));
+        }
 
         var total = await query.CountAsync();
         var items = await query
+            .OrderByDescending(d => d.CreatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(d => new
@@ -167,6 +179,7 @@ public class FileIngestionController : ControllerBase
                 fileName = d.FileName,
                 contentType = d.ContentType,
                 fileSizeBytes = d.FileSizeBytes,
+                departmentId = d.DepartmentId,
                 status = d.Status,
                 createdAtUtc = d.CreatedAtUtc,
                 indexedAtUtc = d.IndexedAtUtc,
@@ -177,18 +190,54 @@ public class FileIngestionController : ControllerBase
         return Ok(new { total, page, pageSize, items });
     }
 
+    [HttpGet("documents/{id:guid}/download")]
+    [RequireModule("knowledge-base")]
+    public async Task<IActionResult> DownloadDocument(Guid id)
+    {
+        var document = await _dbContext.KnowledgeBaseDocuments
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (document == null)
+        {
+            return NotFound();
+        }
+
+        if (!CanAccessDepartment(document.DepartmentId))
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrEmpty(document.StoragePath))
+        {
+            return NotFound(new { message = "File not yet available in storage." });
+        }
+
+        try
+        {
+            var stream = await _storage.GetFileAsync(document.StoragePath);
+            return File(stream, document.ContentType, document.FileName);
+        }
+        catch (Amazon.S3.AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchKey")
+        {
+            return NotFound(new { message = "File not found in storage. It may have been deleted." });
+        }
+    }
+
     [HttpDelete("documents/{id:guid}")]
     [RequireModule("knowledge-base")]
     public async Task<IActionResult> DeleteDocument(Guid id)
     {
-        var tenantId = _tenantProvider.GetTenantId();
-
         var document = await _dbContext.KnowledgeBaseDocuments
-            .FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId);
+            .FirstOrDefaultAsync(d => d.Id == id);
 
         if (document == null)
         {
             return NotFound(new { message = "Document not found." });
+        }
+
+        if (!CanAccessDepartment(document.DepartmentId))
+        {
+            return Forbid();
         }
 
         if (!string.IsNullOrEmpty(document.StoragePath))
@@ -199,14 +248,12 @@ public class FileIngestionController : ControllerBase
             }
             catch (Exception ex)
             {
-                // F-14 Fix: Log storage deletion errors instead of silently swallowing them.
-                // The document record is still deleted (DB record removed), but the orphaned
-                // file will be cleaned up by a future maintenance job.
                 var logger = HttpContext.RequestServices
                     .GetService<Microsoft.Extensions.Logging.ILogger<FileIngestionController>>();
                 logger?.LogWarning(ex,
-                    "Failed to delete storage file {StoragePath} for document {DocumentId}. " +
-                    "File may be orphaned.", document.StoragePath, document.Id);
+                    "Failed to delete storage object {StoragePath} for document {DocumentId}. Object may be orphaned.",
+                    document.StoragePath,
+                    document.Id);
             }
         }
 
@@ -219,5 +266,16 @@ public class FileIngestionController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private bool CanAccessDepartment(Guid? departmentId)
+    {
+        if (departmentId == null)
+        {
+            return _scope.HasCompanyWideAccess;
+        }
+
+        return _scope.HasCompanyWideAccess
+            || _scope.AllowedDepartmentIds.Contains(departmentId.Value);
     }
 }
