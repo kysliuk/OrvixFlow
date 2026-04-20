@@ -364,6 +364,17 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // KnowledgeBaseDocument — Department FK (nullable, set null on dept delete)
+        modelBuilder.Entity<KnowledgeBaseDocument>()
+            .HasOne(d => d.Department)
+            .WithMany()
+            .HasForeignKey(d => d.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Composite index for tenant + department scoped queries
+        modelBuilder.Entity<KnowledgeBaseDocument>()
+            .HasIndex(d => new { d.TenantId, d.DepartmentId });
+
         modelBuilder.Entity<KnowledgeBaseImage>()
             .HasOne(i => i.Document)
             .WithMany()

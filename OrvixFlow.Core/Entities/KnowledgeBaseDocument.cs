@@ -7,6 +7,7 @@ public class KnowledgeBaseDocument
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public Guid? DepartmentId { get; set; }
 
     public string FileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
@@ -21,5 +22,6 @@ public class KnowledgeBaseDocument
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? IndexedAtUtc { get; set; }
 
+    public Department? Department { get; set; }
     public ICollection<KnowledgeBase> Chunks { get; set; } = new List<KnowledgeBase>();
 }
