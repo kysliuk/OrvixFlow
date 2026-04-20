@@ -106,9 +106,10 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Vector Index | - | IngestionPipelineService | KnowledgeBase |
 | Image Resolution| - | ImageResolver | KnowledgeBaseImage |
 | Reranking | - | IReranker (LlmScorerReranker) | KnowledgeSnippet |
-| File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument |
+| File Upload | FileIngestionController | IngestionPipelineService | KnowledgeBaseDocument, StoredObject |
 | File Listing | FileIngestionController | - | KnowledgeBaseDocument |
 | File Delete | FileIngestionController | LocalFileStorage | KnowledgeBaseDocument |
+| Stored Object Metadata | FileIngestionController | IngestionPipelineService | StoredObject |
 | File Parsing | - | IDocumentParser implementations | - |
 | Virus Scanning | - | IVirusScanService (ClamAv, Noop) | - |
 | Background Jobs| - | FileIngestionJob | - |
@@ -128,6 +129,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 - `OrvixFlow.Core/Entities/KnowledgeBase.cs`
 - `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs`
 - `OrvixFlow.Core/Entities/KnowledgeBaseImage.cs`
+- `OrvixFlow.Core/Entities/StoredObject.cs`
 
 ## Organization & Access
 
@@ -193,4 +195,3 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 ### Enforcement
 - **Downgrade Safety:** `ChangePlanAsync` throws `DowngradeNotAllowedException` or `SeatLimitExceededException` (409 Conflict) if limits are breached.
 - **Entitlement Checks:** Limit checks (`IsWithinTokenLimitAsync`, etc.) respect admin overrides via `GetEffectiveEntitlementsAsync()`.
-

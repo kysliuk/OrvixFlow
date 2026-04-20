@@ -104,6 +104,51 @@ public class FileIngestionControllerTests
     }
 
     [Fact]
+    public async Task UploadFile_Success_CreatesStoredObjectMetadata()
+    {
+        var tenantId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+        var harness = CreateHarness(tenantId, hasCompanyWideAccess: true, allowedDepartmentIds: []);
+        var file = CreatePdfFile();
+
+        var result = await harness.Controller.UploadFile(file, departmentId);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var document = await harness.DbContext.KnowledgeBaseDocuments.SingleAsync();
+        var storedObject = await harness.DbContext.StoredObjects.SingleAsync();
+        storedObject.TenantId.Should().Be(tenantId);
+        storedObject.DepartmentId.Should().Be(departmentId);
+        storedObject.Module.Should().Be("knowledge-base");
+        storedObject.EntityType.Should().Be("document");
+        storedObject.EntityId.Should().Be(document.Id);
+        storedObject.StorageKey.Should().Be("stored/object-key");
+        storedObject.OriginalFileName.Should().Be(file.FileName);
+        storedObject.ContentType.Should().Be("application/pdf");
+        storedObject.SizeBytes.Should().Be(file.Length);
+        storedObject.VirusScanStatus.Should().Be("Clean");
+        storedObject.LifecycleStatus.Should().Be("Active");
+        storedObject.CreatedByUserId.Should().Be(harness.Scope.UserId);
+        storedObject.Sha256.Should().HaveLength(64);
+        storedObject.Sha256.All(Uri.IsHexDigit).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UploadFile_VirusScanFails_DoesNotCreateStoredObject()
+    {
+        var harness = CreateHarness(Guid.NewGuid(), hasCompanyWideAccess: true, allowedDepartmentIds: []);
+        harness.VirusScanMock
+            .Setup(x => x.IsFileSafeAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+            .ReturnsAsync(false);
+
+        var result = await harness.Controller.UploadFile(CreatePdfFile(), null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        (await harness.DbContext.KnowledgeBaseDocuments.CountAsync()).Should().Be(0);
+        (await harness.DbContext.StoredObjects.CountAsync()).Should().Be(0);
+        harness.StorageMock.Verify(x => x.SaveFileAsync(It.IsAny<StorageContext>(), It.IsAny<Stream>()), Times.Never);
+    }
+
+    [Fact]
     public async Task DownloadDocument_DocumentInOwnDepartment_ReturnsFileStream()
     {
         var tenantId = Guid.NewGuid();
@@ -348,11 +393,13 @@ public class FileIngestionControllerTests
             .Options;
         var dbContext = new AppDbContext(options, tenantProviderMock.Object);
 
+        var scope = new TestScopeContext(Guid.NewGuid(), tenantId, hasCompanyWideAccess, allowedDepartmentIds);
+
         var controller = new FileIngestionController(
             dbContext,
             storageMock.Object,
             tenantProviderMock.Object,
-            new TestScopeContext(Guid.NewGuid(), tenantId, hasCompanyWideAccess, allowedDepartmentIds),
+            scope,
             backgroundJobClientMock.Object,
             configuration,
             virusScanMock.Object);
@@ -365,7 +412,7 @@ public class FileIngestionControllerTests
             }
         };
 
-        return new TestHarness(controller, dbContext, storageMock, virusScanMock, backgroundJobClientMock);
+        return new TestHarness(controller, dbContext, storageMock, virusScanMock, backgroundJobClientMock, scope);
     }
 
     private static IFormFile CreatePdfFile()
@@ -418,7 +465,8 @@ public class FileIngestionControllerTests
         AppDbContext DbContext,
         Mock<IFileStorage> StorageMock,
         Mock<IVirusScanService> VirusScanMock,
-        Mock<IBackgroundJobClient> BackgroundJobClientMock);
+        Mock<IBackgroundJobClient> BackgroundJobClientMock,
+        TestScopeContext Scope);
 
     private sealed class TestScopeContext : IScopeContext
     {

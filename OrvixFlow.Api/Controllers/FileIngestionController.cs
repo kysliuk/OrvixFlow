@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Hangfire;
 using Microsoft.AspNetCore.Authorization;
@@ -65,8 +66,16 @@ public class FileIngestionController : ControllerBase
             return BadRequest($"File size exceeds the limit of {maxFileSizeMb} MB.");
         }
 
+        byte[] fileBytes;
+        await using (var uploadStream = file.OpenReadStream())
+        using (var buffer = new MemoryStream())
+        {
+            await uploadStream.CopyToAsync(buffer);
+            fileBytes = buffer.ToArray();
+        }
+
         string detectedMimeType;
-        using (var stream = file.OpenReadStream())
+        using (var stream = new MemoryStream(fileBytes, writable: false))
         {
             detectedMimeType = FileSignatureValidator.DetectMimeTypeFromStream(stream)
                 ?? string.Empty;
@@ -86,7 +95,7 @@ public class FileIngestionController : ControllerBase
             return BadRequest($"Content type '{clientContentType}' is not in the allowed list.");
         }
 
-        using (var stream = file.OpenReadStream())
+        using (var stream = new MemoryStream(fileBytes, writable: false))
         {
             if (!await _virusScanService.IsFileSafeAsync(stream, file.FileName))
             {
@@ -113,11 +122,33 @@ public class FileIngestionController : ControllerBase
         _dbContext.KnowledgeBaseDocuments.Add(document);
         await _dbContext.SaveChangesAsync();
 
-        using (var stream = file.OpenReadStream())
+        using (var stream = new MemoryStream(fileBytes, writable: false))
         {
             var storageContext = new StorageContext(tenantId, departmentId, document.Id, file.FileName);
             var storagePath = await _storage.SaveFileAsync(storageContext, stream);
             document.StoragePath = storagePath;
+
+            // TODO: switch to stream-based SHA256 if the upload limit grows beyond 20MB.
+            var storedObject = new StoredObject
+            {
+                TenantId = tenantId,
+                DepartmentId = departmentId,
+                Module = "knowledge-base",
+                EntityType = "document",
+                EntityId = document.Id,
+                StorageProvider = _configuration["Storage:Provider"] ?? "Local",
+                ContainerOrBucket = _configuration["Storage:MinIO:Bucket"] ?? "local",
+                StorageKey = storagePath,
+                OriginalFileName = file.FileName,
+                ContentType = detectedMimeType,
+                SizeBytes = file.Length,
+                Sha256 = ComputeSha256(fileBytes),
+                VirusScanStatus = "Clean",
+                LifecycleStatus = "Active",
+                CreatedByUserId = _scope.UserId
+            };
+
+            _dbContext.StoredObjects.Add(storedObject);
             await _dbContext.SaveChangesAsync();
         }
 
@@ -277,5 +308,12 @@ public class FileIngestionController : ControllerBase
 
         return _scope.HasCompanyWideAccess
             || _scope.AllowedDepartmentIds.Contains(departmentId.Value);
+    }
+
+    private static string ComputeSha256(byte[] data)
+    {
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(data);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

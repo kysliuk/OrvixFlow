@@ -42,6 +42,7 @@ public class TenantIsolationTests
             db.KnowledgeBaseDocuments.Add(new KnowledgeBaseDocument { TenantId = tenantA_Id, FileName = "DocA" });
             db.KnowledgeBases.Add(new KnowledgeBase { TenantId = tenantA_Id, RawContent = "ContentA" });
             db.KnowledgeBaseImages.Add(new KnowledgeBaseImage { TenantId = tenantA_Id, AltText = "ImgA" });
+            db.StoredObjects.Add(new StoredObject { TenantId = tenantA_Id, StorageKey = "tenant-a/object" });
             db.SaveChanges();
         }
 
@@ -53,6 +54,7 @@ public class TenantIsolationTests
             db.KnowledgeBaseDocuments.Add(new KnowledgeBaseDocument { TenantId = tenantB_Id, FileName = "DocB" });
             db.KnowledgeBases.Add(new KnowledgeBase { TenantId = tenantB_Id, RawContent = "ContentB" });
             db.KnowledgeBaseImages.Add(new KnowledgeBaseImage { TenantId = tenantB_Id, AltText = "ImgB" });
+            db.StoredObjects.Add(new StoredObject { TenantId = tenantB_Id, StorageKey = "tenant-b/object" });
             db.SaveChanges();
         }
 
@@ -76,6 +78,10 @@ public class TenantIsolationTests
             var images = actContext.KnowledgeBaseImages.ToList();
             images.Should().HaveCount(1);
             images.First().TenantId.Should().Be(tenantA_Id);
+
+            var storedObjects = actContext.StoredObjects.ToList();
+            storedObjects.Should().HaveCount(1);
+            storedObjects.First().TenantId.Should().Be(tenantA_Id);
         }
     }
 

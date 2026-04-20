@@ -52,6 +52,7 @@ public class AppDbContext : DbContext
     public DbSet<CompanyModuleOverride> CompanyModuleOverrides => Set<CompanyModuleOverride>();
     public DbSet<KnowledgeBaseDocument> KnowledgeBaseDocuments => Set<KnowledgeBaseDocument>();
     public DbSet<KnowledgeBaseImage> KnowledgeBaseImages => Set<KnowledgeBaseImage>();
+    public DbSet<StoredObject> StoredObjects => Set<StoredObject>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<TenantWebhookLimit> TenantWebhookLimits => Set<TenantWebhookLimit>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
@@ -375,6 +376,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<KnowledgeBaseDocument>()
             .HasIndex(d => new { d.TenantId, d.DepartmentId });
 
+        modelBuilder.Entity<StoredObject>()
+            .HasIndex(s => new { s.TenantId, s.EntityType, s.EntityId });
+
+        modelBuilder.Entity<StoredObject>()
+            .HasIndex(s => s.StorageKey);
+
         modelBuilder.Entity<KnowledgeBaseImage>()
             .HasOne(i => i.Document)
             .WithMany()
@@ -444,6 +451,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CompanySubscription>().HasQueryFilter(s => s.CompanyId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseDocument>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<KnowledgeBaseImage>().HasQueryFilter(i => i.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<StoredObject>().HasQueryFilter(s => s.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<TenantWebhookLimit>().HasQueryFilter(t => t.TenantId == _tenantProvider.GetTenantId());
 
         // T3-4: NotificationQueue query filter and relationship

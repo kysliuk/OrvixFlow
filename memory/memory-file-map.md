@@ -10,6 +10,7 @@
 | KnowledgeBase | `OrvixFlow.Core/Entities/KnowledgeBase.cs` |
 | KnowledgeBaseDocument | `OrvixFlow.Core/Entities/KnowledgeBaseDocument.cs` |
 | KnowledgeBaseImage | `OrvixFlow.Core/Entities/KnowledgeBaseImage.cs` |
+| StoredObject | `OrvixFlow.Core/Entities/StoredObject.cs` |
 | InboxEvent | `OrvixFlow.Core/Entities/InboxEvent.cs` |
 | MailboxConnection | `OrvixFlow.Core/Entities/MailboxConnection.cs` |
 | AgentPersona | `OrvixFlow.Core/Entities/AgentPersona.cs` |
@@ -216,6 +217,7 @@
 | AppDbContext | `OrvixFlow.Infrastructure/Data/AppDbContext.cs` |
 | InboxEventRepository | `OrvixFlow.Infrastructure/Data/InboxEventRepository.cs` |
 | Migrations | `OrvixFlow.Infrastructure/Migrations/*.cs` |
+| AddStoredObjectTable Migration | `OrvixFlow.Infrastructure/Migrations/20260420115843_AddStoredObjectTable.cs` |
 | AddPlanSystem Migration | `OrvixFlow.Infrastructure/Migrations/AddPlanSystem.cs` |
 
 ## Configuration

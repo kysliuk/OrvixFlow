@@ -13,6 +13,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace OrvixFlow.Infrastructure.Ai;
 
@@ -188,6 +189,27 @@ public class IngestionPipelineService : IIngestionPipelineService
                 using var imageMs = new MemoryStream(imageChunk.Data);
                 var imagePath = await _storage.SaveFileAsync(tenantId, document.Id, $"img_{imageChunk.Index}_{fileName}", imageMs);
 
+                var storedObjectForImage = new StoredObject
+                {
+                    TenantId = tenantId,
+                    DepartmentId = departmentId,
+                    Module = "knowledge-base",
+                    EntityType = "image",
+                    EntityId = document.Id,
+                    StorageProvider = _configuration["Storage:Provider"] ?? "Local",
+                    ContainerOrBucket = _configuration["Storage:MinIO:Bucket"] ?? "local",
+                    StorageKey = imagePath,
+                    OriginalFileName = $"img_{imageChunk.Index}_{fileName}",
+                    ContentType = imageChunk.ContentType,
+                    SizeBytes = imageChunk.Data.Length,
+                    Sha256 = ComputeSha256(imageChunk.Data),
+                    VirusScanStatus = "Clean",
+                    LifecycleStatus = "Active",
+                    CreatedByUserId = userId ?? Guid.Empty
+                };
+
+                _dbContext.StoredObjects.Add(storedObjectForImage);
+
                 var caption = imageChunk.Caption;
                 if (string.IsNullOrWhiteSpace(caption))
                 {
@@ -315,5 +337,12 @@ public class IngestionPipelineService : IIngestionPipelineService
         {
             return $"Image from {fileName}";
         }
+    }
+
+    private static string ComputeSha256(byte[] data)
+    {
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(data);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }
