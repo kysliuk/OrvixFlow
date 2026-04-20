@@ -217,7 +217,6 @@ public static class DependencyInjection
             services.AddScoped<IEmailService, MockEmailService>();
         }
 
-        services.AddScoped<IVirusScanService, NoopVirusScanService>();
         services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
 
         return services;

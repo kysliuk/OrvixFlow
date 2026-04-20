@@ -61,6 +61,23 @@ services:
     networks:
       - internal
 
+  clamav:
+    image: clamav/clamav:stable_base
+    container_name: orvix_clamav
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+    volumes:
+      - clamav_data:/var/lib/clamav
+    restart: unless-stopped
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
   orvix-api:
     build:
       context: .
@@ -87,6 +104,9 @@ services:
       Storage__MinIO__UseSSL: "false"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      Security__VirusScan__Provider: ${VIRUS_SCAN_PROVIDER:-ClamAv}
+      Security__VirusScan__ClamAv__Host: clamav
+      Security__VirusScan__ClamAv__Port: 3310
     env_file:
       - .env
     depends_on:
@@ -94,6 +114,8 @@ services:
         condition: service_started
       n8n:
         condition: service_started
+      clamav:
+        condition: service_healthy
       orvix-minio:
         condition: service_healthy
     restart: unless-stopped
@@ -137,6 +159,7 @@ volumes:
   n8n_data:
   uploads_data:
   minio_data:
+  clamav_data:
 
 networks:
   internal:
