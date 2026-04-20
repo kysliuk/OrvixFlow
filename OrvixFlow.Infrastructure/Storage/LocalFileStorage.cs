@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using OrvixFlow.Core.Interfaces;
+using OrvixFlow.Core.Models;
 
 namespace OrvixFlow.Infrastructure.Storage;
 
@@ -19,11 +20,14 @@ public class LocalFileStorage : IFileStorage
         }
     }
 
+    public Task<string> SaveFileAsync(StorageContext ctx, Stream fileStream)
+        => SaveFileAsync(ctx.TenantId, ctx.DocumentId, ctx.OriginalFileName, fileStream);
+
     public async Task<string> SaveFileAsync(Guid tenantId, Guid documentId, string fileName, Stream fileStream)
     {
         var tenantDir = Path.Combine(_basePath, tenantId.ToString());
         var docDir = Path.Combine(tenantDir, documentId.ToString());
-        
+
         if (!Directory.Exists(docDir))
         {
             Directory.CreateDirectory(docDir);

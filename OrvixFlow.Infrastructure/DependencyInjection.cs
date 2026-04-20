@@ -1,3 +1,5 @@
+using System;
+using Amazon.S3;
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -28,14 +30,14 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString, o => o.UseVector()));
 
-        services.AddSingleton<Hangfire.PostgreSql.PostgreSqlStorage>(_ => 
-            new Hangfire.PostgreSql.PostgreSqlStorage(connectionString));
+        services.AddSingleton<PostgreSqlStorage>(_ => 
+            new PostgreSqlStorage(connectionString));
 
-        services.AddSingleton<OrvixFlow.Core.Interfaces.ITenantProviderFactory, TenantProviderFactory>();
+        services.AddSingleton<ITenantProviderFactory, TenantProviderFactory>();
         services.AddScoped<ScopedTenantProviderFactory>();
 
         // Auth / Scope
-        services.AddScoped<OrvixFlow.Core.Interfaces.IScopeContext, OrvixFlow.Infrastructure.Auth.ScopeContext>();
+        services.AddScoped<IScopeContext, ScopeContext>();
 
         // AI
         services.AddOrvixSemanticKernel(configuration);
@@ -64,7 +66,7 @@ public static class DependencyInjection
         }
         else
         {
-            var apiKey = aiSection["OpenAI:ApiKey"] ?? throw new System.Exception("AI:OpenAI:ApiKey missing");
+            var apiKey = aiSection["OpenAI:ApiKey"] ?? throw new Exception("AI:OpenAI:ApiKey missing");
             var modelId = aiSection["OpenAI:ModelId"] ?? "gpt-4o";
             var baseUrl = aiSection["OpenAI:BaseUrl"];
 
@@ -72,7 +74,7 @@ public static class DependencyInjection
             if (!string.IsNullOrEmpty(baseUrl))
             {
                 customHttpClient = new System.Net.Http.HttpClient();
-                customHttpClient.BaseAddress = new System.Uri(baseUrl);
+                customHttpClient.BaseAddress = new Uri(baseUrl);
             }
 
             if (customHttpClient != null)
@@ -80,7 +82,7 @@ public static class DependencyInjection
                 kernelBuilder.AddOpenAIChatCompletion(modelId, apiKey, httpClient: customHttpClient);
                 
                 // Groq does not host embedding models. Fallback to mock generation for testing.
-                if (baseUrl?.Contains("groq", System.StringComparison.OrdinalIgnoreCase) == true)
+                if (baseUrl?.Contains("groq", StringComparison.OrdinalIgnoreCase) == true)
                 {
                     kernelBuilder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>, OrvixFlow.Infrastructure.Ai.Mock.MockEmbeddingGenerator>();
                 }
@@ -103,7 +105,7 @@ public static class DependencyInjection
         services.AddHttpClient("n8n", client =>
         {
             var n8nUrl = configuration["Automation:N8nBaseUrl"] ?? "http://localhost:5678";
-            client.BaseAddress = new System.Uri(n8nUrl);
+            client.BaseAddress = new Uri(n8nUrl);
             client.DefaultRequestHeaders.Add("X-Automation-Key", configuration.GetValue<string>("AutomationKey"));
         });
 
@@ -133,7 +135,51 @@ public static class DependencyInjection
 
         // RAG Extension Phase 1 & 3
         services.AddScoped<IChunker, OverlapChunker>();
-        services.AddScoped<IFileStorage, LocalFileStorage>();
+
+        var storageProvider = configuration["Storage:Provider"] ?? "Local";
+        if (storageProvider.Equals("MinIO", StringComparison.OrdinalIgnoreCase))
+        {
+            var minioSection = configuration.GetSection("Storage:MinIO");
+            var bucket = minioSection["Bucket"] ?? "orvixflow";
+
+            services.AddSingleton<IAmazonS3>(_ =>
+            {
+                var endpoint = minioSection["Endpoint"]
+                    ?? throw new InvalidOperationException("Storage:MinIO:Endpoint is required when Storage:Provider=MinIO");
+                var accessKey = configuration["MINIO_ACCESS_KEY"]
+                    ?? throw new InvalidOperationException("MINIO_ACCESS_KEY environment variable is required");
+                var secretKey = configuration["MINIO_SECRET_KEY"]
+                    ?? throw new InvalidOperationException("MINIO_SECRET_KEY environment variable is required");
+
+                var minioConfig = new AmazonS3Config
+                {
+                    ServiceURL = endpoint,
+                    ForcePathStyle = true,
+                    UseHttp = !minioSection.GetValue<bool>("UseSSL")
+                };
+
+                return new AmazonS3Client(accessKey, secretKey, minioConfig);
+            });
+
+            services.AddSingleton<MinIOBucketInitializer>(sp =>
+                new MinIOBucketInitializer(
+                    sp.GetRequiredService<IAmazonS3>(),
+                    bucket,
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOBucketInitializer>>()));
+
+            services.AddHostedService(sp => sp.GetRequiredService<MinIOBucketInitializer>());
+
+            services.AddScoped<IFileStorage>(sp =>
+                new MinIOFileStorage(
+                    sp.GetRequiredService<IAmazonS3>(),
+                    bucket,
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOFileStorage>>()));
+        }
+        else
+        {
+            services.AddScoped<IFileStorage, LocalFileStorage>();
+        }
+
         services.AddScoped<IIngestionPipelineService, IngestionPipelineService>();
         services.AddScoped<IDocumentParser, PlainTextParser>();
         services.AddScoped<IDocumentParser, PdfParser>();
@@ -162,7 +208,7 @@ public static class DependencyInjection
         // Email Service
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"] ?? "Console";
-        if (emailProvider.Equals("Smtp", System.StringComparison.OrdinalIgnoreCase))
+        if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
         {
             services.AddScoped<IEmailService, SmtpEmailService>();
         }
