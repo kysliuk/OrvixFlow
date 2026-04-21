@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
@@ -212,6 +213,39 @@ public static class DependencyInjection
         services.AddScoped<IDocumentParser, ImageFileParser>();
         services.AddScoped<IImageResolver, ImageResolver>();
         services.AddScoped<FileIngestionJob>();
+        services.AddScoped<LocalToMinioMigrationJob>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var bucket = config["Storage:MinIO:Bucket"] ?? "orvixflow";
+            var s3 = sp.GetService<IAmazonS3>();
+            var ownsS3Client = false;
+
+            if (s3 == null)
+            {
+                var endpoint = config["Storage:MinIO:Endpoint"] ?? "http://minio:9000";
+                var accessKey = config["MINIO_ACCESS_KEY"]
+                    ?? throw new InvalidOperationException("MINIO_ACCESS_KEY environment variable is required for storage migration");
+                var secretKey = config["MINIO_SECRET_KEY"]
+                    ?? throw new InvalidOperationException("MINIO_SECRET_KEY environment variable is required for storage migration");
+
+                var minioConfig = new AmazonS3Config
+                {
+                    ServiceURL = endpoint,
+                    ForcePathStyle = true,
+                    UseHttp = !config.GetValue<bool>("Storage:MinIO:UseSSL")
+                };
+
+                s3 = new AmazonS3Client(accessKey, secretKey, minioConfig);
+                ownsS3Client = true;
+            }
+
+            return new LocalToMinioMigrationJob(
+                sp.GetRequiredService<AppDbContext>(),
+                s3,
+                bucket,
+                sp.GetRequiredService<ILogger<LocalToMinioMigrationJob>>(),
+                ownsS3Client);
+        });
 
         // Virus scanning (configurable)
         var virusScanProvider = configuration["Security:VirusScan:Provider"] ?? "Noop";
