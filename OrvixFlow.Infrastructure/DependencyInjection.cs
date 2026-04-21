@@ -175,6 +175,31 @@ public static class DependencyInjection
                     bucket,
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOFileStorage>>()));
         }
+        else if (storageProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
+        {
+            var azureSection = configuration.GetSection("Storage:AzureBlob");
+            var connectionString = configuration["AZURE_STORAGE_CONNECTION_STRING"]
+                ?? throw new InvalidOperationException(
+                    "AZURE_STORAGE_CONNECTION_STRING env var is required when Storage:Provider=AzureBlob");
+            var containerName = azureSection["ContainerName"] ?? "orvixflow";
+
+            services.AddSingleton(sp =>
+            {
+                var serviceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
+                return serviceClient.GetBlobContainerClient(containerName);
+            });
+
+            services.AddSingleton<AzureBlobContainerInitializer>(sp =>
+                new AzureBlobContainerInitializer(
+                    sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobContainerInitializer>>()));
+            services.AddHostedService(sp => sp.GetRequiredService<AzureBlobContainerInitializer>());
+
+            services.AddScoped<IFileStorage>(sp =>
+                new AzureBlobFileStorage(
+                    sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobFileStorage>>()));
+        }
         else
         {
             services.AddScoped<IFileStorage, LocalFileStorage>();

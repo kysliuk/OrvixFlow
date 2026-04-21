@@ -453,3 +453,6 @@ D:/Own/Antigravity/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/runtimes/win/lib/net
 D:/Own/Antigravity/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/runtimes/win/lib/net6.0/System.Windows.Extensions.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/AWSSDK.Core.dll
 /media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/AWSSDK.S3.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Azure.Storage.Blobs.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/Azure.Storage.Common.dll
+/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Api/bin/Debug/net9.0/System.IO.Hashing.dll

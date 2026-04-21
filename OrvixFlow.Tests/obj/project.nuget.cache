@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Bi9aD/ybswA=",
+  "dgSpecHash": "+8/kBIfzK8g=",
   "success": true,
   "projectFilePath": "/media/kysliuk/562CAB9C2CAB7621/Repo/kysliuk/OrvixFlow/OrvixFlow/OrvixFlow.Tests/OrvixFlow.Tests.csproj",
   "expectedPackageFiles": [
@@ -9,6 +9,8 @@
     "/home/kysliuk/.nuget/packages/awssdk.s3/3.7.511.5/awssdk.s3.3.7.511.5.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/azure.ai.openai/2.8.0-beta.1/azure.ai.openai.2.8.0-beta.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/azure.core/1.50.0/azure.core.1.50.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/azure.storage.blobs/12.27.0/azure.storage.blobs.12.27.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/azure.storage.common/12.26.0/azure.storage.common.12.26.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/bcrypt.net-next/4.1.0/bcrypt.net-next.4.1.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/castle.core/5.1.1/castle.core.5.1.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/coverlet.collector/6.0.2/coverlet.collector.6.0.2.nupkg.sha512",
@@ -202,6 +204,7 @@
     "/home/kysliuk/.nuget/packages/system.io/4.3.0/system.io.4.3.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.filesystem/4.3.0/system.io.filesystem.4.3.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.filesystem.primitives/4.3.0/system.io.filesystem.primitives.4.3.0.nupkg.sha512",
+    "/home/kysliuk/.nuget/packages/system.io.hashing/10.0.1/system.io.hashing.10.0.1.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.packaging/8.0.0/system.io.packaging.8.0.0.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.io.pipelines/10.0.3/system.io.pipelines.10.0.3.nupkg.sha512",
     "/home/kysliuk/.nuget/packages/system.linq.asyncenumerable/10.0.2/system.linq.asyncenumerable.10.0.2.nupkg.sha512",
