@@ -7,6 +7,12 @@ using OrvixFlow.Core.Models;
 
 namespace OrvixFlow.Infrastructure.Storage;
 
+/// <summary>
+/// LEGACY IMPLEMENTATION. Used only when Storage:Provider = "Local".
+/// Development-only fallback for environments without MinIO or Azure Blob Storage.
+/// NOT suitable for staging or production.
+/// </summary>
+[Obsolete("Use MinIOFileStorage or AzureBlobFileStorage for all production and staging environments. LocalFileStorage is a dev-only fallback.")]
 public class LocalFileStorage : IFileStorage
 {
     private readonly string _basePath;
@@ -51,12 +57,7 @@ public class LocalFileStorage : IFileStorage
 
         // Security: Verify the resolved path is still under the expected base directory.
         // This guards against any remaining path traversal vectors.
-        var resolvedPath = Path.GetFullPath(fullPath);
-        var baseDir = Path.GetFullPath(_basePath);
-        if (!resolvedPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Path traversal attempt detected.");
-        }
+        var resolvedPath = EnsureWithinBaseDirectory(fullPath, throwIfInvalid: true)!;
 
         using var targetStream = File.Create(resolvedPath);
         await fileStream.CopyToAsync(targetStream);
@@ -67,9 +68,8 @@ public class LocalFileStorage : IFileStorage
     public Task<Stream> GetFileAsync(string storagePath)
     {
         // F-12 FIX: Validate the requested path is within the allowed base directory.
-        var resolvedPath = Path.GetFullPath(storagePath);
-        var baseDir = Path.GetFullPath(_basePath);
-        if (!resolvedPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+        var resolvedPath = EnsureWithinBaseDirectory(storagePath, throwIfInvalid: false);
+        if (resolvedPath == null)
         {
             throw new FileNotFoundException("File not found in local storage", storagePath);
         }
@@ -85,9 +85,8 @@ public class LocalFileStorage : IFileStorage
     public Task DeleteFileAsync(string storagePath)
     {
         // F-12 FIX: Validate the path is within the allowed base directory before deleting.
-        var resolvedPath = Path.GetFullPath(storagePath);
-        var baseDir = Path.GetFullPath(_basePath);
-        if (!resolvedPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+        var resolvedPath = EnsureWithinBaseDirectory(storagePath, throwIfInvalid: false);
+        if (resolvedPath == null)
         {
             // Silently ignore deletions outside the base directory.
             // This is intentional — we should not expose whether a file exists outside our storage.
@@ -99,5 +98,25 @@ public class LocalFileStorage : IFileStorage
             File.Delete(resolvedPath);
         }
         return Task.CompletedTask;
+    }
+
+    private string? EnsureWithinBaseDirectory(string path, bool throwIfInvalid)
+    {
+        var resolvedPath = Path.GetFullPath(path);
+        var baseDir = Path.GetFullPath(_basePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        if (resolvedPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+        {
+            return resolvedPath;
+        }
+
+        if (throwIfInvalid)
+        {
+            throw new InvalidOperationException("Path traversal attempt detected.");
+        }
+
+        return null;
     }
 }

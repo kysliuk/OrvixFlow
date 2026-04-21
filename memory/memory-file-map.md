@@ -164,7 +164,7 @@
 | Inbox Settings Page | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
 | Inbox History Page | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
 | Admin Inbox Metrics | `orvixflow-web/app/(admin)/inbox-metrics/page.tsx` |
-| LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` |
+| LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` — [LEGACY] dev-only fallback |
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |
 | DraftFeedbackService | `OrvixFlow.Infrastructure/Services/DraftFeedbackService.cs` |
@@ -230,3 +230,20 @@
 | `docker-compose.yml` | Full stack environment |
 | `orvixflow-web/next.config.ts` | Next.js configuration |
 | `orvixflow-web/auth.ts` | NextAuth configuration |
+
+
+## Storage & File Governance
+
+| Component | Location |
+|-----------|----------|
+| StorageContext | `OrvixFlow.Core/Models/StorageContext.cs` |
+| StoredObject | `OrvixFlow.Core/Entities/StoredObject.cs` |
+| MinIOFileStorage | `OrvixFlow.Infrastructure/Storage/MinIOFileStorage.cs` |
+| MinIOBucketInitializer | `OrvixFlow.Infrastructure/Storage/MinIOBucketInitializer.cs` |
+| AzureBlobFileStorage | `OrvixFlow.Infrastructure/Storage/AzureBlobFileStorage.cs` |
+| AzureBlobContainerInitializer | `OrvixFlow.Infrastructure/Storage/AzureBlobContainerInitializer.cs` |
+| LocalToMinioMigrationJob | `OrvixFlow.Infrastructure/Storage/LocalToMinioMigrationJob.cs` |
+| OrphanDetectionJob | `OrvixFlow.Infrastructure/Storage/OrphanDetectionJob.cs` |
+| LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` — [LEGACY] dev-only fallback |
+| StorageHealthCheck | `OrvixFlow.Api/Health/StorageHealthCheck.cs` |
+| StorageMigrationController | `OrvixFlow.Api/Controllers/StorageMigrationController.cs` |

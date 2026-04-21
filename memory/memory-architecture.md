@@ -241,3 +241,16 @@ HMAC-SHA256 signature validation:
 - Tenant webhook secret stored in `Tenant.WebhookSecret`
 - Middleware: `HmacSignatureMiddleware`
 - Only applies to `/api/webhook/inbox`
+
+
+## Storage Layer
+
+- `IFileStorage` is the provider-agnostic storage boundary used by controllers, ingestion services, and background jobs.
+- Providers:
+  - `MinIOFileStorage` — default object storage for local Docker and CI.
+  - `AzureBlobFileStorage` — production object storage provider.
+  - `LocalFileStorage` — **legacy dev-only fallback** for non-Docker local use; not for staging or production.
+- Storage keys follow: `tenants/{tenantId}/depts/{departmentId|__company__}/docs/{documentId}/{uuid}.{ext}`.
+- `StoredObject` is the PostgreSQL file registry for provider, bucket/container, key, hash, lifecycle, and audit metadata.
+- `KnowledgeBaseDocument.DepartmentId` drives department-scoped RBAC for upload, list, download, and delete.
+- Docker environments require a live ClamAV daemon; upload flows fail closed when virus scanning returns `VirusScanResult.Error` or the scanner is unavailable.

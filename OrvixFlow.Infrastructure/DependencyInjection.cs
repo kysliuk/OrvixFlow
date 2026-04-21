@@ -137,73 +137,81 @@ public static class DependencyInjection
         // RAG Extension Phase 1 & 3
         services.AddScoped<IChunker, OverlapChunker>();
 
-        var storageProvider = configuration["Storage:Provider"] ?? "Local";
-        if (storageProvider.Equals("MinIO", StringComparison.OrdinalIgnoreCase))
+        var storageProvider = (configuration["Storage:Provider"] ?? "Local").ToUpperInvariant();
+        switch (storageProvider)
         {
-            var minioSection = configuration.GetSection("Storage:MinIO");
-            var bucket = minioSection["Bucket"] ?? "orvixflow";
+            case "MINIO":
+                // MinIO: default object storage provider for local Docker, CI, and staging-like environments.
+                var minioSection = configuration.GetSection("Storage:MinIO");
+                var bucket = minioSection["Bucket"] ?? "orvixflow";
 
-            services.AddSingleton<IAmazonS3>(_ =>
-            {
-                var endpoint = minioSection["Endpoint"]
-                    ?? throw new InvalidOperationException("Storage:MinIO:Endpoint is required when Storage:Provider=MinIO");
-                var accessKey = configuration["MINIO_ACCESS_KEY"]
-                    ?? throw new InvalidOperationException("MINIO_ACCESS_KEY environment variable is required");
-                var secretKey = configuration["MINIO_SECRET_KEY"]
-                    ?? throw new InvalidOperationException("MINIO_SECRET_KEY environment variable is required");
-
-                var minioConfig = new AmazonS3Config
+                services.AddSingleton<IAmazonS3>(_ =>
                 {
-                    ServiceURL = endpoint,
-                    ForcePathStyle = true,
-                    UseHttp = !minioSection.GetValue<bool>("UseSSL")
-                };
+                    var endpoint = minioSection["Endpoint"]
+                        ?? throw new InvalidOperationException("Storage:MinIO:Endpoint is required when Storage:Provider=MinIO");
+                    var accessKey = configuration["MINIO_ACCESS_KEY"]
+                        ?? throw new InvalidOperationException("MINIO_ACCESS_KEY environment variable is required");
+                    var secretKey = configuration["MINIO_SECRET_KEY"]
+                        ?? throw new InvalidOperationException("MINIO_SECRET_KEY environment variable is required");
 
-                return new AmazonS3Client(accessKey, secretKey, minioConfig);
-            });
+                    var minioConfig = new AmazonS3Config
+                    {
+                        ServiceURL = endpoint,
+                        ForcePathStyle = true,
+                        UseHttp = !minioSection.GetValue<bool>("UseSSL")
+                    };
 
-            services.AddSingleton<MinIOBucketInitializer>(sp =>
-                new MinIOBucketInitializer(
-                    sp.GetRequiredService<IAmazonS3>(),
-                    bucket,
-                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOBucketInitializer>>()));
+                    return new AmazonS3Client(accessKey, secretKey, minioConfig);
+                });
 
-            services.AddHostedService(sp => sp.GetRequiredService<MinIOBucketInitializer>());
+                services.AddSingleton<MinIOBucketInitializer>(sp =>
+                    new MinIOBucketInitializer(
+                        sp.GetRequiredService<IAmazonS3>(),
+                        bucket,
+                        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOBucketInitializer>>()));
+                services.AddHostedService(sp => sp.GetRequiredService<MinIOBucketInitializer>());
 
-            services.AddScoped<IFileStorage>(sp =>
-                new MinIOFileStorage(
-                    sp.GetRequiredService<IAmazonS3>(),
-                    bucket,
-                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOFileStorage>>()));
-        }
-        else if (storageProvider.Equals("AzureBlob", StringComparison.OrdinalIgnoreCase))
-        {
-            var azureSection = configuration.GetSection("Storage:AzureBlob");
-            var connectionString = configuration["AZURE_STORAGE_CONNECTION_STRING"]
-                ?? throw new InvalidOperationException(
-                    "AZURE_STORAGE_CONNECTION_STRING env var is required when Storage:Provider=AzureBlob");
-            var containerName = azureSection["ContainerName"] ?? "orvixflow";
+                services.AddScoped<IFileStorage>(sp =>
+                    new MinIOFileStorage(
+                        sp.GetRequiredService<IAmazonS3>(),
+                        bucket,
+                        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MinIOFileStorage>>()));
+                break;
 
-            services.AddSingleton(sp =>
-            {
-                var serviceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
-                return serviceClient.GetBlobContainerClient(containerName);
-            });
+            case "AZUREBLOB":
+                // Azure Blob: production object storage provider.
+                var azureSection = configuration.GetSection("Storage:AzureBlob");
+                var connectionString = configuration["AZURE_STORAGE_CONNECTION_STRING"]
+                    ?? throw new InvalidOperationException(
+                        "AZURE_STORAGE_CONNECTION_STRING env var is required when Storage:Provider=AzureBlob");
+                var containerName = azureSection["ContainerName"] ?? "orvixflow";
 
-            services.AddSingleton<AzureBlobContainerInitializer>(sp =>
-                new AzureBlobContainerInitializer(
-                    sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
-                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobContainerInitializer>>()));
-            services.AddHostedService(sp => sp.GetRequiredService<AzureBlobContainerInitializer>());
+                services.AddSingleton(sp =>
+                {
+                    var serviceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
+                    return serviceClient.GetBlobContainerClient(containerName);
+                });
 
-            services.AddScoped<IFileStorage>(sp =>
-                new AzureBlobFileStorage(
-                    sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
-                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobFileStorage>>()));
-        }
-        else
-        {
-            services.AddScoped<IFileStorage, LocalFileStorage>();
+                services.AddSingleton<AzureBlobContainerInitializer>(sp =>
+                    new AzureBlobContainerInitializer(
+                        sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
+                        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobContainerInitializer>>()));
+                services.AddHostedService(sp => sp.GetRequiredService<AzureBlobContainerInitializer>());
+
+                services.AddScoped<IFileStorage>(sp =>
+                    new AzureBlobFileStorage(
+                        sp.GetRequiredService<Azure.Storage.Blobs.BlobContainerClient>(),
+                        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureBlobFileStorage>>()));
+                break;
+
+            case "LOCAL":
+                // Local: legacy dev-only fallback. Keep for tests and non-Docker local development only.
+                services.AddScoped<IFileStorage, LocalFileStorage>();
+                break;
+
+            default:
+                throw new InvalidOperationException(
+                    $"Unsupported Storage:Provider '{storageProvider}'. Expected Local, MinIO, or AzureBlob.");
         }
 
         services.AddScoped<IIngestionPipelineService, IngestionPipelineService>();

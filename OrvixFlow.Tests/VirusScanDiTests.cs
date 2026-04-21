@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure;
 using OrvixFlow.Infrastructure.Services.Security;
+using OrvixFlow.Infrastructure.Storage;
 
 namespace OrvixFlow.Tests;
 
@@ -20,7 +21,17 @@ public class VirusScanDiTests
     [Fact]
     public void AddInfrastructure_WhenProviderIsNoop_RegistersNoopVirusScanServiceExactlyOnce()
     {
-        var configuration = BuildConfiguration("Noop");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AI:Provider"] = "Mock",
+                ["Storage:Provider"] = "Local",
+                ["Storage:Local:BasePath"] = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")),
+                ["Security:VirusScan:Provider"] = "Noop",
+                ["Security:VirusScan:ClamAv:Host"] = "clamav",
+                ["Security:VirusScan:ClamAv:Port"] = "3310"
+            })
+            .Build();
         var services = new ServiceCollection();
 
         services.AddLogging();
@@ -90,6 +101,111 @@ public class VirusScanDiTests
         registrations[0].ImplementationType.Should().Be(typeof(ClamAvVirusScanService));
     }
 
+
+    [Fact]
+    public void AddInfrastructure_WhenStorageProviderIsLocal_ResolvesLegacyLocalFileStorage()
+    {
+        var configuration = BuildConfiguration("Noop");
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddInfrastructure(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var storage = provider.GetRequiredService<IFileStorage>();
+
+        storage.Should().BeOfType<LocalFileStorage>();
+    }
+
+    [Fact]
+    public void AddInfrastructure_WhenStorageProviderIsMinIo_ResolvesMinIoFileStorage()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AI:Provider"] = "Mock",
+                ["Storage:Provider"] = "MinIO",
+                ["Storage:MinIO:Endpoint"] = "http://minio:9000",
+                ["Storage:MinIO:Bucket"] = "orvixflow",
+                ["Storage:MinIO:UseSSL"] = "false",
+                ["MINIO_ACCESS_KEY"] = "minioadmin",
+                ["MINIO_SECRET_KEY"] = "minioadmin",
+                ["Security:VirusScan:Provider"] = "Noop"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddInfrastructure(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var storage = provider.GetRequiredService<IFileStorage>();
+
+        storage.Should().BeOfType<MinIOFileStorage>();
+    }
+
+    [Fact]
+    public void AddInfrastructure_WhenStorageProviderIsAzureBlob_ResolvesAzureBlobFileStorage()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AI:Provider"] = "Mock",
+                ["Storage:Provider"] = "AzureBlob",
+                ["Storage:AzureBlob:ContainerName"] = "orvixflow",
+                ["AZURE_STORAGE_CONNECTION_STRING"] = "UseDevelopmentStorage=true",
+                ["Security:VirusScan:Provider"] = "Noop"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddInfrastructure(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var storage = provider.GetRequiredService<IFileStorage>();
+
+        storage.Should().BeOfType<AzureBlobFileStorage>();
+    }
+
+    [Fact]
+    public void AddInfrastructure_WhenStorageProviderIsUnsupported_Throws()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AI:Provider"] = "Mock",
+                ["Storage:Provider"] = "S3",
+                ["Security:VirusScan:Provider"] = "Noop"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+
+        var act = () => services.AddInfrastructure(configuration);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Unsupported Storage:Provider*Expected Local, MinIO, or AzureBlob*");
+    }
+
+    [Fact]
+    public void LocalFileStorage_IsMarkedObsoleteForProductionUse()
+    {
+        var attribute = typeof(LocalFileStorage).GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false)
+            .Cast<ObsoleteAttribute>()
+            .SingleOrDefault();
+
+        attribute.Should().NotBeNull();
+        attribute!.Message.Should().Contain("MinIOFileStorage").And.Contain("AzureBlobFileStorage");
+    }
+
     [Fact]
     public async Task NoopVirusScanService_AlwaysReturnsTrue()
     {
@@ -119,6 +235,7 @@ public class VirusScanDiTests
             {
                 ["AI:Provider"] = "Mock",
                 ["Storage:Provider"] = "Local",
+                ["Storage:Local:BasePath"] = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")),
                 ["Security:VirusScan:Provider"] = provider,
                 ["Security:VirusScan:ClamAv:Host"] = "clamav",
                 ["Security:VirusScan:ClamAv:Port"] = "3310"

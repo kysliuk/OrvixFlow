@@ -347,211 +347,49 @@ var userWithTenant = await _db.Users.IgnoreQueryFilters()
 When modifying these areas, tests MUST pass:
 
 | Area | Test File |
-<content>
-
-**Location:** `OrvixFlow.Infrastructure/Data/InboxEventRepository.cs`
-
-**Risk:** Duplicate processing of same email
-
-**Pattern:** Uses `MessageId` for deduplication
-
----
-
-## Critical: Global Roles vs Company Roles — Two Separate Layers
-
-**Location:** `OrvixFlow.Core/Authorization/Roles.cs`, `OrvixFlow.Infrastructure/Auth/AuthService.cs:MintJwtAsync`, `OrvixFlow.Core/Entities/User.cs`
-
-**Risk:** Conflating global roles with company roles causes authorization failures
-
-**Two distinct role layers:**
-
-### Global (platform-level) — stored in `User.Role`
-- `SuperAdmin` — full platform control
-- `InternalOperator` — platform support, read-only admin access
-- Empty (`""`) — normal users (no global role)
-
-### Company (organization-level) — stored in `UserCompanyMembership.CompanyRole`
-- `CompanyOwner` — full control within their company
-- `CompanyAdmin` — delegated company management
-- `DepartmentManager` — manages within assigned department(s)
-- `Operator` — performs work within assigned modules
-- `Viewer` — read-only within assigned modules
-
-**JWT `Role` claim:**
-- For users with a global role (`SuperAdmin`, `InternalOperator`): JWT contains the global role
-- For normal users: JWT contains their `UserCompanyMembership.CompanyRole`
-- Determined in `MintJwtAsync`: checks `User.Role` first, if it's a platform admin role, uses it; otherwise falls back to `CompanyRole`
-
-**Critical rule:** `User.Role` should ONLY be set for platform admins. Normal users should have `User.Role = ""`. The company role is stored in `UserCompanyMembership.CompanyRole`, NOT in `User.Role`.
-
-**When changing role logic:**
-- Never set `User.Role` to a company role (e.g., `CompanyOwner`, `Operator`)
-- Never compare `User.Role` against company roles
-- `AccessResolver` reads from `UserCompanyMembership.CompanyRole` — this is correct
-- `ScopeContext` reads from JWT `Role` claim — works because platform roles pass `IsCompanyAdminOrAbove()`
-
----
-
-## Medium: Role Parsing
-
-**Location:** `OrvixFlow.Core/Authorization/Roles.cs`
-
-**Risk:** Inconsistent role strings across system
-
-**Pattern:** Canonical roles stored as claim values. Use `UserRoleExtensions.ParseRole()` for all comparisons.
-
----
-
-## Low: Soft Delete via Query Filters
-
-**Location:** Various entities use soft delete pattern
-
-**Pattern:** Deleted items filtered out via global query filters
-
-**When changing:**
-- Use `IgnoreQueryFilters()` for admin deletes
-
----
-
-## Low: InMemory Vector Search Fallbacks
-
-**Location:** `OrvixFlow.Infrastructure/Ai/ImageResolver.cs`
-
-**Risk:** Unit tests skip vector arithmetic translation because `InMemoryDatabase` doesn't support pgvector `CosineDistance`.
-
-**Pattern:** Catch `Exception` in LINQ queries using vector arithmetic and provide clear client-side evaluation fallback for testing.
-
-**Critical:** Fallback MUST filter by `TenantId` manually to maintain isolation in tests.
-
----
-
-## High: Query Filter Bypass Required for Admin Operations
-
-**Location:** `OrvixFlow.Infrastructure/Services/CompanySubscriptionService.cs`, `OrvixFlow.Infrastructure/Services/EntitlementResolver.cs`
-
-**Risk:** Admin queries for other companies' subscriptions, entitlement overrides, and module overrides are silently blocked by tenant query filters. The filter `s.CompanyId == _tenantProvider.GetTenantId()` returns the admin's own company ID (or `Guid.Empty`), not the target company's ID.
-
-**Symptoms:**
-- `GetSubscriptionAsync()` returns `null` for any company the admin doesn't belong to → "No Subscription" shown in UI
-- `AssignPlanAsync()` fails to find existing subscription → attempts INSERT → **unique constraint violation** → 500 error
-
-**Pattern:** All admin-facing service methods that query `CompanySubscription`, `CompanyEntitlementOverride`, or `CompanyModuleOverride` by `companyId` must use `.IgnoreQueryFilters()`.
-
-**Fixed methods (must maintain this pattern):**
-- `CompanySubscriptionService.GetSubscriptionAsync()`
-- `CompanySubscriptionService.AssignPlanAsync()` (existing subscription check)
-- `EntitlementResolver.GetSubscriptionAsync()`
-- `EntitlementResolver.GetEntitlementOverrideAsync()`
-- `EntitlementResolver.GetModuleOverridesAsync()`
-
-**When adding new admin queries:** Always check if the entity has a query filter in `AppDbContext`. If yes, use `.IgnoreQueryFilters()` — safe because admin endpoints enforce their own authorization (`IsSuperAdmin()`, `IsGlobalAdmin()`).
-
----
-
-## High: RAG Ingestion (DoS)
-
-**Location:** `OrvixFlow.Api/Controllers/FileIngestionController.cs`
-
-**Risk:** Large file uploads or high frequency can exhaust resources or incur costs.
-
-**Mitigation:** 
-- Native .NET rate limiting on `/api/v1/knowledge/upload` (fixed window).
-- Max file size (10MB) and allowed MIME types enforced.
-- Virus scanning hook (`IVirusScanService`) integrated.
-
-**When changing:**
-- Test with oversized files.
-- Verify rate limiter triggers after 10 requests/min.
-
----
-
-## High: AI Service Connectivity
-
-**Location:** `OrvixFlow.Api/Health/RagHealthCheck.cs`
-
-**Risk:** RAG features fail silently if AI providers or pgvector are down.
-
-**Mitigation:**
-- Dedicated `/health/rag` endpoint checks DB vector ops and Embedding API.
-
-**When changing:**
-- Run `RagHealthCheck` manually.
-
----
-
-## Architecture Boundaries
-
-### DO NOT CROSS
-
-1. **Api → Core**: Only interfaces and entities
-2. **Api → Infrastructure**: No direct service calls (use DI)
-3. **Core → Infrastructure**: No dependencies
-4. **Frontend → Backend**: Only via fetchApi() or auth.ts
-
----
-
----
-
-## Low: Unified Role System Logic
-
-**Location:** `OrvixFlow.Core/Authorization/Roles.cs`
-
-**Status:** FIXED. Legacy `OrvixFlow.Api/Roles.cs` has been removed.
-
-**Pattern:** All role checks must use `UserRoleExtensions.ParseRole(roleClaim)` followed by extension methods (`IsPlatformAdmin()`, `IsCompanyAdmin()`, etc.).
-
-**TenantProvider impersonation:** Strictly gated to platform admins (`IsPlatformAdmin()`).
-
----
-
-## Critical: EF Core InMemory + Include with Missing Related Entities
-
-**Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs:ProvisionOAuthUserAsync`
-
-**Issue:** `Include(u => u.Tenant)` in EF Core InMemory causes the entire query to return `null` when the related `Tenant` record doesn't exist, even when the `User` record does exist. This silently bypasses security checks.
-
-**Pattern:** For existence checks (finding if a User with given email/provider exists), do NOT use `Include`. The navigation property data is not needed for the check.
-
-**Safe pattern:**
-```csharp
-// For existence checks — NO Include
-var user = await _db.Users.IgnoreQueryFilters()
-    .FirstOrDefaultAsync(u => u.Email == email);
-
-// For loading related data — Include AFTER existence check
-var userWithTenant = await _db.Users.IgnoreQueryFilters()
-    .Include(u => u.Tenant)
-    .FirstOrDefaultAsync(u => u.Id == userId);
-```
-
----
-
-## Adding New Features
-
-1. Create entity in `OrvixFlow.Core/Entities/`
-2. Add interface in `OrvixFlow.Core/Interfaces/`
-3. Implement service in `OrvixFlow.Infrastructure/`
-4. Register DI in `OrvixFlow.Infrastructure/DependencyInjection.cs`
-5. Add controller in `OrvixFlow.Api/Controllers/`
-6. Add tests in `OrvixFlow.Tests/`
-7. Add frontend in `orvixflow-web/app/`
-
----
-
-## Required Test Coverage
-
-When modifying these areas, tests MUST pass:
-
-| Area | Test File |
 |------|-----------|
 | Tenant isolation | `TenantIsolationTests.cs` |
 | Auth flow | `AuthControllerTests.cs` |
 | Permissions | `AccessResolverTests.cs` |
 | Webhooks | `HmacSignatureMiddlewareTests.cs` |
-| Background ## Registration Hardening
+| Background jobs | `InboxProcessingIntegrationTests.cs` |
+
+---
+
+## Registration Hardening
 
 **Location:** `OrvixFlow.Infrastructure/Auth/AuthService.cs`
 
 **Features:**
 - Password complexity: min 12 chars, upper, lower, digit, special limit.
 - Prevent duplicate OAuth users bypassing registration flow.
+
+
+---
+
+## Critical: Storage Migration Hardening
+
+### MinIO ForcePathStyle Required
+- **Location:** `OrvixFlow.Infrastructure/DependencyInjection.cs`
+- **Risk:** Without `ForcePathStyle = true`, the AWS SDK generates virtual-hosted requests that fail against local MinIO.
+- **When changing:** Preserve `ForcePathStyle = true` for the MinIO client registration.
+
+### IVirusScanService Double-Registration
+- **Location:** `OrvixFlow.Infrastructure/DependencyInjection.cs`
+- **Risk:** DI uses last-registration-wins semantics. A second `IVirusScanService` registration can silently bypass ClamAV.
+- **When changing:** Search for every `IVirusScanService` registration and keep exactly one active registration path.
+
+### Non-Seekable Object Storage Streams
+- **Location:** `OrvixFlow.Infrastructure/Ai/IngestionPipelineService.cs`, `OrvixFlow.Infrastructure/Storage/MinIOFileStorage.cs`, `OrvixFlow.Infrastructure/Storage/AzureBlobFileStorage.cs`
+- **Risk:** MinIO and Azure Blob return network streams that are not seekable. Removing the current buffering path can break ingestion and retry behavior.
+- **When changing:** Keep the buffering-to-`MemoryStream` pattern before code that rewinds streams.
+
+### StoredObject Query Filter
+- **Location:** `OrvixFlow.Infrastructure/Data/AppDbContext.cs`
+- **Risk:** `StoredObject` is tenant-filtered. Admin diagnostics and migration tooling can silently miss rows unless they use `IgnoreQueryFilters()` intentionally.
+- **When changing:** Use `IgnoreQueryFilters()` only in authorized admin paths and migration workflows.
+
+### Azure Blob Public Access
+- **Location:** `OrvixFlow.Infrastructure/Storage/AzureBlobContainerInitializer.cs`
+- **Risk:** Creating the container without `PublicAccessType.None` can expose uploaded documents outside the API's RBAC and audit path.
+- **When changing:** Preserve private container creation with `PublicAccessType.None` and never allow public blob/container access.
