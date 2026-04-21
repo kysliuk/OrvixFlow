@@ -225,6 +225,7 @@ public static class DependencyInjection
         {
             var config = sp.GetRequiredService<IConfiguration>();
             var bucket = config["Storage:MinIO:Bucket"] ?? "orvixflow";
+            var basePath = config["Storage:Local:BasePath"] ?? "/app/uploads";
             var s3 = sp.GetService<IAmazonS3>();
             var ownsS3Client = false;
 
@@ -251,6 +252,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<AppDbContext>(),
                 s3,
                 bucket,
+                basePath,
                 sp.GetRequiredService<ILogger<LocalToMinioMigrationJob>>(),
                 ownsS3Client);
         });

@@ -25,6 +25,7 @@ public class LocalToMinioMigrationJob : IDisposable
     private readonly AppDbContext _db;
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
+    private readonly string _basePath;
     private readonly ILogger<LocalToMinioMigrationJob> _logger;
     private readonly bool _ownsS3Client;
 
@@ -32,12 +33,18 @@ public class LocalToMinioMigrationJob : IDisposable
         AppDbContext db,
         IAmazonS3 s3,
         string bucket,
+        string basePath,
         ILogger<LocalToMinioMigrationJob> logger,
         bool ownsS3Client = false)
     {
         _db = db;
         _s3 = s3;
         _bucket = bucket;
+        _basePath = Path.GetFullPath(basePath);
+        if (!_basePath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+        {
+            _basePath += Path.DirectorySeparatorChar;
+        }
         _logger = logger;
         _ownsS3Client = ownsS3Client;
     }
@@ -250,13 +257,34 @@ public class LocalToMinioMigrationJob : IDisposable
         CancellationToken ct,
         bool dryRun)
     {
-        if (!File.Exists(localPath))
+        if (string.IsNullOrWhiteSpace(localPath))
         {
-            _logger.LogWarning("Local file not found for migration.");
+            return MigrationResult.Fail("Local path is empty.");
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(localPath);
+        }
+        catch (Exception ex)
+        {
+            return MigrationResult.Fail($"Invalid path format: {ex.Message}");
+        }
+
+        if (!fullPath.StartsWith(_basePath, StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Path traversal or outside base path blocked: {Path}", localPath);
+            return MigrationResult.Fail("Path is outside the allowed base directory.");
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            _logger.LogWarning("Local file not found for migration: {FullPath}", fullPath);
             return MigrationResult.Skip();
         }
 
-        var newKey = BuildKey(tenantId, departmentId, documentId, originalFileName, localPath);
+        var newKey = BuildKey(tenantId, departmentId, documentId, originalFileName, fullPath);
 
         if (dryRun)
         {
@@ -266,8 +294,8 @@ public class LocalToMinioMigrationJob : IDisposable
 
         try
         {
-            var sha256 = await ComputeSha256Async(localPath, ct);
-            await using var stream = File.OpenRead(localPath);
+            var sha256 = await ComputeSha256Async(fullPath, ct);
+            await using var stream = File.OpenRead(fullPath);
 
             var request = new PutObjectRequest
             {
