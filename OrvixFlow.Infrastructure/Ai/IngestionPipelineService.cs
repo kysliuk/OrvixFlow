@@ -114,6 +114,8 @@ public class IngestionPipelineService : IIngestionPipelineService
             document.Chunks.Clear();
         }
 
+        MemoryStream? bufferedParserStream = null;
+
         try
         {
             // 1. Resolve parser
@@ -125,9 +127,18 @@ public class IngestionPipelineService : IIngestionPipelineService
             _logger.LogInformation("Found parser: {Parser}", parser.GetType().Name);
 
             // 2. Parse
-            fileStream.Position = 0;
+            Stream parserStream = fileStream;
+            if (!fileStream.CanSeek)
+            {
+                bufferedParserStream = new MemoryStream();
+                await fileStream.CopyToAsync(bufferedParserStream);
+                bufferedParserStream.Position = 0;
+                parserStream = bufferedParserStream;
+            }
+
+            parserStream.Position = 0;
             _logger.LogInformation("Parsing file...");
-            var parsedDoc = await parser.ParseAsync(fileStream, fileName);
+            var parsedDoc = await parser.ParseAsync(parserStream, fileName);
             _logger.LogInformation("Parsing complete. TextChunks: {TextChunks}, ImageChunks: {ImageChunks}", 
                 parsedDoc.TextChunks.Count, parsedDoc.ImageChunks.Count);
 
@@ -187,12 +198,14 @@ public class IngestionPipelineService : IIngestionPipelineService
             foreach (var imageChunk in parsedDoc.ImageChunks)
             {
                 using var imageMs = new MemoryStream(imageChunk.Data);
+                // Image saved with null DepartmentId (company-wide sentinel) by design.
+                // Image access is controlled via parent document authorization, not department-level directly.
                 var imagePath = await _storage.SaveFileAsync(tenantId, document.Id, $"img_{imageChunk.Index}_{fileName}", imageMs);
 
                 var storedObjectForImage = new StoredObject
                 {
                     TenantId = tenantId,
-                    DepartmentId = departmentId,
+                    DepartmentId = null,
                     Module = "knowledge-base",
                     EntityType = "image",
                     EntityId = document.Id,
@@ -263,10 +276,12 @@ public class IngestionPipelineService : IIngestionPipelineService
 
             _logger.LogInformation("Ingestion completed for {DocumentId} in {Duration}ms", document.Id, sw.ElapsedMilliseconds);
 
+            bufferedParserStream?.Dispose();
             return new IngestionResult(document.Id, document.Chunks.Count, parsedDoc.ImageChunks.Count);
         }
         catch (Exception ex)
         {
+            bufferedParserStream?.Dispose();
             _logger.LogError(ex, "Ingestion failed for {FileName}: {Error}", fileName, ex.Message);
             
             // Try to update status to Failed using fresh query

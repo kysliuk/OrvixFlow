@@ -68,7 +68,7 @@ public class IngestionPipelineServiceTests
     }
 
     [Fact]
-    public async Task IngestFileAsync_ImageChunk_CreatesStoredObjectMetadata()
+    public async Task IngestFileAsync_ImageChunk_CreatesStoredObjectMetadataWithCompanyWideDepartmentSentinel()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -123,7 +123,7 @@ public class IngestionPipelineServiceTests
         Assert.Null(result.ErrorMessage);
         var storedObject = await dbContext.StoredObjects.SingleAsync();
         storedObject.TenantId.Should().Be(tenantId);
-        storedObject.DepartmentId.Should().Be(departmentId);
+        storedObject.DepartmentId.Should().BeNull();
         storedObject.Module.Should().Be("knowledge-base");
         storedObject.EntityType.Should().Be("image");
         storedObject.EntityId.Should().Be(documentId);
