@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -60,6 +61,27 @@ public class VirusScanDiTests
 
         registrations.Should().HaveCount(1);
         registrations[0].ImplementationType.Should().Be(typeof(ClamAvVirusScanService));
+    }
+
+    [Fact]
+    public void AddInfrastructure_WhenProviderIsClamAv_ResolvesVirusScanServices()
+    {
+        var configuration = BuildConfiguration("ClamAv");
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        services.AddSingleton<ITenantProvider, TestTenantProvider>();
+        services.AddInfrastructure(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var resolveVirusScan = () => provider.GetRequiredService<IVirusScanService>();
+        var resolveClamClient = () => provider.GetRequiredService<IClamAvClient>();
+
+        resolveVirusScan.Should().NotThrow();
+        resolveClamClient.Should().NotThrow();
     }
 
     [Fact]
@@ -265,5 +287,10 @@ public class VirusScanDiTests
     {
         public Task<VirusScanResult> ScanAsync(Stream stream, CancellationToken cancellationToken = default)
             => throw new SocketException();
+    }
+
+    private sealed class TestTenantProvider : ITenantProvider
+    {
+        public Guid GetTenantId() => Guid.Empty;
     }
 }

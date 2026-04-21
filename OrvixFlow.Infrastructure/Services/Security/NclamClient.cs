@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using nClam;
 using OrvixFlow.Core.Interfaces;
 
@@ -13,9 +14,10 @@ public class NclamClient : IClamAvClient
     private readonly ClamClient _clamClient;
     private readonly ILogger<NclamClient> _logger;
 
-    public NclamClient(ClamAvOptions options, ILogger<NclamClient> logger)
+    public NclamClient(IOptions<ClamAvOptions> options, ILogger<NclamClient> logger)
     {
-        _clamClient = new ClamClient(options.Host, options.Port);
+        var settings = options.Value;
+        _clamClient = new ClamClient(settings.Host, settings.Port);
         _logger = logger;
     }
 
