@@ -1,8 +1,10 @@
 using System.Text;
+using System.Threading;
 using Hangfire;
 using Hangfire.PostgreSql;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OrvixFlow.Api.Services;
@@ -71,7 +73,8 @@ builder.Services.AddMemoryCache();
 
 // Health Checks
 builder.Services.AddHealthChecks()
-    .AddCheck<OrvixFlow.Api.Health.RagHealthCheck>("rag");
+    .AddCheck<OrvixFlow.Api.Health.RagHealthCheck>("rag", tags: new[] { "rag" })
+    .AddCheck<OrvixFlow.Api.Health.StorageHealthCheck>("storage", tags: new[] { "storage", "readiness" });
 
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>
@@ -201,7 +204,14 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<OrvixFlow.Api.Middleware.HmacSignatureMiddleware>();
 app.MapControllers();
-app.MapHealthChecks("/health/rag");
+app.MapHealthChecks("/health/rag", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("rag")
+});
+app.MapHealthChecks("/health/storage", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("storage")
+});
 
 // F-22 FIX: Protect Hangfire dashboard with SuperAdmin JWT authentication.
 // The custom HangfireDashboardAuthorizationFilter checks for the SuperAdmin role claim
@@ -284,5 +294,10 @@ recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.NotificationProcessorJob>(
     "notification-processor",
     job => job.ExecuteAsync(),
     "*/5 * * * *");
+
+recurringJobManager.AddOrUpdate<OrvixFlow.Infrastructure.Storage.OrphanDetectionJob>(
+    "storage-orphan-detection",
+    job => job.RunAsync(CancellationToken.None),
+    "0 2 * * *");
 
 app.Run();
