@@ -6,6 +6,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using OrvixFlow.Core.Interfaces;
 using OrvixFlow.Infrastructure.Ai;
@@ -277,17 +278,72 @@ public static class DependencyInjection
         // Email Service
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"] ?? "Console";
+        ValidateEmailConfiguration(configuration, emailProvider);
+        services.AddHttpClient("resend-email", client =>
+        {
+            var resendBaseUrl = configuration[$"{EmailOptions.SectionName}:ResendBaseUrl"] ?? "https://api.resend.com";
+            client.BaseAddress = new Uri(resendBaseUrl.TrimEnd('/') + "/");
+        });
+
         if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
         {
             services.AddScoped<IEmailService, SmtpEmailService>();
         }
-        else
+        else if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IEmailService, ResendEmailService>();
+        }
+        else if (emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
         {
             services.AddScoped<IEmailService, MockEmailService>();
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Unsupported Email:Provider '{emailProvider}'. Expected Console, Smtp, or Resend.");
         }
 
         services.AddScoped<IRagMetricsCollector, RagMetricsCollector>();
 
         return services;
+    }
+
+    private static void ValidateEmailConfiguration(IConfiguration configuration, string emailProvider)
+    {
+        var emailOptions = configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
+
+        if (string.IsNullOrWhiteSpace(emailOptions.FromEmail))
+        {
+            throw new InvalidOperationException("Email:FromEmail is required.");
+        }
+
+        if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(emailOptions.SmtpHost))
+            {
+                throw new InvalidOperationException("Email:SmtpHost is required when Email:Provider=Smtp.");
+            }
+
+            if (emailOptions.SmtpPort <= 0)
+            {
+                throw new InvalidOperationException("Email:SmtpPort must be greater than 0 when Email:Provider=Smtp.");
+            }
+
+            var hasUser = !string.IsNullOrWhiteSpace(emailOptions.SmtpUser);
+            var hasPass = !string.IsNullOrWhiteSpace(emailOptions.SmtpPass);
+            if (hasUser != hasPass)
+            {
+                throw new InvalidOperationException(
+                    "Email:SmtpUser and Email:SmtpPass must both be provided together when Email:Provider=Smtp.");
+            }
+
+            return;
+        }
+
+        if (emailProvider.Equals("Resend", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(emailOptions.ResendApiKey))
+        {
+            throw new InvalidOperationException("Email:ResendApiKey is required when Email:Provider=Resend.");
+        }
     }
 }

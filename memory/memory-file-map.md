@@ -157,6 +157,9 @@
 | InboxProcessingJob | `OrvixFlow.Api/Jobs/InboxProcessingJob.cs` |
 | FeedbackEnrichmentJob | `OrvixFlow.Api/Jobs/FeedbackEnrichmentJob.cs` |
 | NotificationProcessorJob | `OrvixFlow.Api/Jobs/NotificationProcessorJob.cs` |
+| EmailOptions | `OrvixFlow.Infrastructure/Services/EmailOptions.cs` |
+| SmtpEmailService | `OrvixFlow.Infrastructure/Services/SmtpEmailService.cs` |
+| ResendEmailService | `OrvixFlow.Infrastructure/Services/ResendEmailService.cs` |
 | Load Test Script | `scripts/load-test-inbox.sh` |
 | Company Detail Page | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
 | Company Audit Page | `orvixflow-web/app/admin/companies/[id]/audit/page.tsx` |

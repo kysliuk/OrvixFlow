@@ -460,6 +460,8 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(n => n.CompanyId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<NotificationQueue>()
+            .HasIndex(n => new { n.Processed, n.Failed, n.IsProcessing, n.ProcessingStartedAt, n.CreatedAt });
         modelBuilder.Entity<NotificationQueue>().HasQueryFilter(n => n.CompanyId == _tenantProvider.GetTenantId());
 
         modelBuilder.Entity<CompanyEntitlementOverride>()

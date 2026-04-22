@@ -61,7 +61,37 @@ public class NotificationQueue
     /// Whether this notification has been processed.
     /// </summary>
     public bool Processed { get; set; } = false;
-    
+
+    /// <summary>
+    /// Whether the notification should no longer be retried.
+    /// </summary>
+    public bool Failed { get; set; } = false;
+
+    /// <summary>
+    /// Whether a worker has currently claimed this notification for delivery.
+    /// </summary>
+    public bool IsProcessing { get; set; } = false;
+
+    /// <summary>
+    /// Number of delivery attempts made so far.
+    /// </summary>
+    public int AttemptCount { get; set; }
+
+    /// <summary>
+    /// When delivery was last attempted.
+    /// </summary>
+    public DateTime? LastAttemptedAt { get; set; }
+
+    /// <summary>
+    /// Short, sanitized description of the last delivery failure.
+    /// </summary>
+    public string? LastError { get; set; }
+
+    /// <summary>
+    /// When the current processing claim started.
+    /// </summary>
+    public DateTime? ProcessingStartedAt { get; set; }
+     
     /// <summary>
     /// When the notification was queued.
     /// </summary>

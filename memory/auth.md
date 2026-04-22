@@ -51,16 +51,21 @@ Current endpoints expected to follow that contract:
 
 - Local registration creates a tenant in `Free` / `Active` state.
 - Registration queues a verification email through `NotificationQueue`; it does not directly send mail from the auth flow.
+- Outbound provider selection now lives behind `IEmailService` with `Console`, `Smtp`, and `Resend` options.
 - Verification tokens are stored hashed in `User.VerificationToken`.
 - Verification expiry is stored in `User.VerificationTokenExpiresAt`.
 - Verification links currently expire after 48 hours.
 - Verification compatibility path exists for legacy plaintext tokens still in the database; do not remove casually.
+- `NotificationProcessorJob` must read `NotificationQueue` with `IgnoreQueryFilters()` because Hangfire has no request JWT tenant context.
+- Notification delivery now uses queue lease/retry metadata (`AttemptCount`, `LastAttemptedAt`, `LastError`, `IsProcessing`, `ProcessingStartedAt`, `Failed`) to avoid overlapping sends and to preserve failure diagnostics.
 
 Files to inspect before changing this area:
 - `OrvixFlow.Infrastructure/Auth/AuthService.cs`
 - `OrvixFlow.Api/Jobs/NotificationProcessorJob.cs`
 - `OrvixFlow.Core/Entities/User.cs`
 - `OrvixFlow.Core/Entities/NotificationQueue.cs`
+- `OrvixFlow.Infrastructure/Services/EmailOptions.cs`
+- `OrvixFlow.Infrastructure/Services/ResendEmailService.cs`
 
 ## Invites
 

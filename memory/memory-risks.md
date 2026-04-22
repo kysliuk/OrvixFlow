@@ -161,6 +161,18 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 
 ---
 
+## High: Background Notification Delivery Runs Outside Request Tenant Context
+
+**Location:** `OrvixFlow.Api/Jobs/NotificationProcessorJob.cs`, `OrvixFlow.Infrastructure/Data/AppDbContext.cs`, `OrvixFlow.Api/Services/TenantProvider.cs`
+
+**Risk:** Queued auth and billing emails can silently stop processing if the job relies on the normal tenant query filter.
+
+**Pattern:** `NotificationQueue` is tenant-filtered for request safety, but Hangfire jobs have no JWT claims. `NotificationProcessorJob` must use a narrowly-scoped `IgnoreQueryFilters()` query for pending rows only.
+
+**Pattern:** Delivery now uses queue-lease metadata (`IsProcessing`, `ProcessingStartedAt`) plus retry/error fields (`AttemptCount`, `LastAttemptedAt`, `LastError`, `Failed`). Future changes must preserve the lease semantics or duplicate-send risk returns.
+
+---
+
 ## Critical: Global Roles vs Company Roles — Two Separate Layers
 
 **Location:** `OrvixFlow.Core/Authorization/Roles.cs`, `OrvixFlow.Infrastructure/Auth/AuthService.cs:MintJwtAsync`, `OrvixFlow.Core/Entities/User.cs`
