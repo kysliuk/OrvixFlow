@@ -25,6 +25,8 @@ Replace the current console-log mock with a real transactional email provider th
 
 **Resend** — recommended when you need a custom `From` domain, delivery analytics, or higher volume.
 
+**Probably something for microsoft?**
+
 ---
 
 ## Architecture
@@ -286,3 +288,8 @@ Email__UseSsl: ${EMAIL_USE_SSL:-false}
 - [ ] All email config comes from environment — nothing hardcoded
 - [ ] Startup fails with a clear error if `Provider=Resend` but `ResendApiKey` is missing
 - [ ] `Provider=Console` still works for local dev without any config
+
+
+**Also gmail/microsoft credentials should be parsed automatically on first login if user loggen in via oauth for future using in n8n and in frontend should be a possibility to add one of the providers, if user used google/microsoft account for email + pass login for automatical credantials setup**
+
+**If something is unclear - ask questions**
