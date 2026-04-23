@@ -88,15 +88,13 @@ public class InviteController : ControllerBase
         if (!callerRole.IsCompanyAdminOrAbove())
             return Forbid();
 
-        // F-08 FIX: Enforce role ceiling — callers cannot assign roles higher than their own.
         var targetRole = UserRoleExtensions.ParseRole(dto.AssignedRole);
-        var validRoleNames = UserRoleExtensions.AllRoles.Select(r => r.ToClaimValue()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!validRoleNames.Contains(dto.AssignedRole))
+        if (!targetRole.IsCompanyScopedRole() || !UserRoleExtensions.CompanyRoleNames.Contains(dto.AssignedRole))
             return BadRequest(new { error = $"Invalid role: {dto.AssignedRole}" });
 
-        if (callerRole.IsHigherThan(targetRole))
+        if (!callerRole.CanAssignCompanyRole(targetRole))
         {
-            return BadRequest(new { error = $"Cannot assign a role higher than your own." });
+            return BadRequest(new { error = "Cannot assign the requested company role." });
         }
 
         if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
@@ -106,6 +104,15 @@ public class InviteController : ControllerBase
         if (!Guid.TryParse(User.FindFirst("ActiveCompanyId")?.Value
                            ?? User.FindFirst("TenantId")?.Value, out var companyId))
             return Unauthorized();
+
+        if (dto.DepartmentId.HasValue)
+        {
+            var departmentExists = await _db.Departments
+                .AnyAsync(d => d.Id == dto.DepartmentId.Value && d.CompanyId == companyId);
+
+            if (!departmentExists)
+                return BadRequest(new { error = "Invalid department specified for this company." });
+        }
 
         var currentMemberCount = await _db.UserCompanyMemberships
             .CountAsync(m => m.CompanyId == companyId && m.Status == "Active");

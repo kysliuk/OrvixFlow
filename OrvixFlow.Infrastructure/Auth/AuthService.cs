@@ -400,7 +400,7 @@ public class AuthService : IAuthService
     {
         // Validate role is canonical
         var role = UserRoleExtensions.ParseRole(request.AssignedRole);
-        if (!UserRoleExtensions.AllRoles.Contains(role))
+        if (!role.IsCompanyScopedRole() || !UserRoleExtensions.CompanyRoleNames.Contains(request.AssignedRole))
             return new InviteResult(false, Error: $"Invalid role: {request.AssignedRole}");
 
         // Revoke any existing pending invite for this email+company
@@ -478,6 +478,28 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "Invitation has expired. Please request a new one.");
         }
 
+        var invitedRole = UserRoleExtensions.ParseRole(invitation.AssignedRole);
+        if (!invitedRole.IsCompanyScopedRole() || invitedRole == UserRole.CompanyOwner)
+        {
+            invitation.Status = "Revoked";
+            await _db.SaveChangesAsync();
+            return new AuthResult(false, Error: "Invitation is no longer valid. Please request a new one.");
+        }
+
+        if (invitation.DepartmentId.HasValue)
+        {
+            var departmentIsValid = await _db.Departments
+                .IgnoreQueryFilters()
+                .AnyAsync(d => d.Id == invitation.DepartmentId.Value && d.CompanyId == invitation.CompanyId);
+
+            if (!departmentIsValid)
+            {
+                invitation.Status = "Revoked";
+                await _db.SaveChangesAsync();
+                return new AuthResult(false, Error: "Invitation is no longer valid. Please request a new one.");
+            }
+        }
+
         var normalizedEmail = invitation.Email;
 
         // Find or create the user
@@ -514,11 +536,11 @@ public class AuthService : IAuthService
         }
 
         // Apply company membership with pre-assigned role
-        var membershipExists = await _db.UserCompanyMemberships
+        var membership = await _db.UserCompanyMemberships
             .IgnoreQueryFilters()
-            .AnyAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId);
+            .FirstOrDefaultAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId);
 
-        if (!membershipExists)
+        if (membership == null)
         {
             _db.UserCompanyMemberships.Add(new UserCompanyMembership
             {
@@ -531,25 +553,38 @@ public class AuthService : IAuthService
                 InvitedByUserId = invitation.InvitedByUserId,
             });
         }
+        else
+        {
+            membership.CompanyRole = invitedRole.ToClaimValue();
+            membership.Status = "Active";
+            membership.InvitedAt = invitation.CreatedAt;
+            membership.JoinedAt = DateTime.UtcNow;
+            membership.InvitedByUserId = invitation.InvitedByUserId;
+        }
 
         // Apply department membership if specified
         if (invitation.DepartmentId.HasValue)
         {
-            var deptExists = await _db.UserDepartmentMemberships
+            var departmentMembership = await _db.UserDepartmentMemberships
                 .IgnoreQueryFilters()
-                .AnyAsync(m => m.UserId == user.Id
-                               && m.CompanyId == invitation.CompanyId
-                               && m.DepartmentId == invitation.DepartmentId.Value);
-            if (!deptExists)
+                .FirstOrDefaultAsync(m => m.UserId == user.Id
+                                          && m.CompanyId == invitation.CompanyId
+                                          && m.DepartmentId == invitation.DepartmentId.Value);
+            if (departmentMembership == null)
             {
                 _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
                 {
                     UserId       = user.Id,
                     CompanyId    = invitation.CompanyId,
                     DepartmentId = invitation.DepartmentId.Value,
-                    DepartmentRole = invitation.AssignedRole,
+                    DepartmentRole = invitedRole.ToDepartmentRoleValue(),
                     Status       = "Active",
                 });
+            }
+            else
+            {
+                departmentMembership.DepartmentRole = invitedRole.ToDepartmentRoleValue();
+                departmentMembership.Status = "Active";
             }
         }
 

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { CheckCircle, XCircle, Trash2, Edit2, Network, Plus } from "lucide-react";
 
+import { canManageOrganization } from "@/lib/org-permissions";
+
 type Department = {
   departmentId: string;
   name: string;
@@ -11,7 +13,7 @@ type Department = {
   role: string;
 };
 
-export function DepartmentsTab() {
+export function DepartmentsTab({ currentRole }: { currentRole?: string | null }) {
   const { data: session } = useSession();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ export function DepartmentsTab() {
   const [formCode, setFormCode] = useState("");
   const [formMessage, setFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canManage = canManageOrganization(currentRole ?? session?.user?.role ?? null);
 
   const fetchDepartments = async () => {
     if (!(session as any)?.apiToken) return;
@@ -115,6 +118,10 @@ export function DepartmentsTab() {
 
   if (loading) {
     return <div className="animate-pulse text-muted text-sm">Loading department data...</div>;
+  }
+
+  if (!canManage) {
+    return <div className="text-sm text-muted">Company Admin permissions are required to manage departments.</div>;
   }
 
   return (

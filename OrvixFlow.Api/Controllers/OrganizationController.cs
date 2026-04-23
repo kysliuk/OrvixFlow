@@ -65,6 +65,8 @@ public class OrganizationController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var activeCompanyId = ParseGuid("ActiveCompanyId") ?? ParseGuid("TenantId");
+        var roleClaim = User.FindFirst("Role")?.Value;
+        var parsedRole = UserRoleExtensions.ParseRole(roleClaim);
 
         var memberships = await _db.UserCompanyMemberships
             .IgnoreQueryFilters()
@@ -81,12 +83,24 @@ public class OrganizationController : ControllerBase
             ? memberships.FirstOrDefault(m => m.companyId == activeCompanyId.Value)
             : memberships.FirstOrDefault();
 
+        string? companyName = currentMembership?.companyName;
+        if (companyName == null && parsedRole.IsPlatformAdmin() && activeCompanyId.HasValue)
+        {
+            companyName = await _db.Tenants
+                .IgnoreQueryFilters()
+                .Where(t => t.Id == activeCompanyId.Value)
+                .Select(t => t.Name)
+                .FirstOrDefaultAsync();
+        }
+
+        var hasOrganization = currentMembership != null || (parsedRole.IsPlatformAdmin() && activeCompanyId.HasValue && companyName != null);
+
         return Ok(new
         {
-            hasOrganization = currentMembership != null,
-            activeCompanyId = currentMembership?.companyId,
-            companyName = currentMembership?.companyName,
-            role = currentMembership?.role
+            hasOrganization,
+            activeCompanyId = currentMembership?.companyId ?? activeCompanyId,
+            companyName,
+            role = currentMembership?.role ?? roleClaim
         });
     }
 

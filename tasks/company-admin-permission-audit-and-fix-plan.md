@@ -6,6 +6,7 @@
 - One product-level policy point remains open:
   - Should `CompanyOwner` be allowed to create or promote another `CompanyOwner`, or should owner-role assignment be restricted to bootstrap/manual platform actions only?
   - The current system is inconsistent on this.
+  - I suggest that CompanyOwner should not be able to create or promote another CompanyOwner. This should be restricted to bootstrap/manual platform actions only.
 
 ## 2. Context Summary From Memory
 
@@ -371,8 +372,8 @@ Assumed intended behavior is based on current code comments, memory, and existin
 - Add `TeamControllerTests.cs`
 - Cover role update matrix:
   - Owner -> Admin/DeptManager/Operator/Viewer
-  - Admin -> Admin/DeptManager/Operator/Viewer
-  - Admin cannot set Owner
+  - Admin -> DeptManager/Operator/Viewer
+  - Admin cannot set Owner and Admin
   - no company-role mutation endpoint can write `SuperAdmin` or `InternalOperator`
   - cannot modify equal/higher target when policy says deny
   - can modify equal-rank target if policy says allow
@@ -413,14 +414,14 @@ Assumed intended behavior is based on current code comments, memory, and existin
 - CompanyAdmin can list members in active company.
 - CompanyAdmin can change `Viewer` -> `Operator`.
 - CompanyAdmin can change `Operator` -> `DepartmentManager`.
-- CompanyAdmin can set another user to `CompanyAdmin` only if policy says allowed.
-- CompanyAdmin cannot set any user to `CompanyOwner`.
+- CompanyAdmin cannot set any user to `CompanyOwner` or `Company Admin`.
 - No actor can set `UserCompanyMembership.CompanyRole` to `SuperAdmin` or `InternalOperator`.
 - CompanyOwner can perform intended subordinate role changes.
 - Member removal works only within same company and allowed hierarchy.
 - Department assignment/reassignment/removal works only within same company.
 - Cross-company manipulation is rejected.
 - No endpoint allows mutation without `[Authorize]` and valid company context.
+- CompanyOwner able to delete it's company(IsActive = false should be added), with verification via email. 
 
 ### Frontend validation
 
@@ -440,13 +441,12 @@ Assumed intended behavior is based on current code comments, memory, and existin
 ## 10. Any Unclear Or Risky Areas
 
 - Multi-owner policy is unclear.
-  - Current invite tests allow `CompanyOwner` invites by `CompanyOwner`.
+  - Current invite tests allow `CompanyOwner` invites by `CompanyOwner`. - should be fixed.
   - Current company-name edit path is owner-only.
-  - Need a product decision on whether multiple owners are intentional.
-- DepartmentManager intended org-management powers are not clearly specified.
+- DepartmentManager intended org-management powers are not clearly specified. - should be able to invite and remove users from his departament.
   - Memory language suggests broader authority than actual code implements.
 - JWT staleness remains a systemic behavior.
-  - Role changes do not retroactively revoke already-issued access JWTs until refresh/expiry.
+  - Role changes do not retroactively revoke already`-issued access JWTs until refresh/expiry.
   - This is known architecture, not a new bug, but it affects "permission changed but still works for a while" scenarios.
 - `DepartmentRole` semantics are inconsistent across bootstrap and invite acceptance:
   - bootstrap uses `"Manager"`

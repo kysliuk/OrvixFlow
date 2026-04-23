@@ -108,6 +108,15 @@ Do not duplicate bootstrap logic in controllers or random services.
 - Platform admins bypass module checks.
 - Company admins bypass user-level permission checks only after the company entitlement check passes.
 - `RequireModuleAttribute` now fails closed when required user context or `IAccessResolver` is missing.
+- Company-management role mutation is limited to company roles only. Platform roles must never enter `UserCompanyMembership.CompanyRole`.
+- `CompanyOwner` assignment is restricted to bootstrap/platform-only flows. Normal invite and team-role update flows may assign `CompanyAdmin`, `DepartmentManager`, `Operator`, or `Viewer` only.
+- Team management now includes three backend paths in `TeamController`:
+  - `PUT /api/team/{userId}/role`
+  - `DELETE /api/team/{userId}`
+  - `PUT /api/team/{userId}/departments`
+- Member removal is soft-deactivation via membership `Status`, not hard delete.
+- Existing-member department assignment is a reconcile operation over the full set of department memberships for the active company.
+- Invitation acceptance now revalidates stored role/department data before creating memberships so stale pending invites cannot bypass the role-layer separation.
 
 Files to inspect before changing authz:
 - `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
@@ -139,6 +148,8 @@ Files to inspect before changing authz:
 - Do not remove the compatibility path for legacy plaintext invite/verification tokens unless you also migrate old data.
 - Do not bypass backend authorization because the frontend already hides UI.
 - Do not reintroduce `X-Tenant-ID` as a normal runtime auth mechanism.
+- Do not accept `CompanyOwner`, `SuperAdmin`, or `InternalOperator` in company invite/update-role flows.
+- Do not update company role without also considering department-role sync for active department memberships.
 
 ## High-Impact Files
 

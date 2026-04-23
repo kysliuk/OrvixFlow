@@ -138,6 +138,8 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Modules | ModulesController | AccessResolver | ModuleDefinition, ModuleAssignment |
 | Departments | TeamController | - | Department |
 | Team Members | TeamController | - | UserCompanyMembership, UserDepartmentMembership |
+| Member Removal | TeamController | - | UserCompanyMembership, UserDepartmentMembership |
+| Member Department Assignment | TeamController | - | UserDepartmentMembership |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/ModulesController.cs`

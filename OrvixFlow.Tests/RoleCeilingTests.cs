@@ -210,7 +210,7 @@ public class RoleCeilingTests : IDisposable
     }
 
     [Fact]
-    public async Task CompanyOwner_CanInviteAsCompanyOwner()
+    public async Task CompanyOwner_CannotInviteAsCompanyOwner()
     {
         // Arrange
         var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("CompanyOwner");
@@ -220,8 +220,8 @@ public class RoleCeilingTests : IDisposable
         var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "CompanyOwner"));
 
         // Assert
-        result.Should().BeOfType<OkObjectResult>(
-            because: "CompanyOwner can invite as CompanyOwner (same rank)");
+        result.Should().BeOfType<BadRequestObjectResult>(
+            because: "CompanyOwner assignment is restricted to bootstrap or platform-only flows");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -242,13 +242,17 @@ public class RoleCeilingTests : IDisposable
         var controller = CreateController("SuperAdmin", callerId, _tenantProvider.GetTenantId());
 
         // Act & Assert — SuperAdmin can invite any company role
-        foreach (var targetRole in new[] { "CompanyOwner", "CompanyAdmin", "DepartmentManager", "Operator", "Viewer" })
+        foreach (var targetRole in new[] { "CompanyAdmin", "DepartmentManager", "Operator", "Viewer" })
         {
             var dto = new SendInviteDto($"{Guid.NewGuid()}@test.com", targetRole);
             var result = await controller.SendInvite(dto);
             result.Should().BeOfType<OkObjectResult>(
                 because: "SuperAdmin (platform role) bypasses company role ceiling");
         }
+
+        var ownerInvite = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "CompanyOwner"));
+        ownerInvite.Should().BeOfType<BadRequestObjectResult>(
+            because: "CompanyOwner assignment is intentionally blocked in normal invite flows");
     }
 
     // ═══════════════════════════════════════════════════════════════════

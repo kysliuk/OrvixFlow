@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { TeamTab } from "../../../components/settings/TeamTab";
 import { DepartmentsTab } from "../../../components/settings/DepartmentsTab";
 import { AuditLogTab } from "../../../components/settings/AuditLogTab";
+import { canManageOrganization } from "@/lib/org-permissions";
 import SettingsBillingPage from "./billing/page";
 
 type OrgStatus = {
@@ -110,6 +111,7 @@ export default function SettingsPage() {
   };
 
   const hasOrg = orgStatus?.hasOrganization === true;
+  const canManageOrg = canManageOrganization(orgStatus?.role);
 
   const handleSwitchCompany = async (companyId: string) => {
     console.log("[DEBUG][CompanySwitch] Initiating switch-company request.", {
@@ -248,13 +250,13 @@ export default function SettingsPage() {
 
   // If we land on a gated org inner tab but have no org, reset to general
   useEffect(() => {
-    if (!orgLoading && !hasOrg) {
+    if (!orgLoading && (!hasOrg || !canManageOrg)) {
       const currentSubTab = orgSubTabs.find(t => t.id === orgActiveTab);
       if (currentSubTab?.gated) {
         setOrgActiveTab("general");
       }
     }
-  }, [orgLoading, hasOrg, orgActiveTab]);
+  }, [canManageOrg, orgLoading, hasOrg, orgActiveTab]);
 
   /** Rendered when the user tries to access an org-gated inner tab without an org */
   const OrgRequiredBanner = ({ tabLabel }: { tabLabel: string }) => (
@@ -267,6 +269,26 @@ export default function SettingsPage() {
         <p className="text-sm text-muted max-w-xs">
           You must belong to an organisation before you can manage {tabLabel.toLowerCase()}.
           Create or join an organisation first.
+        </p>
+      </div>
+      <button
+        onClick={() => setOrgActiveTab("general")}
+        className="mt-2 px-4 py-2 text-sm font-medium bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+      >
+        Go to General Settings
+      </button>
+    </div>
+  );
+
+  const OrgAdminRequiredBanner = ({ tabLabel }: { tabLabel: string }) => (
+    <div className="animate-in fade-in duration-300 flex flex-col items-center justify-center py-20 text-center gap-4">
+      <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+        <Lock className="w-7 h-7 text-amber-400" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-1">{tabLabel} Restricted</h3>
+        <p className="text-sm text-muted max-w-xs">
+          Company Admin or Company Owner access is required to manage {tabLabel.toLowerCase()}.
         </p>
       </div>
       <button
@@ -420,7 +442,7 @@ export default function SettingsPage() {
                   {orgSubTabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = orgActiveTab === tab.id;
-                    const isLocked = tab.gated && !hasOrg;
+                    const isLocked = tab.gated && (!hasOrg || !canManageOrg);
 
                     return (
                       <button
@@ -429,7 +451,7 @@ export default function SettingsPage() {
                           if (isLocked) return;
                           setOrgActiveTab(tab.id);
                         }}
-                        title={isLocked ? "Create an organisation to unlock this section" : undefined}
+                         title={isLocked ? (!hasOrg ? "Create an organisation to unlock this section" : "Company Admin access is required for this section") : undefined}
                         disabled={isLocked}
                         className={`flex items-center gap-2 px-3 py-2 rounded-t-lg text-sm font-medium transition-all ${isLocked
                             ? "text-white/20 cursor-not-allowed"
@@ -532,13 +554,13 @@ export default function SettingsPage() {
                   )}
 
                   {orgActiveTab === "departments" && (
-                    hasOrg ? <div className="-mx-8"><DepartmentsTab /></div> : <OrgRequiredBanner tabLabel="Departments" />
+                    !hasOrg ? <OrgRequiredBanner tabLabel="Departments" /> : canManageOrg ? <div className="-mx-8"><DepartmentsTab currentRole={orgStatus?.role} /></div> : <OrgAdminRequiredBanner tabLabel="Departments" />
                   )}
                   {orgActiveTab === "team" && (
-                    hasOrg ? <div className="-mx-8"><TeamTab /></div> : <OrgRequiredBanner tabLabel="Team & Roles" />
+                    !hasOrg ? <OrgRequiredBanner tabLabel="Team & Roles" /> : canManageOrg ? <div className="-mx-8"><TeamTab currentRole={orgStatus?.role} /></div> : <OrgAdminRequiredBanner tabLabel="Team & Roles" />
                   )}
                   {orgActiveTab === "security" && (
-                    hasOrg ? <div className="-mx-8"><AuditLogTab /></div> : <OrgRequiredBanner tabLabel="Security" />
+                    !hasOrg ? <OrgRequiredBanner tabLabel="Security" /> : canManageOrg ? <div className="-mx-8"><AuditLogTab /></div> : <OrgAdminRequiredBanner tabLabel="Security" />
                   )}
                 </div>
               </div>

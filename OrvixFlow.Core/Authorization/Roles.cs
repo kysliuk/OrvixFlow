@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OrvixFlow.Core.Authorization;
 
@@ -85,6 +86,20 @@ public static class UserRoleExtensions
         UserRole.Operator, UserRole.Viewer,
     ];
 
+    /// <summary>All company-scoped roles, ordered from most to least privileged.</summary>
+    public static readonly IReadOnlyList<UserRole> CompanyRoles =
+    [
+        UserRole.CompanyOwner,
+        UserRole.CompanyAdmin,
+        UserRole.DepartmentManager,
+        UserRole.Operator,
+        UserRole.Viewer,
+    ];
+
+    public static readonly IReadOnlySet<string> CompanyRoleNames = new HashSet<string>(
+        CompanyRoles.Select(role => role.ToClaimValue()),
+        StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// F-08 Fix: Returns true if <paramref name="this"/> (the caller's role)
     /// has lower privilege than <paramref name="other"/> (the target role),
@@ -108,4 +123,47 @@ public static class UserRoleExtensions
         // So CompanyAdmin(11).IsHigherThan(CompanyOwner(10)) = 11 > 10 = true
         return (int)@this > (int)other;
     }
+
+    public static bool IsCompanyScopedRole(this UserRole role) => CompanyRoles.Contains(role);
+
+    public static bool CanAssignCompanyRole(this UserRole caller, UserRole target, bool allowOwnerAssignment = false)
+    {
+        if (!target.IsCompanyScopedRole())
+            return false;
+
+        if (target == UserRole.CompanyOwner && !allowOwnerAssignment)
+            return false;
+
+        if (caller.IsPlatformAdmin())
+            return true;
+
+        if (!caller.IsCompanyAdmin())
+            return false;
+
+        return caller switch
+        {
+            UserRole.CompanyOwner => true,
+            UserRole.CompanyAdmin => target != UserRole.CompanyOwner,
+            _ => false,
+        };
+    }
+
+    public static bool CanManageCompanyTarget(this UserRole caller, UserRole target)
+    {
+        if (!target.IsCompanyScopedRole())
+            return false;
+
+        if (caller.IsPlatformAdmin())
+            return true;
+
+        if (!caller.IsCompanyAdmin())
+            return false;
+
+        return (int)caller < (int)target;
+    }
+
+    public static string ToDepartmentRoleValue(this UserRole role) =>
+        role is UserRole.CompanyOwner or UserRole.CompanyAdmin or UserRole.DepartmentManager
+            ? "Manager"
+            : "Member";
 }

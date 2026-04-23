@@ -574,6 +574,95 @@ public class AuthServiceTests : IDisposable
         user.EmailVerified.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task AcceptInvitationAsync_Should_Revoke_InvalidLegacyPlatformRoleInvite()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "invite-invalid-platform-role";
+
+        _db.Invitations.Add(new Invitation
+        {
+            Email = "legacyplatforminvite@example.com",
+            CompanyId = _tenantId,
+            AssignedRole = "SuperAdmin",
+            Token = ComputeTokenHash(rawToken),
+            Status = "Pending",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            InvitedByUserId = Guid.NewGuid()
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.AcceptInvitationAsync(rawToken, "Legacy Invitee", "ValidPassword123!");
+
+        result.IsSuccess.Should().BeFalse();
+        var invitation = await _db.Invitations.IgnoreQueryFilters().FirstAsync(i => i.Email == "legacyplatforminvite@example.com");
+        invitation.Status.Should().Be("Revoked");
+    }
+
+    [Fact]
+    public async Task AcceptInvitationAsync_Should_ReactivateExistingMembership_AndDepartmentMembership()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "invite-reactivates-membership";
+        var userId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "returninginvite@example.com",
+            DisplayName = "Returning User",
+            TenantId = _tenantId,
+            EmailVerified = true,
+            PasswordHash = "hashed"
+        });
+        _db.Departments.Add(new Department
+        {
+            Id = departmentId,
+            CompanyId = _tenantId,
+            Name = "Operations",
+            Code = "OPS"
+        });
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = _tenantId,
+            CompanyRole = "Viewer",
+            Status = "Inactive"
+        });
+        _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+        {
+            UserId = userId,
+            CompanyId = _tenantId,
+            DepartmentId = departmentId,
+            DepartmentRole = "Member",
+            Status = "Inactive"
+        });
+        _db.Invitations.Add(new Invitation
+        {
+            Email = "returninginvite@example.com",
+            CompanyId = _tenantId,
+            AssignedRole = "DepartmentManager",
+            DepartmentId = departmentId,
+            Token = ComputeTokenHash(rawToken),
+            Status = "Pending",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            InvitedByUserId = Guid.NewGuid()
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.AcceptInvitationAsync(rawToken, null, null);
+
+        result.IsSuccess.Should().BeTrue();
+        var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == userId && m.CompanyId == _tenantId);
+        membership.Status.Should().Be("Active");
+        membership.CompanyRole.Should().Be("DepartmentManager");
+
+        var departmentMembership = await _db.UserDepartmentMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == userId && m.CompanyId == _tenantId && m.DepartmentId == departmentId);
+        departmentMembership.Status.Should().Be("Active");
+        departmentMembership.DepartmentRole.Should().Be("Manager");
+    }
+
     private void AddActiveMembership(Guid userId, Guid companyId, string role)
     {
         _db.UserCompanyMemberships.Add(new UserCompanyMembership
