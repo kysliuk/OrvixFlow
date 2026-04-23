@@ -256,6 +256,13 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "You do not belong to this company.");
         }
 
+        var company = await _db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == companyId);
+
+        if (company == null || company.LifecycleStatus == "Archived")
+            return new AuthResult(false, Error: "This company has been archived and cannot be accessed.");
+
         _logger.LogInformation("[DEBUG][CompanySwitch][AuthService] Membership validated successfully with role: {Role}. Minting new JWT.", membership.CompanyRole);
 
         var token = await MintJwtAsync(user, companyId);
@@ -270,6 +277,8 @@ public class AuthService : IAuthService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
+        if (company.LifecycleStatus == "Archived")
+            throw new InvalidOperationException("Cannot mint a session for an archived company.");
 
         // Global roles (platform-level) always override company-level roles.
         // A SuperAdmin or InternalOperator should have their global role in the JWT
@@ -318,7 +327,11 @@ public class AuthService : IAuthService
         var memberships = await _db.UserCompanyMemberships
             .IgnoreQueryFilters()
             .Where(m => m.UserId == user.Id && m.Status == "Active")
-            .Join(_db.Tenants, m => m.CompanyId, c => c.Id, (m, c) => new CompanyMembershipSummary(c.Id, c.Name, m.CompanyRole))
+            .Join(
+                _db.Tenants.IgnoreQueryFilters().Where(t => t.LifecycleStatus != "Archived"),
+                m => m.CompanyId,
+                c => c.Id,
+                (m, c) => new CompanyMembershipSummary(c.Id, c.Name, m.CompanyRole))
             .ToListAsync();
         var activeRole = memberships.FirstOrDefault(m => m.CompanyId == activeCompanyId)?.Role ?? user.Role;
 
@@ -433,16 +446,19 @@ public class AuthService : IAuthService
         QueueEmailNotification(
             request.CompanyId,
             request.Email,
-            "You're invited to join OrvixFlow",
+            "Verify your OrvixFlow invitation",
             $@"<div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-                <h2 style='color: #6366f1; text-align: center;'>You're invited to OrvixFlow</h2>
-                <p>You have been invited to join a company workspace in OrvixFlow as <strong>{role.ToClaimValue()}</strong>.</p>
+                <h2 style='color: #6366f1; text-align: center;'>Welcome to OrvixFlow</h2>
+                <p>Hello,</p>
+                <p>You have been invited to join a company workspace in OrvixFlow as <strong>{role.ToClaimValue()}</strong>. Please click the button below to accept your invitation and finish setting up your account:</p>
                 <div style='text-align: center; margin: 30px 0;'>
                     <a href='{inviteLink}' style='background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;'>Accept Invitation</a>
                 </div>
                 <p style='font-size: 0.875rem; color: #64748b;'>This invitation expires in 7 days.</p>
                 <p style='font-size: 0.875rem; color: #64748b;'>If the button doesn't work, copy and paste this link into your browser:</p>
                 <p style='font-size: 0.875rem; color: #6366f1; word-break: break-all;'>{inviteLink}</p>
+                <hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
+                <p style='font-size: 0.75rem; color: #94a3b8; text-align: center;'>&copy; {DateTime.UtcNow.Year} OrvixFlow Enterprise. All rights reserved.</p>
             </div>");
         await _db.SaveChangesAsync();
 
@@ -807,7 +823,7 @@ public class AuthService : IAuthService
             var targetCompanyId = requestedCompanyId ?? user.TenantId;
             var companyExists = await _db.Tenants
                 .IgnoreQueryFilters()
-                .AnyAsync(t => t.Id == targetCompanyId);
+                .AnyAsync(t => t.Id == targetCompanyId && t.LifecycleStatus != "Archived");
 
             return companyExists ? targetCompanyId : null;
         }
@@ -815,7 +831,7 @@ public class AuthService : IAuthService
         var activeMemberships = await _db.UserCompanyMemberships
             .IgnoreQueryFilters()
             .Where(m => m.UserId == user.Id && m.Status == "Active")
-            .Select(m => m.CompanyId)
+            .Join(_db.Tenants.IgnoreQueryFilters().Where(t => t.LifecycleStatus != "Archived"), m => m.CompanyId, t => t.Id, (m, t) => m.CompanyId)
             .ToListAsync();
 
         if (activeMemberships.Count == 0)

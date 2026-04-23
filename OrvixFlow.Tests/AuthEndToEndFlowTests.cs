@@ -107,7 +107,7 @@ public class AuthEndToEndFlowTests : IDisposable
         inviteResult.Token.Should().NotBeNullOrWhiteSpace();
 
         var inviteNotification = await _db.NotificationQueues.IgnoreQueryFilters()
-            .FirstAsync(n => n.RecipientEmail == "invite-flow@example.com" && n.Subject == "You're invited to join OrvixFlow");
+            .FirstAsync(n => n.RecipientEmail == "invite-flow@example.com" && n.Subject == "Verify your OrvixFlow invitation");
         var inviteToken = ExtractToken(inviteNotification.Body!, "invite");
 
         var acceptResult = await authService.AcceptInvitationAsync(inviteToken, "Invite Flow User", "ValidPassword123!");

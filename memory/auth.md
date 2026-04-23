@@ -117,6 +117,25 @@ Do not duplicate bootstrap logic in controllers or random services.
 - Member removal is soft-deactivation via membership `Status`, not hard delete.
 - Existing-member department assignment is a reconcile operation over the full set of department memberships for the active company.
 - Invitation acceptance now revalidates stored role/department data before creating memberships so stale pending invites cannot bypass the role-layer separation.
+- Company lifecycle now has a tenant-level archive state separate from billing state:
+  - `Tenant.LifecycleStatus`
+  - `Tenant.ArchivedAt`
+  - `Tenant.ArchivedByUserId`
+  - `Tenant.DeletionScheduledFor`
+  - `Tenant.ArchiveReason`
+- Company archive rules:
+  - only `CompanyOwner`
+  - only on `Free` plan
+  - only when non-billable
+  - typed company-name confirmation required
+  - archive retains all company data for 60 days
+  - admin can restore archived companies within retention via `POST /api/admin/companies/{id}/restore`
+- Archived companies are excluded from normal company selection/profile building and cannot be switched into through normal auth flows.
+- Archived company purge now runs as a recurring background job after the 60-day retention window.
+- Purge behavior:
+  - users whose `TenantId` points at the archived company are reassigned to another active company if they still have one
+  - users with no remaining active company are deleted with the purged tenant
+  - active refresh tokens for affected users are revoked during purge
 
 Files to inspect before changing authz:
 - `OrvixFlow.Api/Filters/RequireModuleAttribute.cs`
@@ -150,6 +169,7 @@ Files to inspect before changing authz:
 - Do not reintroduce `X-Tenant-ID` as a normal runtime auth mechanism.
 - Do not accept `CompanyOwner`, `SuperAdmin`, or `InternalOperator` in company invite/update-role flows.
 - Do not update company role without also considering department-role sync for active department memberships.
+- Do not treat `Tenant.Plan` or `SubscriptionStatus` as the company lifecycle source of truth for archived companies; use tenant archive fields.
 
 ## High-Impact Files
 

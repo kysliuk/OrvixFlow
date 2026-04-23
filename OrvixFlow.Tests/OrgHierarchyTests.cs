@@ -335,4 +335,40 @@ public class OrgHierarchyTests : IDisposable
 
         Assert.IsType<ConflictObjectResult>(result);
     }
+
+    [Fact]
+    public async Task GetDeletionEligibility_WithFreeOwnerCompany_ReturnsEligible()
+    {
+        var (userId, companyId) = await SeedTenantWithOwner();
+        _db.Tenants.IgnoreQueryFilters().First(t => t.Id == companyId).Plan = "Free";
+        await _db.SaveChangesAsync();
+
+        var ctrl = BuildController(userId, companyId);
+
+        var result = await ctrl.GetDeletionEligibility(companyId) as OkObjectResult;
+
+        Assert.NotNull(result);
+        var val = result!.Value!;
+        var canDelete = (bool)val.GetType().GetProperty("canDelete")!.GetValue(val)!;
+        Assert.True(canDelete);
+    }
+
+    [Fact]
+    public async Task ArchiveCompany_WithValidConfirmation_ArchivesCompany()
+    {
+        var (userId, companyId) = await SeedTenantWithOwner();
+        var company = await _db.Tenants.IgnoreQueryFilters().FirstAsync(t => t.Id == companyId);
+        company.Plan = "Free";
+        await _db.SaveChangesAsync();
+
+        var ctrl = BuildController(userId, companyId);
+
+        var result = await ctrl.ArchiveCompany(companyId, new ArchiveCompanyDto(company.Name, null)) as OkObjectResult;
+
+        Assert.NotNull(result);
+        var archived = await _db.Tenants.IgnoreQueryFilters().FirstAsync(t => t.Id == companyId);
+        Assert.Equal("Archived", archived.LifecycleStatus);
+        Assert.NotNull(archived.ArchivedAt);
+        Assert.NotNull(archived.DeletionScheduledFor);
+    }
 }

@@ -232,21 +232,23 @@ export function DepartmentsTab({ currentRole }: { currentRole?: string | null })
                           {dept.code}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleEditClick(dept)}
-                          className="text-muted hover:text-white p-1.5 rounded hover:bg-white/10 transition-colors"
-                          title="Edit Department"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(dept.departmentId)}
-                          className="text-muted hover:text-danger p-1.5 rounded hover:bg-danger/10 transition-colors"
-                          title="Delete Department"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => handleEditClick(dept)}
+                            className="text-muted hover:text-white p-1.5 rounded hover:bg-white/10 transition-colors"
+                            title="Edit Department"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(dept.departmentId)}
+                            className="text-muted hover:text-danger p-1.5 rounded hover:bg-danger/10 transition-colors"
+                            title="Delete Department"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

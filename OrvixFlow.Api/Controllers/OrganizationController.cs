@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OrvixFlow.Core.Interfaces;
+using OrvixFlow.Core.Entities;
 using OrvixFlow.Infrastructure.Data;
 using OrvixFlow.Core.Authorization;
 
@@ -47,8 +48,11 @@ public class OrganizationController : ControllerBase
                 companyId = c.Id,
                 companyName = c.Name,
                 role = m.CompanyRole,
-                plan = c.Plan
+                plan = c.Plan,
+                lifecycleStatus = c.LifecycleStatus,
+                deletionScheduledFor = c.DeletionScheduledFor
             })
+            .Where(c => c.lifecycleStatus != "Archived")
             .ToListAsync();
 
         return Ok(companies);
@@ -75,8 +79,10 @@ public class OrganizationController : ControllerBase
             {
                 companyId = c.Id,
                 companyName = c.Name,
-                role = m.CompanyRole
+                role = m.CompanyRole,
+                lifecycleStatus = c.LifecycleStatus
             })
+            .Where(m => m.lifecycleStatus != "Archived")
             .ToListAsync();
 
         var currentMembership = activeCompanyId.HasValue
@@ -101,6 +107,81 @@ public class OrganizationController : ControllerBase
             activeCompanyId = currentMembership?.companyId ?? activeCompanyId,
             companyName,
             role = currentMembership?.role ?? roleClaim
+        });
+    }
+
+    [HttpGet("companies/{companyId}/deletion-eligibility")]
+    public async Task<IActionResult> GetDeletionEligibility(Guid companyId)
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        var evaluation = await EvaluateCompanyDeletionAsync(companyId, userId.Value);
+        if (evaluation.Company == null)
+            return NotFound(new { error = "Company not found." });
+
+        if (evaluation.Membership == null)
+            return StatusCode(403, new { error = "You are not a member of this company." });
+
+        return Ok(new
+        {
+            companyId = evaluation.Company.Id,
+            companyName = evaluation.Company.Name,
+            plan = evaluation.Company.Plan,
+            lifecycleStatus = evaluation.Company.LifecycleStatus,
+            canDelete = evaluation.CanDelete,
+            blockers = evaluation.Blockers,
+            deletionScheduledFor = evaluation.Company.DeletionScheduledFor,
+            retentionDays = 60
+        });
+    }
+
+    [HttpPost("companies/{companyId}/archive")]
+    public async Task<IActionResult> ArchiveCompany(Guid companyId, [FromBody] ArchiveCompanyDto dto)
+    {
+        var userId = ParseGuid("sub");
+        if (userId == null) return Unauthorized();
+
+        var evaluation = await EvaluateCompanyDeletionAsync(companyId, userId.Value);
+        if (evaluation.Company == null)
+            return NotFound(new { error = "Company not found." });
+
+        if (evaluation.Membership == null)
+            return StatusCode(403, new { error = "You are not a member of this company." });
+
+        if (!string.Equals(dto.ConfirmationName?.Trim(), evaluation.Company.Name, StringComparison.Ordinal))
+            return BadRequest(new { error = "Typed confirmation must exactly match the company name." });
+
+        if (!evaluation.CanDelete)
+            return BadRequest(new { error = "Company cannot be archived yet.", blockers = evaluation.Blockers });
+
+        evaluation.Company.LifecycleStatus = "Archived";
+        evaluation.Company.ArchivedAt = DateTime.UtcNow;
+        evaluation.Company.ArchivedByUserId = userId.Value;
+        evaluation.Company.DeletionScheduledFor = DateTime.UtcNow.AddDays(60);
+        evaluation.Company.ArchiveReason = dto.Reason?.Trim();
+
+        await _db.SaveChangesAsync();
+
+        var remainingMembershipCompanyId = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .Where(m => m.UserId == userId.Value && m.Status == "Active" && m.CompanyId != companyId)
+            .Join(_db.Tenants.IgnoreQueryFilters().Where(t => t.LifecycleStatus != "Archived"), m => m.CompanyId, t => t.Id, (m, t) => m.CompanyId)
+            .FirstOrDefaultAsync();
+
+        AuthResult? sessionResult = null;
+        if (remainingMembershipCompanyId != Guid.Empty)
+            sessionResult = await _authService.SwitchCompanyAsync(userId.Value, remainingMembershipCompanyId);
+
+        return Ok(new
+        {
+            message = "Company archived successfully.",
+            companyId = evaluation.Company.Id,
+            companyName = evaluation.Company.Name,
+            deletionScheduledFor = evaluation.Company.DeletionScheduledFor,
+            token = sessionResult?.Token,
+            profile = sessionResult?.Profile,
+            refreshToken = sessionResult?.RefreshToken
         });
     }
 
@@ -321,6 +402,51 @@ public class OrganizationController : ControllerBase
         }
         return Guid.TryParse(value, out var parsed) ? parsed : null;
     }
+
+    private async Task<CompanyDeletionEvaluation> EvaluateCompanyDeletionAsync(Guid companyId, Guid userId)
+    {
+        var company = await _db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == companyId);
+
+        var membership = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active");
+
+        if (company == null)
+            return new CompanyDeletionEvaluation(null, membership, false, []);
+
+        var blockers = new System.Collections.Generic.List<string>();
+
+        if (company.LifecycleStatus == "Archived")
+            blockers.Add("This company is already archived.");
+
+        if (membership == null)
+            blockers.Add("You are not an active member of this company.");
+        else if (membership.CompanyRole != UserRole.CompanyOwner.ToClaimValue())
+            blockers.Add("Only the CompanyOwner can archive this company.");
+
+        if (!string.Equals(company.Plan, "Free", StringComparison.OrdinalIgnoreCase))
+            blockers.Add("Only companies on the Free plan can be archived.");
+
+        var subscription = await _db.CompanySubscriptions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.CompanyId == companyId);
+
+        if (subscription != null)
+        {
+            if (subscription.PlanTemplateId != PlanCatalog.FreeId && subscription.Status is (SubscriptionState.Active or SubscriptionState.Trialing))
+                blockers.Add("The company still has an active or trialing subscription state.");
+
+            if (subscription.PendingPlanId.HasValue)
+                blockers.Add("The company has a pending plan change.");
+
+            if (!string.IsNullOrWhiteSpace(subscription.ExternalSubscriptionId))
+                blockers.Add("The company still has an external billing subscription attached.");
+        }
+
+        return new CompanyDeletionEvaluation(company, membership, blockers.Count == 0, blockers);
+    }
 }
 
 public record AcceptInviteRequest(string Token);
@@ -336,3 +462,10 @@ public record InviteUserRequest(
 
 public record CreateDepartmentDto(string Name, string Code);
 public record UpdateCompanyNameDto(string Name);
+public record ArchiveCompanyDto(string ConfirmationName, string? Reason);
+
+internal sealed record CompanyDeletionEvaluation(
+    OrvixFlow.Core.Entities.Tenant? Company,
+    OrvixFlow.Core.Entities.UserCompanyMembership? Membership,
+    bool CanDelete,
+    System.Collections.Generic.IReadOnlyList<string> Blockers);

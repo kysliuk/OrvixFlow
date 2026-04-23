@@ -14,6 +14,13 @@ public class Tenant
     /// <summary>Active | Trialing | Cancelled</summary>
     public string SubscriptionStatus { get; set; } = "Trialing";
 
+    /// <summary>Active | Archived</summary>
+    public string LifecycleStatus { get; set; } = "Active";
+    public DateTime? ArchivedAt { get; set; }
+    public Guid? ArchivedByUserId { get; set; }
+    public DateTime? DeletionScheduledFor { get; set; }
+    public string? ArchiveReason { get; set; }
+
     public string ApiKeyHash { get; set; } = string.Empty;
     public string? WebhookSecret { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

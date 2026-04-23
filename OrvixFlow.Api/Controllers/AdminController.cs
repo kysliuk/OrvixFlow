@@ -99,6 +99,8 @@ public class AdminController : ControllerBase
                 t.Name,
                 t.Plan,
                 t.SubscriptionStatus,
+                t.LifecycleStatus,
+                t.DeletionScheduledFor,
                 t.CreatedAt,
                 UserCount = t.Users.Count,
                 HasSubscription = _db.CompanySubscriptions
@@ -125,6 +127,9 @@ public class AdminController : ControllerBase
                 t.Name,
                 t.Plan,
                 t.SubscriptionStatus,
+                t.LifecycleStatus,
+                t.ArchivedAt,
+                t.DeletionScheduledFor,
                 t.CreatedAt,
                 UserCount = t.Users.Count,
                 Members = t.Users.Select(u => new
@@ -419,6 +424,34 @@ public class AdminController : ControllerBase
         {
             return NotFound(new { error = "Subscription not found" });
         }
+    }
+
+    [HttpPost("companies/{id}/restore")]
+    public async Task<IActionResult> RestoreArchivedCompany(Guid id)
+    {
+        if (!IsGlobalAdmin()) return Forbid();
+
+        var company = await _db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (company == null)
+            return NotFound(new { error = "Company not found" });
+
+        if (company.LifecycleStatus != "Archived")
+            return BadRequest(new { error = "Company is not archived" });
+
+        if (company.DeletionScheduledFor.HasValue && company.DeletionScheduledFor.Value <= DateTime.UtcNow)
+            return BadRequest(new { error = "Archived company can no longer be restored after retention expiry" });
+
+        company.LifecycleStatus = "Active";
+        company.ArchivedAt = null;
+        company.ArchivedByUserId = null;
+        company.DeletionScheduledFor = null;
+        company.ArchiveReason = null;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Company restored", companyId = company.Id, companyName = company.Name });
     }
 
     [HttpGet("companies/{id}/usage")]

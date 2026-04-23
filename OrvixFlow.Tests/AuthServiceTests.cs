@@ -256,6 +256,98 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshSessionAsync_WithArchivedRequestedCompany_FallsBackToActiveCompany()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var archivedCompanyId = Guid.NewGuid();
+
+        _db.Tenants.Add(new Tenant
+        {
+            Id = archivedCompanyId,
+            Name = "Archived Company",
+            Plan = "Free",
+            SubscriptionStatus = "Active",
+            LifecycleStatus = "Archived",
+            ArchivedAt = DateTime.UtcNow,
+            DeletionScheduledFor = DateTime.UtcNow.AddDays(60)
+        });
+
+        var user = new User
+        {
+            Id = userId,
+            Email = "archived-company@example.com",
+            DisplayName = "Archived Company User",
+            TenantId = _tenantId
+        };
+        _db.Users.Add(user);
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = archivedCompanyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Active"
+        });
+
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            Token = "refresh-archived-company",
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.RefreshSessionAsync("refresh-archived-company", archivedCompanyId);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(_tenantId);
+        result.Profile.Companies.Should().OnlyContain(company => company.CompanyId != archivedCompanyId);
+    }
+
+    [Fact]
+    public async Task SwitchCompanyAsync_WithArchivedCompany_Fails()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var archivedCompanyId = Guid.NewGuid();
+
+        _db.Tenants.Add(new Tenant
+        {
+            Id = archivedCompanyId,
+            Name = "Archived Company",
+            Plan = "Free",
+            SubscriptionStatus = "Active",
+            LifecycleStatus = "Archived",
+            ArchivedAt = DateTime.UtcNow,
+            DeletionScheduledFor = DateTime.UtcNow.AddDays(60)
+        });
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "switch-archived@example.com",
+            DisplayName = "Switch Archived",
+            TenantId = _tenantId
+        });
+        AddActiveMembership(userId, _tenantId, "CompanyOwner");
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = archivedCompanyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Active"
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.SwitchCompanyAsync(userId, archivedCompanyId);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be("This company has been archived and cannot be accessed.");
+    }
+
+    [Fact]
     public async Task LoginAsync_Should_Fail_When_UserHasNoActiveMembership()
     {
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
@@ -521,8 +613,10 @@ public class AuthServiceTests : IDisposable
             .OrderByDescending(n => n.CreatedAt)
             .FirstAsync();
         notification.RecipientEmail.Should().Be("invitee@example.com");
-        notification.Subject.Should().Be("You're invited to join OrvixFlow");
+        notification.Subject.Should().Be("Verify your OrvixFlow invitation");
         notification.Body.Should().Contain(result.Token!);
+        notification.Body.Should().Contain("Welcome to OrvixFlow");
+        notification.Body.Should().Contain("Accept Invitation");
     }
 
     [Fact]

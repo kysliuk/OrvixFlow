@@ -140,6 +140,10 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 | Team Members | TeamController | - | UserCompanyMembership, UserDepartmentMembership |
 | Member Removal | TeamController | - | UserCompanyMembership, UserDepartmentMembership |
 | Member Department Assignment | TeamController | - | UserDepartmentMembership |
+| Company Archive Eligibility | OrganizationController | - | Tenant, CompanySubscription |
+| Company Archive | OrganizationController | - | Tenant |
+| Company Restore | AdminController | - | Tenant |
+| Archived Company Purge | ArchivedCompanyPurgeJob | - | Tenant, User, RefreshToken |
 
 **Files:**
 - `OrvixFlow.Api/Controllers/ModulesController.cs`

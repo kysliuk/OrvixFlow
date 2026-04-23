@@ -295,6 +295,11 @@ recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.NotificationProcessorJob>(
     job => job.ExecuteAsync(),
     "*/5 * * * *");
 
+recurringJobManager.AddOrUpdate<OrvixFlow.Api.Jobs.ArchivedCompanyPurgeJob>(
+    "archived-company-purge",
+    job => job.ExecuteAsync(),
+    "0 4 * * *");
+
 recurringJobManager.AddOrUpdate<OrvixFlow.Infrastructure.Storage.OrphanDetectionJob>(
     "storage-orphan-detection",
     job => job.RunAsync(CancellationToken.None),

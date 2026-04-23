@@ -9,6 +9,7 @@ import {
   Home,
   Inbox,
   Database,
+  Building,
   Settings,
   CreditCard,
   LogOut,
@@ -61,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: "Dashboard", href: "/", icon: Home, moduleKey: null },
     { name: "Inbox Guardian", href: "/inbox", icon: Inbox, moduleKey: "inbox-guardian" },
     { name: "Knowledge Base", href: "/knowledge", icon: Database, moduleKey: "knowledge-base" },
+    { name: "Organization", href: "/organization", icon: Building, moduleKey: null },
     { name: "Settings", href: "/settings", icon: Settings, moduleKey: null },
     { name: "Billing", href: "/billing", icon: CreditCard, moduleKey: null },
   ];
@@ -119,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ) : (
             links.map((link) => {
               const Icon = link.icon;
-              const isActive = pathname === link.href;
+              const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(`${link.href}/`));
               return (
                 <Link
                   key={link.href}

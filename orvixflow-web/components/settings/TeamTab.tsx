@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Mail, CheckCircle, XCircle, Trash2, Shield, Users } from "lucide-react";
+import { Mail, CheckCircle, XCircle, Trash2, Shield, Users, Pencil } from "lucide-react";
 
 import { canManageMember, canManageOrganization, getAssignableCompanyRoles } from "@/lib/org-permissions";
 
@@ -44,6 +44,9 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
   const [inviteDepartmentId, setInviteDepartmentId] = useState("");
   const [inviteMessage, setInviteMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [isInviting, setIsInviting] = useState(false);
+  const [departmentEditorMember, setDepartmentEditorMember] = useState<Member | null>(null);
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([]);
+  const [isSavingDepartments, setIsSavingDepartments] = useState(false);
   const resolvedRole = currentRole ?? session?.user?.role ?? null;
   const canManageOrg = canManageOrganization(resolvedRole);
   const assignableRoles = getAssignableCompanyRoles(resolvedRole);
@@ -142,6 +145,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
     if (!(session as any)?.apiToken) return;
 
     try {
+      setIsSavingDepartments(true);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/team/${userId}/departments`, {
         method: "PUT",
         headers: {
@@ -152,6 +156,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
       });
 
       if (res.ok) {
+        setDepartmentEditorMember(null);
         fetchTeamData();
         return;
       }
@@ -160,12 +165,27 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
       alert(err.error || "Failed to update departments");
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsSavingDepartments(false);
     }
   };
 
   const getDepartmentName = (departmentId?: string | null) => {
     if (!departmentId) return "Unassigned";
     return departments.find((department) => department.departmentId === departmentId)?.name ?? "Unknown Department";
+  };
+
+  const openDepartmentEditor = (member: Member) => {
+    setDepartmentEditorMember(member);
+    setSelectedDepartmentIds(member.departmentIds);
+  };
+
+  const toggleDepartmentSelection = (departmentId: string) => {
+    setSelectedDepartmentIds((current) =>
+      current.includes(departmentId)
+        ? current.filter((id) => id !== departmentId)
+        : [...current, departmentId]
+    );
   };
 
   if (!canManageOrg) {
@@ -324,8 +344,8 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
       {/* Active Members */}
       <div>
         <h3 className="text-sm font-semibold mb-4 text-muted">Active Members ({members.length})</h3>
-        <div className="bg-surface border border-white/5 rounded-xl overflow-hidden shadow-lg">
-          <table className="w-full text-sm text-left">
+        <div className="bg-surface border border-white/5 rounded-xl overflow-x-auto shadow-lg">
+          <table className="w-full min-w-[860px] text-sm text-left">
             <thead className="bg-white/5 text-muted text-xs uppercase tracking-wider font-semibold border-b border-white/5">
               <tr>
                 <th className="px-6 py-4">User</th>
@@ -354,7 +374,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
                       <select
                         value={member.companyRole}
                         onChange={(e) => handleChangeRole(member.userId, e.target.value)}
-                        className="bg-transparent border border-transparent group-hover:border-white/10 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-primary focus:bg-surface transition-all"
+                        className="min-w-36 bg-transparent border border-transparent group-hover:border-white/10 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-primary focus:bg-surface transition-all"
                       >
                         {assignableRoles.map((role) => (
                           <option key={role} value={role} className="bg-surface text-white">{role}</option>
@@ -367,28 +387,27 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id) ? (
-                      <select
-                        multiple
-                        value={member.departmentIds}
-                        onChange={(event) => handleUpdateDepartments(member.userId, Array.from(event.target.selectedOptions, (option) => option.value))}
-                        className="min-w-44 bg-surface border border-white/10 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-primary"
-                      >
-                        {departments.map((department) => (
-                          <option key={department.departmentId} value={department.departmentId}>{department.name}</option>
-                        ))}
-                      </select>
-                    ) : member.departmentIds.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {member.departmentIds.map((departmentId) => (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {member.departmentIds.length > 0 ? (
+                        member.departmentIds.map((departmentId) => (
                           <span key={departmentId} className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">
                             {getDepartmentName(departmentId)}
                           </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted">No departments</span>
-                    )}
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted">No departments</span>
+                      )}
+
+                      {canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id) ? (
+                        <button
+                          onClick={() => openDepartmentEditor(member)}
+                          className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-muted hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-muted text-xs">
                     {new Date(member.joinedAt).toLocaleDateString()}
@@ -410,6 +429,74 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
           </table>
         </div>
       </div>
+
+      {departmentEditorMember && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-surface shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+              <div>
+                <h4 className="text-base font-semibold text-white">Edit Department Assignments</h4>
+                <p className="mt-1 text-sm text-muted">{departmentEditorMember.displayName} can belong to multiple departments.</p>
+              </div>
+              <button
+                onClick={() => setDepartmentEditorMember(null)}
+                className="rounded-md p-1 text-muted hover:bg-white/5 hover:text-white transition-colors"
+                title="Close"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+              {departments.length === 0 ? (
+                <p className="text-sm text-muted">No departments are available for assignment yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {departments.map((department) => {
+                    const checked = selectedDepartmentIds.includes(department.departmentId);
+
+                    return (
+                      <label
+                        key={department.departmentId}
+                        className="flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-background px-4 py-3 hover:border-white/20"
+                      >
+                        <div>
+                          <div className="font-medium text-white">{department.name}</div>
+                          <div className="text-xs text-muted">{department.code}</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDepartmentSelection(department.departmentId)}
+                          className="h-4 w-4 rounded border-white/20 bg-surface text-primary focus:ring-primary/40"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-white/10 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setDepartmentEditorMember(null)}
+                className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUpdateDepartments(departmentEditorMember.userId, selectedDepartmentIds)}
+                disabled={isSavingDepartments}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSavingDepartments ? "Saving..." : "Save Departments"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
