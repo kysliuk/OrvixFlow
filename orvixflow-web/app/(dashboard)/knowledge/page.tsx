@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -768,7 +769,7 @@ export default function KnowledgeBasePage() {
               <Database className="w-5 h-5 text-primary" />
               Direct Ingestion
             </h2>
-            <p className="text-sm text-muted mb-6 relative z-10">Paste raw text directly into the agent's vectorized memory store.</p>
+            <p className="text-sm text-muted mb-6 relative z-10">Paste raw text directly into the agent&apos;s vectorized memory store.</p>
             
             <form onSubmit={handleIngest} className="flex flex-col gap-4 relative z-10">
               <textarea

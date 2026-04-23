@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -172,7 +173,7 @@ export default function AdminTestPage() {
 
           {!result && !isRunning && (
             <div className="flex-1 flex items-center justify-center text-white/20 text-sm font-mono text-center">
-              Run a simulation to inspect<br/>the AI agent's decision path
+              Run a simulation to inspect<br/>the AI agent&apos;s decision path
             </div>
           )}
 

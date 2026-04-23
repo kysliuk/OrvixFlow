@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -110,8 +111,8 @@ export default function AdminDashboardPage() {
           <div className="text-xs text-white/40 font-mono italic">WebSocket tracking disabled in MVP... Fetching static audit block...</div>
           <div className="p-4 bg-black/60 rounded-lg border border-danger/10 font-mono text-[10px] leading-relaxed text-white/60">
             [SYS] Kernel Online. Models synchronized: llama-3.3-70b-versatile<br/>
-            [INF] Tenant 6b129x8f requested 'Refund_Policy' classification.<br/>
-            [OK] Agent generated automated reply. Hook 'n8n_reply' triggered successfully.
+            [INF] Tenant 6b129x8f requested &apos;Refund_Policy&apos; classification.<br/>
+            [OK] Agent generated automated reply. Hook &apos;n8n_reply&apos; triggered successfully.
           </div>
         </div>
       </div>

@@ -142,7 +142,7 @@ export default function Dashboard() {
               <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">Document Vectorized</p>
-                <p className="text-xs text-muted">"Company Holiday Policy 2026" ingrained into agent memory.</p>
+                <p className="text-xs text-muted">&quot;Company Holiday Policy 2026&quot; ingrained into agent memory.</p>
                 <p className="text-[10px] text-white/30 mt-1">1 hour ago</p>
               </div>
             </div>

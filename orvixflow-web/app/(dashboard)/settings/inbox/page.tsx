@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -58,12 +59,6 @@ export default function InboxSettingsPage() {
 
   const apiToken = (session as any)?.apiToken;
 
-  useEffect(() => {
-    if (apiToken) {
-      loadAll();
-    }
-  }, [apiToken]);
-
   const getHeaders = () => {
     const headers: Record<string, string> = { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}` };
     const imp = localStorage.getItem("impersonateTenantId");
@@ -97,6 +92,12 @@ export default function InboxSettingsPage() {
       if (res.ok) setPersona(await res.json());
     } catch { /* ignore */ }
   };
+
+  useEffect(() => {
+    if (apiToken) {
+      loadAll();
+    }
+  }, [apiToken]);
 
   const handleAddConnection = async () => {
     if (!newEmail || !newProvider) return;

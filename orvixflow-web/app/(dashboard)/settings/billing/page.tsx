@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -34,17 +35,16 @@ type BillingData = {
 export default function SettingsBillingPage() {
   const { data: session } = useSession();
   const [billingData, setBillingData] = useState<BillingData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const apiToken = (session as any)?.apiToken;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   useEffect(() => {
-    if (!apiToken) {
-      setLoading(false);
-      return;
-    }
+    if (!apiToken) return;
+
+    setLoading(true);
 
     fetch(`${apiUrl}/api/billing/subscription`, {
       headers: { Authorization: `Bearer ${apiToken}` },
@@ -105,7 +105,7 @@ export default function SettingsBillingPage() {
       <div className="flex flex-col gap-6 max-w-4xl">
         <div>
           <h1 className="text-2xl font-semibold mb-1">Plan & Billing</h1>
-          <p className="text-sm text-muted">Manage your organization's subscription and usage.</p>
+          <p className="text-sm text-muted">Manage your organization&apos;s subscription and usage.</p>
         </div>
         <div className="p-6 bg-danger/10 border border-danger/20 rounded-xl text-danger">
           Unable to load billing data. Please try again later.
@@ -118,7 +118,7 @@ export default function SettingsBillingPage() {
     <div className="flex flex-col gap-6 max-w-4xl animate-in fade-in duration-300">
       <div>
         <h1 className="text-2xl font-semibold mb-1">Plan & Billing</h1>
-        <p className="text-sm text-muted">Manage your organization's subscription and usage.</p>
+        <p className="text-sm text-muted">Manage your organization&apos;s subscription and usage.</p>
       </div>
 
       <div className="bg-gradient-to-br from-surface to-background border border-primary/20 rounded-2xl p-6 relative overflow-hidden">

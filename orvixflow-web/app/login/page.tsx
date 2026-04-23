@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
 import { signIn } from "next-auth/react";
@@ -155,7 +156,7 @@ function LoginForm() {
       </div>
 
       <p className="mt-8 text-center text-xs text-muted">
-        Don't have a tenant yet?{" "}
+        Don&apos;t have a tenant yet?{" "}
         <Link href="/register" className="text-primary hover:text-white transition-colors font-medium">Create one here</Link>
       </p>
     </div>

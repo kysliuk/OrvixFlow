@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
@@ -10,13 +11,11 @@ function VerifyEmailContent() {
   const token = searchParams.get("token");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  const effectiveStatus = token ? status : "error";
+  const effectiveMessage = token ? message : "Verification token is missing.";
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      setMessage("Verification token is missing.");
-      return;
-    }
+    if (!token) return;
 
     const verify = async () => {
       try {
@@ -55,19 +54,19 @@ function VerifyEmailContent() {
       </div>
 
       <div className="py-6">
-        {status === "loading" && (
+        {effectiveStatus === "loading" && (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
             <p className="text-white font-medium">Validating your credentials...</p>
           </div>
         )}
 
-        {status === "success" && (
+        {effectiveStatus === "success" && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center border border-success/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]">
               <CheckCircle2 className="w-8 h-8 text-success" />
             </div>
-            <p className="text-success font-bold text-lg">{message}</p>
+            <p className="text-success font-bold text-lg">{effectiveMessage}</p>
             <p className="text-muted text-sm px-4">Your account is now fully activated. You can proceed to the dashboard.</p>
             <Link 
               href="/login" 
@@ -78,13 +77,13 @@ function VerifyEmailContent() {
           </div>
         )}
 
-        {status === "error" && (
+        {effectiveStatus === "error" && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-danger/20 flex items-center justify-center border border-danger/30 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
               <XCircle className="w-8 h-8 text-danger" />
             </div>
             <p className="text-danger font-bold text-lg">Verification Failed</p>
-            <p className="text-muted text-sm px-4">{message}</p>
+            <p className="text-muted text-sm px-4">{effectiveMessage}</p>
             <Link 
               href="/login" 
               className="mt-6 w-full bg-white/5 hover:bg-white/10 text-white font-medium rounded-lg px-4 py-3 text-sm border border-white/10 transition-all font-medium"

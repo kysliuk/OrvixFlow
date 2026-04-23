@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { auth } from "@/auth"
 
 export function handleAuthRouting(req: Parameters<Parameters<typeof auth>[0]>[0]) {

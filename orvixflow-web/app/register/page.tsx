@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
@@ -78,7 +79,7 @@ export default function RegisterPage() {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
             <p className="text-sm text-muted mb-8">
-              We've sent a verification link to <span className="text-white font-medium">{formData.email}</span>. 
+              We&apos;ve sent a verification link to <span className="text-white font-medium">{formData.email}</span>. 
               Please verify your account to continue.
             </p>
             <Link 

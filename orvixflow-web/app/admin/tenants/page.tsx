@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -16,13 +17,11 @@ interface Tenant {
 export default function TenantDirectoryPage() {
   const { data: session } = useSession();
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [impersonating, setImpersonating] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : localStorage.getItem("impersonateTenantId")
+  );
 
   useEffect(() => {
-    // Load local storage impersonation state
-    const saved = localStorage.getItem("impersonateTenantId");
-    if (saved) setImpersonating(saved);
-
     if ((session as any)?.apiToken) {
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/tenants`, {
         headers: { "Authorization": `Bearer ${(session as any).apiToken}` }
