@@ -1,5 +1,17 @@
 # Company Admin Permission Audit And Fix Plan
 
+## Execution Status
+
+**Done:**
+- [x] Initial audit of current permissions and capabilities.
+- [x] Interim UI module access fix applied to `AccessResolver` to ensure non-admins at least inherit basic Plan entitlements.
+
+**Pending (High Priority):**
+- [ ] Fix `UserRoleExtensions.IsHigherThan` which currently assumes higher integer values = higher privilege.
+- [ ] Fix `TeamController.UpdateRole` to use corrected role hierarchy.
+- [ ] Implement explicit member removal endpoint.
+- [ ] Ensure Admin queries use `IgnoreQueryFilters` securely.
+
 ## 1. Clarifying Questions
 
 - None required to identify the current backend/frontend behavior and produce a concrete fix plan.

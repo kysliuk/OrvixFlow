@@ -1,5 +1,17 @@
 # Archived Org Auth And Company Switch Regression Plan
 
+## Execution Status
+
+**Done:**
+- [x] Identified that NextAuth serialization rules already correctly handle profile merges during `switch-company`.
+- [x] Fixed "Archived tenant as active" UI bug by including `LifecycleStatus` in backend `AdminController.ListTenants` and adding UI grayscale/Archived badges in `/admin/tenants/page.tsx`.
+- [x] Fixed module access regression where users switching to valid un-owned organizations (e.g. as Operator) saw no modules. Added `IEntitlementResolver` implicitly into `AccessResolver.cs` so entitled modules grant default CanUse/CanView to Operators/Viewers even without explicit `ModulePermissionGrant` assignments.
+
+**Pending:**
+- [ ] Implement formal "No-Org Landing UI" instead of generic redirects.
+- [ ] QA verification of session context switches across module edge cases.
+
+
 ## 1. Clarifying Questions, If Needed
 
 No blocking questions.

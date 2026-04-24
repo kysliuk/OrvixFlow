@@ -77,6 +77,7 @@ public class AdminController : ControllerBase
                 t.Name,
                 t.Plan,
                 t.SubscriptionStatus,
+                t.LifecycleStatus,
                 t.CreatedAt,
                 UserCount = t.Users.Count
             })

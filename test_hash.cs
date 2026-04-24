@@ -1,0 +1,1 @@
+using System.Security.Cryptography; using System.Text; string token = "4-HbWcykvOF6jnFe7cRCjF43yAvkUMAe_AIrfYFMbco"; var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token)); Console.WriteLine(Convert.ToHexString(hash));

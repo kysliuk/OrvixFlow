@@ -10,6 +10,7 @@ interface Tenant {
   name: string;
   plan: string;
   subscriptionStatus: string;
+  lifecycleStatus: string;
   createdAt: string;
   userCount: number;
 }
@@ -96,9 +97,16 @@ export default function TenantDirectoryPage() {
             </thead>
             <tbody className="divide-y divide-danger/10">
               {tenants.map(t => (
-                <tr key={t.id} className="hover:bg-danger/5 transition-colors group">
+                <tr key={t.id} className={`hover:bg-danger/5 transition-colors group ${t.lifecycleStatus === 'Archived' ? 'opacity-50 grayscale' : ''}`}>
                   <td className="px-5 py-3 font-mono text-xs text-white/60">{t.id}</td>
-                  <td className="px-5 py-3 font-medium text-white/90">{t.name}</td>
+                  <td className="px-5 py-3 font-medium text-white/90">
+                    <div className="flex items-center gap-2">
+                      {t.name}
+                      {t.lifecycleStatus === 'Archived' && (
+                        <span className="px-1.5 py-0.5 rounded-sm bg-danger text-[10px] uppercase font-bold text-white tracking-widest leading-none">Archived</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-white/70">{t.userCount}</td>
                   <td className="px-5 py-3">
                     <span className={`px-2 py-0.5 rounded-sm text-[10px] uppercase font-bold tracking-widest border ${

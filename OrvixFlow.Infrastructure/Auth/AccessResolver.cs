@@ -13,11 +13,13 @@ public class AccessResolver : IAccessResolver
 {
     private readonly AppDbContext _db;
     private readonly IScopeContext _scope;
+    private readonly IEntitlementResolver _entitlements;
 
-    public AccessResolver(AppDbContext db, IScopeContext scope)
+    public AccessResolver(AppDbContext db, IScopeContext scope, IEntitlementResolver entitlements)
     {
         _db = db;
         _scope = scope;
+        _entitlements = entitlements;
     }
 
     public async Task<ModulePermissionResult> GetEffectivePermissionsAsync(Guid userId, Guid companyId, string moduleKey)
@@ -86,7 +88,17 @@ public class AccessResolver : IAccessResolver
             .ToListAsync();
 
         if (grants.Count == 0)
+        {
+            var canUse = await _entitlements.CanUseModuleWithOverridesAsync(companyId, moduleKey);
+            if (canUse)
+            {
+                if (role is UserRole.Operator or UserRole.DepartmentManager)
+                    return new ModulePermissionResult(true, true, false, false, false, false, false, false);
+                if (role == UserRole.Viewer)
+                    return new ModulePermissionResult(true, false, false, false, false, false, false, false);
+            }
             return Empty();
+        }
 
         // Union of grants (most permissive wins)
         return new ModulePermissionResult(

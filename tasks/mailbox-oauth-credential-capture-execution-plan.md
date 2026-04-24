@@ -1,5 +1,18 @@
 # Mailbox OAuth Credential Capture - Multi-Session AI Execution Plan
 
+## Execution Status
+
+**Done:**
+- None.
+
+**Pending (Unstarted):**
+- [ ] Phase 1: Establish Database Architecture (`MailboxCredential` Entity).
+- [ ] Phase 2: Add Secure Token Storage Logic (DPAPI/Encryption).
+- [ ] Phase 3: Implement OAuth 2.0 Handshake Logic (Google/Microsoft).
+- [ ] Phase 4: Implement Credential Integration with n8n.
+- [ ] Phase 5: Verification & Testing.
+
+
 ## 1. Executive Summary
 
 This plan covers the secure implementation of Gmail and Microsoft mailbox OAuth credential capture for OrvixFlow, with credentials stored in OrvixFlow encrypted at rest and then used to provision n8n mailbox credentials/workflows.
