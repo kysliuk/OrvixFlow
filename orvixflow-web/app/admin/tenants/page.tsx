@@ -117,8 +117,17 @@ export default function TenantDirectoryPage() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5">
-                      <span className={`w-1.5 h-1.5 rounded-full ${t.subscriptionStatus === "Active" ? "bg-success" : "bg-warning"}`} />
-                      <span className={`text-xs ${t.subscriptionStatus === "Active" ? "text-success" : "text-warning"}`}>{t.subscriptionStatus}</span>
+                      {t.lifecycleStatus === 'Archived' ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-danger" />
+                          <span className="text-xs text-danger">Archived</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={`w-1.5 h-1.5 rounded-full ${t.subscriptionStatus === "Active" ? "bg-success" : "bg-warning"}`} />
+                          <span className={`text-xs ${t.subscriptionStatus === "Active" ? "text-success" : "text-warning"}`}>{t.subscriptionStatus}</span>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">

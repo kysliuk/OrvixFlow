@@ -79,7 +79,7 @@ public class AdminController : ControllerBase
                 t.SubscriptionStatus,
                 t.LifecycleStatus,
                 t.CreatedAt,
-                UserCount = t.Users.Count
+                UserCount = t.UserMemberships.Count(m => m.Status == "Active")
             })
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
@@ -103,7 +103,7 @@ public class AdminController : ControllerBase
                 t.LifecycleStatus,
                 t.DeletionScheduledFor,
                 t.CreatedAt,
-                UserCount = t.Users.Count,
+                UserCount = t.UserMemberships.Count(m => m.Status == "Active"),
                 HasSubscription = _db.CompanySubscriptions
                     .IgnoreQueryFilters()
                     .Any(s => s.CompanyId == t.Id)
@@ -132,13 +132,15 @@ public class AdminController : ControllerBase
                 t.ArchivedAt,
                 t.DeletionScheduledFor,
                 t.CreatedAt,
-                UserCount = t.Users.Count,
-                Members = t.Users.Select(u => new
+                UserCount = t.UserMemberships.Count(m => m.Status == "Active"),
+                Members = t.UserMemberships.Where(m => m.Status == "Active").Select(m => new
                 {
-                    u.Id,
-                    u.Email,
-                    u.Role,
-                    u.CreatedAt
+                    m.User!.Id,
+                    m.User.Email,
+                    m.User.DisplayName,
+                    CompanyRole = m.CompanyRole,
+                    JoinedAt = m.JoinedAt,
+                    CreatedAt = m.User.CreatedAt
                 }).ToList()
             })
             .FirstOrDefaultAsync();

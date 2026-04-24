@@ -20,7 +20,10 @@ interface CompanyData {
     members: Array<{
       id: string;
       email: string;
-      role: string;
+      role?: string;
+      displayName?: string;
+      companyRole?: string;
+      joinedAt?: string | null;
       createdAt: string;
     }>;
   };
@@ -465,10 +468,10 @@ export default function CompanyDetailPage() {
                 {company.company.members.map(member => (
                   <div key={member.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
                     <div>
-                      <p className="text-white">{member.email}</p>
-                      <p className="text-xs text-white/50">{member.id}</p>
+                      <p className="text-white">{member.displayName || member.email}</p>
+                      <p className="text-xs text-white/50">{member.email} • {member.id}</p>
                     </div>
-                    <span className="px-2 py-1 bg-white/10 text-white/70 text-xs rounded">{member.role}</span>
+                    <span className="px-2 py-1 bg-white/10 text-white/70 text-xs rounded">{member.companyRole || member.role || "—"}</span>
                   </div>
                 ))}
               </div>

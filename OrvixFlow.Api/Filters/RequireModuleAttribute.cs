@@ -73,7 +73,7 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
         if (parsedRole.IsCompanyAdmin()) return;
 
         // FIX F-07: Check user-level permissions for non-admin users
-        var userIdClaim = user.FindFirst("sub")?.Value;
+        var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
             context.Result = new UnauthorizedObjectResult(new
