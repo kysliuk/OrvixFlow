@@ -1,6 +1,6 @@
 # Auth Memory
 
-Last updated: 2026-04-18
+Last updated: 2026-04-24
 
 This file is the auth-focused working memory for future agents. Read it before changing login, registration, JWT/session handling, company switching, invites, verification, or authorization filters.
 
@@ -44,6 +44,10 @@ Current endpoints expected to follow that contract:
 - Normal users must have an active `UserCompanyMembership` for the chosen company before a token is minted.
 - `User.TenantId` is legacy/default preference data, not automatic authorization truth.
 - `AuthService.ResolveActiveCompanyIdAsync` is the gate that decides whether a token may be minted for a company.
+- Local login, refresh, and profile update now support an authenticated no-org session when no active non-archived company membership exists.
+- In a no-org backend session, emitted auth payloads omit company scope: `TenantId` and `ActiveCompanyId` are null in the profile and absent from JWT claims.
+- No-org backend sessions currently emit a safe fallback `Plan` of `Free` and an empty non-platform `Role` claim so company-scoped access checks fail closed.
+- Existing OAuth-user sign-in now uses the same resolved session path as local login/refresh: archived default `TenantId` values are ignored in favor of an active non-archived membership, and archived-only users receive a no-org session.
 - Frontend refresh must send `activeCompanyId` so switched-company context survives refresh.
 - `OrganizationController.GetOrgStatus()` must reflect the JWT `ActiveCompanyId` first, not an arbitrary first membership.
 

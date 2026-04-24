@@ -51,8 +51,8 @@ public record CompanyMembershipSummary(Guid CompanyId, string CompanyName, strin
 
 public record UserProfile(
     Guid UserId,
-    Guid TenantId,
-    Guid ActiveCompanyId,
+    Guid? TenantId,
+    Guid? ActiveCompanyId,
     string Email,
     string DisplayName,
     string Role,

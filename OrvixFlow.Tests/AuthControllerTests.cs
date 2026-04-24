@@ -127,6 +127,55 @@ public class AuthControllerTests
     }
 
     [Fact]
+    public async Task Login_WithNoOrgProfile_ShouldReturnOk()
+    {
+        _authServiceMock.Setup(x => x.LoginAsync("noorg@example.com", "password"))
+            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), null, null, "noorg@example.com", "No Org User", string.Empty, "Free", new System.Collections.Generic.List<CompanyMembershipSummary>()), "refresh-noorg"));
+
+        var result = await _controller.Login(new LoginRequest("noorg@example.com", "password"));
+
+        var okResult = result as OkObjectResult;
+        okResult.Should().NotBeNull();
+        okResult!.StatusCode.Should().Be(200);
+
+        var payload = okResult.Value!;
+        var profile = payload.GetType().GetProperty("profile")!.GetValue(payload)!;
+        profile.GetType().GetProperty("TenantId")!.GetValue(profile).Should().BeNull();
+        profile.GetType().GetProperty("ActiveCompanyId")!.GetValue(profile).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Refresh_WithNoOrgProfile_ShouldReturnOk()
+    {
+        _authServiceMock.Setup(x => x.RefreshSessionAsync("refresh-noorg", null))
+            .ReturnsAsync(new AuthResult(true, "token123", null, new UserProfile(System.Guid.NewGuid(), null, null, "noorg@example.com", "No Org User", string.Empty, "Free", new System.Collections.Generic.List<CompanyMembershipSummary>()), "refresh-rotated"));
+
+        var result = await _controller.Refresh(new RefreshRequest("refresh-noorg"));
+
+        var okResult = result as OkObjectResult;
+        okResult.Should().NotBeNull();
+        okResult!.StatusCode.Should().Be(200);
+
+        var payload = okResult.Value!;
+        var profile = payload.GetType().GetProperty("profile")!.GetValue(payload)!;
+        profile.GetType().GetProperty("TenantId")!.GetValue(profile).Should().BeNull();
+        profile.GetType().GetProperty("ActiveCompanyId")!.GetValue(profile).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Refresh_WithInvalidRefreshToken_ShouldReturnUnauthorized()
+    {
+        _authServiceMock.Setup(x => x.RefreshSessionAsync("invalid-refresh", null))
+            .ReturnsAsync(new AuthResult(false, Error: "Invalid refresh token."));
+
+        var result = await _controller.Refresh(new RefreshRequest("invalid-refresh"));
+
+        var unauthorizedResult = result as UnauthorizedObjectResult;
+        unauthorizedResult.Should().NotBeNull();
+        unauthorizedResult!.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
     public async Task Logout_WithMissingRefreshToken_ShouldReturnBadRequest()
     {
         var result = await _controller.Logout(new LogoutRequest(""));

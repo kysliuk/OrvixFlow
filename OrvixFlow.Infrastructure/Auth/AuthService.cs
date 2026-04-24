@@ -148,17 +148,10 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "Please verify your email address before logging in.");
         }
 
-        var activeCompanyId = await ResolveActiveCompanyIdAsync(user, user.TenantId);
-        if (activeCompanyId == null)
-        {
-            _logger.LogWarning("Login blocked: no active company membership for {Email}", normalizedEmail);
-            return new AuthResult(false, Error: "Your account does not have an active company membership.");
-        }
-
-        var token = await MintJwtAsync(user, activeCompanyId.Value);
-        var profile = await BuildProfileAsync(user, activeCompanyId.Value);
-        var refreshToken = await CreateRefreshTokenAsync(user.Id);
-        return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
+        return await CreateAuthenticatedSessionAsync(
+            user,
+            user.TenantId,
+            noCompanyScopeLogMessage: $"Login continuing without company scope for {normalizedEmail}");
     }
 
     public async Task<AuthResult> ProvisionOAuthUserAsync(string email, string displayName, string provider, string externalId)
@@ -174,10 +167,10 @@ public class AuthService : IAuthService
         {
             await _companyBootstrapService.EnsureOwnerBootstrapAsync(existing.Id, existing.TenantId);
             await _companyBootstrapService.EnsureDefaultSubscriptionAsync(existing.TenantId);
-            var existingToken = await MintJwtAsync(existing, existing.TenantId);
-            var existingProfile = await BuildProfileAsync(existing, existing.TenantId);
-            var existingRefreshToken = await CreateRefreshTokenAsync(existing.Id);
-            return new AuthResult(true, Token: existingToken, Profile: existingProfile, RefreshToken: existingRefreshToken);
+            return await CreateAuthenticatedSessionAsync(
+                existing,
+                existing.TenantId,
+                noCompanyScopeLogMessage: $"OAuth provision continuing without company scope for existing user {existing.Id}");
         }
 
         // F-02 FIX: Check if email already exists.
@@ -194,10 +187,10 @@ public class AuthService : IAuthService
                 await _db.SaveChangesAsync();
 
                 await _companyBootstrapService.EnsureOwnerBootstrapAsync(byEmail.Id, byEmail.TenantId);
-                var existingToken = await MintJwtAsync(byEmail, byEmail.TenantId);
-                var existingProfile = await BuildProfileAsync(byEmail, byEmail.TenantId);
-                var existingRefreshToken = await CreateRefreshTokenAsync(byEmail.Id);
-                return new AuthResult(true, Token: existingToken, Profile: existingProfile, RefreshToken: existingRefreshToken);
+                return await CreateAuthenticatedSessionAsync(
+                    byEmail,
+                    byEmail.TenantId,
+                    noCompanyScopeLogMessage: $"OAuth provision continuing without company scope for migrated user {byEmail.Id}");
             }
 
             // F-02 FIX: Reject the OAuth login attempt.
@@ -271,44 +264,54 @@ public class AuthService : IAuthService
         return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 
-    private async Task<string> MintJwtAsync(User user, Guid activeCompanyId)
+    private async Task<string> MintJwtAsync(User user, Guid? activeCompanyId)
     {
         var secret = _config["Jwt:Secret"] ?? throw new Exception("Jwt:Secret is not configured.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
-        if (company.LifecycleStatus == "Archived")
-            throw new InvalidOperationException("Cannot mint a session for an archived company.");
 
         // Global roles (platform-level) always override company-level roles.
         // A SuperAdmin or InternalOperator should have their global role in the JWT
         // regardless of what their UserCompanyMembership.CompanyRole says.
         var parsedUserRole = UserRoleExtensions.ParseRole(user.Role);
-        string roleClaimValue;
-        if (parsedUserRole.IsPlatformAdmin())
+        var roleClaimValue = parsedUserRole.IsPlatformAdmin()
+            ? parsedUserRole.ToClaimValue()
+            : string.Empty;
+        var planClaimValue = "Free";
+
+        if (activeCompanyId.HasValue)
         {
-            roleClaimValue = parsedUserRole.ToClaimValue();
-        }
-        else
-        {
-            var roleString = await _db.UserCompanyMemberships
-                .IgnoreQueryFilters()
-                .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId && m.Status == "Active")
-                .Select(m => m.CompanyRole)
-                .FirstOrDefaultAsync() ?? user.Role;
-            roleClaimValue = UserRoleExtensions.ParseRole(roleString).ToClaimValue();
+            var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId.Value);
+            if (company.LifecycleStatus == "Archived")
+                throw new InvalidOperationException("Cannot mint a session for an archived company.");
+
+            planClaimValue = company.Plan;
+
+            if (!parsedUserRole.IsPlatformAdmin())
+            {
+                var roleString = await _db.UserCompanyMemberships
+                    .IgnoreQueryFilters()
+                    .Where(m => m.UserId == user.Id && m.CompanyId == activeCompanyId.Value && m.Status == "Active")
+                    .Select(m => m.CompanyRole)
+                    .FirstOrDefaultAsync() ?? user.Role;
+                roleClaimValue = UserRoleExtensions.ParseRole(roleString).ToClaimValue();
+            }
         }
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            new("TenantId", activeCompanyId.ToString()),
-            new("ActiveCompanyId", activeCompanyId.ToString()),
-            new("Plan", company.Plan),
+            new("Plan", planClaimValue),
             new("Role", roleClaimValue),
             new("DisplayName", user.DisplayName)
         };
+
+        if (activeCompanyId.HasValue)
+        {
+            claims.Add(new Claim("TenantId", activeCompanyId.Value.ToString()));
+            claims.Add(new Claim("ActiveCompanyId", activeCompanyId.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"] ?? "orvixflow",
@@ -321,9 +324,8 @@ public class AuthService : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private async Task<UserProfile> BuildProfileAsync(User user, Guid activeCompanyId)
+    private async Task<UserProfile> BuildProfileAsync(User user, Guid? activeCompanyId)
     {
-        var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId);
         var memberships = await _db.UserCompanyMemberships
             .IgnoreQueryFilters()
             .Where(m => m.UserId == user.Id && m.Status == "Active")
@@ -333,7 +335,20 @@ public class AuthService : IAuthService
                 c => c.Id,
                 (m, c) => new CompanyMembershipSummary(c.Id, c.Name, m.CompanyRole))
             .ToListAsync();
-        var activeRole = memberships.FirstOrDefault(m => m.CompanyId == activeCompanyId)?.Role ?? user.Role;
+
+        var globalRole = string.IsNullOrWhiteSpace(user.Role) ? null : user.Role;
+        var parsedGlobalRole = UserRoleExtensions.ParseRole(user.Role);
+        var activeRole = parsedGlobalRole.IsPlatformAdmin()
+            ? parsedGlobalRole.ToClaimValue()
+            : string.Empty;
+        var plan = "Free";
+
+        if (activeCompanyId.HasValue)
+        {
+            var company = await _db.Tenants.FirstAsync(t => t.Id == activeCompanyId.Value);
+            plan = company.Plan;
+            activeRole = memberships.FirstOrDefault(m => m.CompanyId == activeCompanyId.Value)?.Role ?? activeRole;
+        }
 
         return new UserProfile(
             user.Id,
@@ -342,9 +357,9 @@ public class AuthService : IAuthService
             user.Email,
             user.DisplayName,
             activeRole,
-            company.Plan,
+            plan,
             memberships,
-            user.Role // GlobalRole
+            globalRole
         );
     }
 
@@ -367,23 +382,11 @@ public class AuthService : IAuthService
         var user = tokenRecord.User!;
 
         // FIX: Determine the active company based on provided context or validate existing company
-        var resolvedCompanyId = await ResolveActiveCompanyIdAsync(user, activeCompanyId);
-        if (resolvedCompanyId == null)
-        {
-            _logger.LogWarning(
-                "RefreshSession: user {UserId} has no active company membership for requested company {CompanyId}",
-                user.Id,
-                activeCompanyId);
-            return new AuthResult(false, Error: "Your account does not have an active company membership.");
-        }
-
-        var jwt = await MintJwtAsync(user, resolvedCompanyId.Value);
-        var profile = await BuildProfileAsync(user, resolvedCompanyId.Value);
-        var newRefreshToken = await CreateRefreshTokenAsync(user.Id, tokenRecord.FamilyId);
-
-        await _db.SaveChangesAsync();
-
-        return new AuthResult(true, Token: jwt, Profile: profile, RefreshToken: newRefreshToken);
+        return await CreateAuthenticatedSessionAsync(
+            user,
+            activeCompanyId,
+            tokenRecord.FamilyId,
+            $"RefreshSession continuing without company scope for user {user.Id}; requested company {activeCompanyId}");
     }
 
     private async Task<string> CreateRefreshTokenAsync(Guid userId, Guid? familyId = null)
@@ -624,13 +627,25 @@ public class AuthService : IAuthService
 
         await _db.SaveChangesAsync();
 
-        var resolvedCompanyId = await ResolveActiveCompanyIdAsync(user, activeCompanyId);
-        if (resolvedCompanyId == null)
-            return new AuthResult(false, Error: "Your account does not have an active company membership.");
+        return await CreateAuthenticatedSessionAsync(user, activeCompanyId);
+    }
 
-        var token = await MintJwtAsync(user, resolvedCompanyId.Value);
-        var profile = await BuildProfileAsync(user, resolvedCompanyId.Value);
-        var refreshToken = await CreateRefreshTokenAsync(user.Id);
+
+    private async Task<AuthResult> CreateAuthenticatedSessionAsync(
+        User user,
+        Guid? requestedCompanyId,
+        Guid? refreshTokenFamilyId = null,
+        string? noCompanyScopeLogMessage = null)
+    {
+        var resolvedCompanyId = await ResolveActiveCompanyIdAsync(user, requestedCompanyId);
+        if (resolvedCompanyId == null && !string.IsNullOrWhiteSpace(noCompanyScopeLogMessage))
+        {
+            _logger.LogInformation(noCompanyScopeLogMessage);
+        }
+
+        var token = await MintJwtAsync(user, resolvedCompanyId);
+        var profile = await BuildProfileAsync(user, resolvedCompanyId);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, refreshTokenFamilyId);
         return new AuthResult(true, Token: token, Profile: profile, RefreshToken: refreshToken);
     }
 

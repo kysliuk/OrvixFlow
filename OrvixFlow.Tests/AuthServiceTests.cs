@@ -1,4 +1,5 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -348,14 +349,15 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task LoginAsync_Should_Fail_When_UserHasNoActiveMembership()
+    public async Task LoginAsync_Should_ReturnNoOrgSession_When_UserHasNoActiveMembership()
     {
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
         var password = "ValidPassword123!";
+        var userId = Guid.NewGuid();
 
         _db.Users.Add(new User
         {
-            Id = Guid.NewGuid(),
+            Id = userId,
             Email = "nomembership@example.com",
             DisplayName = "No Membership User",
             TenantId = _tenantId,
@@ -367,8 +369,268 @@ public class AuthServiceTests : IDisposable
 
         var result = await authService.LoginAsync("nomembership@example.com", password);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("active company membership");
+        result.IsSuccess.Should().BeTrue();
+        result.Token.Should().NotBeNullOrWhiteSpace();
+        result.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.UserId.Should().Be(userId);
+        ((Guid?)result.Profile.TenantId).Should().BeNull();
+        ((Guid?)result.Profile.ActiveCompanyId).Should().BeNull();
+        result.Profile.Role.Should().BeEmpty();
+        result.Profile.Plan.Should().Be("Free");
+        result.Profile.Companies.Should().BeEmpty();
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        jwt.Claims.Should().NotContain(c => c.Type == "TenantId");
+        jwt.Claims.Should().NotContain(c => c.Type == "ActiveCompanyId");
+        jwt.Claims.Should().ContainSingle(c => c.Type == "Plan" && c.Value == "Free");
+        jwt.Claims.Should().ContainSingle(c => c.Type == "Role" && c.Value == string.Empty);
+    }
+
+    [Fact]
+    public async Task RefreshSessionAsync_Should_ReturnNoOrgSession_When_UserHasNoActiveMembership()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+        var rawToken = CreateStructuredRefreshToken("noorgrefresh");
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "refresh-no-org@example.com",
+            DisplayName = "Refresh No Org User",
+            TenantId = _tenantId,
+            EmailVerified = true,
+            OAuthProvider = "local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("ValidPassword123!")
+        });
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            LookupKey = "noorgrefresh",
+            Token = ComputeTokenHash(rawToken),
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.RefreshSessionAsync(rawToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        ((Guid?)result.Profile!.TenantId).Should().BeNull();
+        ((Guid?)result.Profile.ActiveCompanyId).Should().BeNull();
+        result.Profile.Role.Should().BeEmpty();
+        result.Profile.Plan.Should().Be("Free");
+        result.Profile.Companies.Should().BeEmpty();
+        result.RefreshToken.Should().Contain(".");
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_Should_ReturnUpdatedNoOrgSession_When_UserHasNoActiveMembership()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        var userId = Guid.NewGuid();
+
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "update-no-org@example.com",
+            DisplayName = "Original Name",
+            TenantId = _tenantId,
+            EmailVerified = true,
+            OAuthProvider = "local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("ValidPassword123!")
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.UpdateUserAsync(userId, "Updated Name");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.DisplayName.Should().Be("Updated Name");
+        ((Guid?)result.Profile.TenantId).Should().BeNull();
+        ((Guid?)result.Profile.ActiveCompanyId).Should().BeNull();
+        result.Profile.Role.Should().BeEmpty();
+        result.Profile.Plan.Should().Be("Free");
+        result.Profile.Companies.Should().BeEmpty();
+    }
+
+
+    [Fact]
+    public async Task ProvisionOAuthUserAsync_WithExistingOAuthUser_UsesResolvedActiveCompanyInsteadOfArchivedTenant()
+    {
+        var bootstrapServiceMock = new Mock<ICompanyBootstrapService>();
+        bootstrapServiceMock.Setup(x => x.EnsureOwnerBootstrapAsync(It.IsAny<Guid>(), It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        bootstrapServiceMock.Setup(x => x.EnsureDefaultSubscriptionAsync(It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object, bootstrapServiceMock.Object);
+        var archivedTenantId = Guid.NewGuid();
+        var activeCompanyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        _db.Tenants.AddRange(
+            new Tenant
+            {
+                Id = archivedTenantId,
+                Name = "Archived Default Company",
+                Plan = "Free",
+                SubscriptionStatus = "Active",
+                LifecycleStatus = "Archived",
+                ArchivedAt = DateTime.UtcNow,
+                DeletionScheduledFor = DateTime.UtcNow.AddDays(60)
+            },
+            new Tenant
+            {
+                Id = activeCompanyId,
+                Name = "Active Company",
+                Plan = "Pro",
+                SubscriptionStatus = "Active"
+            });
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "oauth-existing@example.com",
+            DisplayName = "OAuth Existing User",
+            TenantId = archivedTenantId,
+            OAuthProvider = "google",
+            ExternalId = "google-external-id",
+            EmailVerified = true
+        });
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = activeCompanyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Active"
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.ProvisionOAuthUserAsync("oauth-existing@example.com", "OAuth Existing User", "google", "google-external-id");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(activeCompanyId);
+        result.Profile.TenantId.Should().Be(activeCompanyId);
+        result.Profile.Companies.Should().ContainSingle(c => c.CompanyId == activeCompanyId);
+        result.Profile.Companies.Should().NotContain(c => c.CompanyId == archivedTenantId);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        jwt.Claims.Should().ContainSingle(c => c.Type == "ActiveCompanyId" && c.Value == activeCompanyId.ToString());
+        jwt.Claims.Should().ContainSingle(c => c.Type == "TenantId" && c.Value == activeCompanyId.ToString());
+        jwt.Claims.Should().NotContain(c => c.Type == "ActiveCompanyId" && c.Value == archivedTenantId.ToString());
+        jwt.Claims.Should().ContainSingle(c => c.Type == "Plan" && c.Value == "Pro");
+    }
+
+    [Fact]
+    public async Task ProvisionOAuthUserAsync_WithMigratedOAuthUser_UsesResolvedActiveCompanyInsteadOfArchivedTenant()
+    {
+        var bootstrapServiceMock = new Mock<ICompanyBootstrapService>();
+        bootstrapServiceMock.Setup(x => x.EnsureOwnerBootstrapAsync(It.IsAny<Guid>(), It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        bootstrapServiceMock.Setup(x => x.EnsureDefaultSubscriptionAsync(It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object, bootstrapServiceMock.Object);
+        var archivedTenantId = Guid.NewGuid();
+        var activeCompanyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        _db.Tenants.AddRange(
+            new Tenant
+            {
+                Id = archivedTenantId,
+                Name = "Archived Default Company",
+                Plan = "Free",
+                SubscriptionStatus = "Active",
+                LifecycleStatus = "Archived",
+                ArchivedAt = DateTime.UtcNow,
+                DeletionScheduledFor = DateTime.UtcNow.AddDays(60)
+            },
+            new Tenant
+            {
+                Id = activeCompanyId,
+                Name = "Migrated Active Company",
+                Plan = "Business",
+                SubscriptionStatus = "Active"
+            });
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "oauth-migrate@example.com",
+            DisplayName = "OAuth Migrated User",
+            TenantId = archivedTenantId,
+            OAuthProvider = "google",
+            ExternalId = "old-google-id",
+            EmailVerified = true
+        });
+        _db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = activeCompanyId,
+            CompanyRole = "Operator",
+            Status = "Active"
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.ProvisionOAuthUserAsync("oauth-migrate@example.com", "OAuth Migrated User", "google", "new-google-id");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().Be(activeCompanyId);
+        result.Profile.TenantId.Should().Be(activeCompanyId);
+        result.Profile.Role.Should().Be("Operator");
+
+        var updatedUser = await _db.Users.IgnoreQueryFilters().SingleAsync(u => u.Id == userId);
+        updatedUser.ExternalId.Should().Be("new-google-id");
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        jwt.Claims.Should().ContainSingle(c => c.Type == "ActiveCompanyId" && c.Value == activeCompanyId.ToString());
+        jwt.Claims.Should().ContainSingle(c => c.Type == "TenantId" && c.Value == activeCompanyId.ToString());
+        jwt.Claims.Should().ContainSingle(c => c.Type == "Plan" && c.Value == "Business");
+    }
+
+    [Fact]
+    public async Task ProvisionOAuthUserAsync_WithArchivedOnlyExistingOAuthUser_ReturnsNoOrgSession()
+    {
+        var bootstrapServiceMock = new Mock<ICompanyBootstrapService>();
+        bootstrapServiceMock.Setup(x => x.EnsureOwnerBootstrapAsync(It.IsAny<Guid>(), It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        bootstrapServiceMock.Setup(x => x.EnsureDefaultSubscriptionAsync(It.IsAny<Guid>())).Returns(Task.CompletedTask);
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object, bootstrapServiceMock.Object);
+        var archivedTenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        _db.Tenants.Add(new Tenant
+        {
+            Id = archivedTenantId,
+            Name = "Archived Only Company",
+            Plan = "Enterprise",
+            SubscriptionStatus = "Active",
+            LifecycleStatus = "Archived",
+            ArchivedAt = DateTime.UtcNow,
+            DeletionScheduledFor = DateTime.UtcNow.AddDays(60)
+        });
+        _db.Users.Add(new User
+        {
+            Id = userId,
+            Email = "oauth-no-org@example.com",
+            DisplayName = "OAuth No Org User",
+            TenantId = archivedTenantId,
+            OAuthProvider = "google",
+            ExternalId = "oauth-no-org-id",
+            EmailVerified = true
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.ProvisionOAuthUserAsync("oauth-no-org@example.com", "OAuth No Org User", "google", "oauth-no-org-id");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Profile.Should().NotBeNull();
+        result.Profile!.ActiveCompanyId.Should().BeNull();
+        result.Profile.TenantId.Should().BeNull();
+        result.Profile.Plan.Should().Be("Free");
+        result.Profile.Role.Should().BeEmpty();
+        result.Profile.Companies.Should().BeEmpty();
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        jwt.Claims.Should().NotContain(c => c.Type == "ActiveCompanyId");
+        jwt.Claims.Should().NotContain(c => c.Type == "TenantId");
+        jwt.Claims.Should().ContainSingle(c => c.Type == "Plan" && c.Value == "Free");
     }
 
     [Fact]

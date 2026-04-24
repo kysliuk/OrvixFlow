@@ -32,7 +32,7 @@ public class MockEmailService : IEmailService
         return Task.CompletedTask;
     }
 
-    internal static string? TryExtractAuthLink(string body)
+    public static string? TryExtractAuthLink(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
             return null;
