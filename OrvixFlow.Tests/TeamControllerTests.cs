@@ -165,7 +165,7 @@ public class TeamControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateDepartmentRole_CompanyMember_DeptManager_OwnDept_Succeeds()
+    public async Task UpdateDepartmentRole_CompanyMember_DeptManager_OwnDept_CanAssignOperatorOnly()
     {
         var companyId = Guid.NewGuid();
         var departmentId = await SeedDepartmentAsync(companyId, "Ops", "OPS");
@@ -176,11 +176,11 @@ public class TeamControllerTests : IDisposable
 
         var controller = BuildController(callerId, companyId, UserRole.CompanyMember);
 
-        var result = await controller.UpdateDepartmentRole(targetId, new UpdateDepartmentRoleDto(departmentId, "DepartmentManager"));
+        var result = await controller.UpdateDepartmentRole(targetId, new UpdateDepartmentRoleDto(departmentId, "DepartmentOperator"));
 
         result.Should().BeOfType<OkObjectResult>();
         var membership = await _db.UserDepartmentMemberships.FirstAsync(m => m.UserId == targetId && m.DepartmentId == departmentId);
-        membership.DepartmentRole.Should().Be("DepartmentManager");
+        membership.DepartmentRole.Should().Be("DepartmentOperator");
     }
 
     [Fact]
@@ -199,6 +199,46 @@ public class TeamControllerTests : IDisposable
         var result = await controller.UpdateDepartmentRole(targetId, new UpdateDepartmentRoleDto(otherDepartmentId, "DepartmentManager"));
 
         result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task UpdateDepartmentRole_CompanyMember_DeptManager_CannotPromoteToManager()
+    {
+        var companyId = Guid.NewGuid();
+        var departmentId = await SeedDepartmentAsync(companyId, "Ops", "OPS");
+        var callerId = await SeedMemberAsync(companyId, UserRole.CompanyMember);
+        var targetId = await SeedMemberAsync(companyId, UserRole.CompanyMember);
+        await SeedDepartmentMembershipAsync(callerId, companyId, departmentId, "DepartmentManager");
+        await SeedDepartmentMembershipAsync(targetId, companyId, departmentId, "DepartmentOperator");
+
+        var controller = BuildController(callerId, companyId, UserRole.CompanyMember);
+
+        var result = await controller.UpdateDepartmentRole(targetId, new UpdateDepartmentRoleDto(departmentId, "DepartmentManager"));
+
+        result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(403);
+        var membership = await _db.UserDepartmentMemberships.FirstAsync(m => m.UserId == targetId && m.DepartmentId == departmentId);
+        membership.DepartmentRole.Should().Be("DepartmentOperator");
+    }
+
+    [Fact]
+    public async Task UpdateDepartmentRole_CompanyMember_DeptManager_CannotDemoteExistingManager()
+    {
+        var companyId = Guid.NewGuid();
+        var departmentId = await SeedDepartmentAsync(companyId, "Ops", "OPS");
+        var callerId = await SeedMemberAsync(companyId, UserRole.CompanyMember);
+        var targetId = await SeedMemberAsync(companyId, UserRole.CompanyMember);
+        await SeedDepartmentMembershipAsync(callerId, companyId, departmentId, "DepartmentManager");
+        await SeedDepartmentMembershipAsync(targetId, companyId, departmentId, "DepartmentManager");
+
+        var controller = BuildController(callerId, companyId, UserRole.CompanyMember);
+
+        var result = await controller.UpdateDepartmentRole(targetId, new UpdateDepartmentRoleDto(departmentId, "DepartmentOperator"));
+
+        result.Should().BeOfType<ObjectResult>()
+            .Which.StatusCode.Should().Be(403);
+        var membership = await _db.UserDepartmentMemberships.FirstAsync(m => m.UserId == targetId && m.DepartmentId == departmentId);
+        membership.DepartmentRole.Should().Be("DepartmentManager");
     }
 
     private TeamController BuildController(Guid userId, Guid companyId, UserRole role)

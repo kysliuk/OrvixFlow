@@ -97,14 +97,14 @@ public class AccessResolverTests
     }
 
     [Fact]
-    public async Task CompanyMember_DeptOperator_FallbackGrant_AllowsViewOnly_WhenEntitled()
+    public async Task CompanyMember_DeptOperator_FallbackGrant_AllowsUse_WhenEntitled()
     {
         var (db, resolver, companyId, userId) = await CreateFallbackResolverAsync("DepartmentOperator");
 
         var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
 
         permissions.CanView.Should().BeTrue();
-        permissions.CanUse.Should().BeFalse();
+        permissions.CanUse.Should().BeTrue();
         db.Dispose();
     }
 

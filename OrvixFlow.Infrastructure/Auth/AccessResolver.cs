@@ -104,11 +104,9 @@ public class AccessResolver : IAccessResolver
                             && m.CompanyId == companyId
                             && m.Status == "Active"
                             && departmentIds.Contains(m.DepartmentId)
-                            && UserRoleExtensions.ParseDeptRole(m.DepartmentRole) == UserRole.DepartmentManager);
+                            && (m.DepartmentRole == "DepartmentManager" || m.DepartmentRole == "Manager"));
 
-            return isDeptManager
-                ? new ModulePermissionResult(true, true, false, false, false, false, false, false)
-                : new ModulePermissionResult(true, false, false, false, false, false, false, false);
+            return new ModulePermissionResult(true, true, false, false, false, false, false, false);
         }
 
         // Union of grants (most permissive wins)

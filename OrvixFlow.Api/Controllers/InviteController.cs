@@ -219,7 +219,7 @@ public class InviteController : ControllerBase
             .Where(m => m.UserId == userId
                      && m.CompanyId == companyId
                      && m.Status == "Active"
-                     && UserRoleExtensions.ParseDeptRole(m.DepartmentRole) == UserRole.DepartmentManager)
+                     && (m.DepartmentRole == "DepartmentManager" || m.DepartmentRole == "Manager"))
             .Select(m => m.DepartmentId)
             .Distinct()
             .ToListAsync();

@@ -240,6 +240,9 @@ public class TeamController : ControllerBase
             var managedDepartmentIds = await GetManagedDepartmentIdsAsync(callerUserId.Value, companyId.Value);
             if (!managedDepartmentIds.Contains(dto.DepartmentId))
                 return Forbid();
+
+            if (newDepartmentRole == UserRole.DepartmentManager)
+                return StatusCode(403, new { error = "Department managers cannot assign the DepartmentManager role." });
         }
 
         var targetMembership = await _db.UserDepartmentMemberships
@@ -250,6 +253,12 @@ public class TeamController : ControllerBase
 
         if (targetMembership == null)
             return NotFound(new { error = "User is not assigned to the requested department." });
+
+        if (!callerRole.IsCompanyAdminOrAbove()
+            && (targetMembership.DepartmentRole == "DepartmentManager" || targetMembership.DepartmentRole == "Manager"))
+        {
+            return StatusCode(403, new { error = "Department managers cannot change another department manager's role." });
+        }
 
         targetMembership.DepartmentRole = newDepartmentRole.ToDepartmentRoleValue();
         await _db.SaveChangesAsync();
@@ -271,6 +280,10 @@ public class TeamController : ControllerBase
             return NotFound(new { error = "User is not an active member of this company." });
 
         var departmentRole = UserRoleExtensions.ParseDeptRole(dto.DepartmentRole).ToDepartmentRoleValue();
+        var callerRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!callerRole.IsCompanyAdminOrAbove() && departmentRole == UserRole.DepartmentManager.ToDepartmentRoleValue())
+            return StatusCode(403, new { error = "Department managers cannot assign the DepartmentManager role." });
+
         var departmentMembership = await _db.UserDepartmentMemberships
             .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId && m.DepartmentId == departmentId);
 
@@ -337,6 +350,13 @@ public class TeamController : ControllerBase
                              && d.Status == "Active"
                              && (visibleDepartmentIds == null || visibleDepartmentIds.Contains(d.DepartmentId)))
                     .Select(d => d.DepartmentId)
+                    .ToList(),
+                Departments = _db.UserDepartmentMemberships
+                    .Where(d => d.UserId == m.UserId
+                             && d.CompanyId == companyId
+                             && d.Status == "Active"
+                             && (visibleDepartmentIds == null || visibleDepartmentIds.Contains(d.DepartmentId)))
+                    .Select(d => new { d.DepartmentId, d.DepartmentRole })
                     .ToList()
             })
             .Cast<object>()
@@ -371,7 +391,7 @@ public class TeamController : ControllerBase
             .Where(m => m.UserId == userId
                      && m.CompanyId == companyId
                      && m.Status == "Active"
-                     && UserRoleExtensions.ParseDeptRole(m.DepartmentRole) == UserRole.DepartmentManager)
+                     && (m.DepartmentRole == "DepartmentManager" || m.DepartmentRole == "Manager"))
             .Select(m => m.DepartmentId)
             .Distinct()
             .ToListAsync();
