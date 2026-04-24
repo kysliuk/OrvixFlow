@@ -6,7 +6,7 @@ import { CheckCircle2, Zap, Rocket, Building2, Users, FileText, HardDrive, Activ
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getNoOrgState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
+import { getBillingDataTransitionState, getNoOrgState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 type BillingData = {
   plan: {
@@ -47,14 +47,17 @@ export default function SettingsBillingPage() {
   const noOrgState = getNoOrgState("settings-billing");
 
   useEffect(() => {
-    if (!shouldFetchCompanyScopedData(apiToken, activeCompanyId)) {
-      setBillingData(null);
-      setError(null);
-      setLoading(false);
+    const billingTransitionState = getBillingDataTransitionState(
+      shouldFetchCompanyScopedData(apiToken, activeCompanyId)
+    );
+
+    setBillingData(billingTransitionState.subscription);
+    setError(billingTransitionState.error);
+    setLoading(billingTransitionState.loading);
+
+    if (!billingTransitionState.loading) {
       return;
     }
-
-    setLoading(true);
 
     fetch(`${apiUrl}/api/billing/subscription`, {
       headers: { Authorization: `Bearer ${apiToken}` },

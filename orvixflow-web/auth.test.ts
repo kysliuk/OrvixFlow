@@ -29,6 +29,7 @@ vi.mock("next-auth", () => {
     default: NextAuth,
     CredentialsSignin,
   };
+
 });
 
 vi.mock("next-auth/providers/google", () => ({
@@ -214,4 +215,48 @@ describe("auth callbacks", () => {
     expect(result.user.tenantId).toBeNull();
     expect(result.user.activeCompanyId).toBeNull();
   });
+
+  it("applies switched-company profile data during session update", async () => {
+    const result = await callbacks.jwt({
+      token: {
+        sub: "user-1",
+        name: "Switch User",
+        apiToken: "old-api-token",
+        refreshToken: "old-refresh-token",
+        tenantId: "company-1",
+        activeCompanyId: "company-1",
+        plan: "Starter",
+        role: "Operator",
+        globalRole: "",
+        companies: [
+          { companyId: "company-1", companyName: "Alpha", role: "Operator" },
+          { companyId: "company-2", companyName: "Beta", role: "CompanyAdmin" },
+        ],
+      },
+      trigger: "update",
+      session: {
+        token: "new-api-token",
+        refreshToken: "new-refresh-token",
+        profile: {
+          displayName: "Switch User",
+          tenantId: "company-2",
+          activeCompanyId: "company-2",
+          plan: "Growth",
+          role: "CompanyAdmin",
+          globalRole: "",
+          companies: [
+            { companyId: "company-1", companyName: "Alpha", role: "Operator" },
+            { companyId: "company-2", companyName: "Beta", role: "CompanyAdmin" },
+          ],
+        },
+      },
+    })
+
+    expect(result.apiToken).toBe("new-api-token")
+    expect(result.refreshToken).toBe("new-refresh-token")
+    expect(result.tenantId).toBe("company-2")
+    expect(result.activeCompanyId).toBe("company-2")
+    expect(result.plan).toBe("Growth")
+    expect(result.role).toBe("CompanyAdmin")
+  })
 });

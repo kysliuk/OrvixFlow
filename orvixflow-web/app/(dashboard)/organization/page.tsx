@@ -9,7 +9,7 @@ import { AlertTriangle, Building, Lock, Network, Shield, Trash2, Users } from "l
 import { TeamTab } from "@/components/settings/TeamTab";
 import { DepartmentsTab } from "@/components/settings/DepartmentsTab";
 import { AuditLogTab } from "@/components/settings/AuditLogTab";
-import { getOrganizationOverviewState } from "@/lib/dashboard-access";
+import { getOrganizationDataTransitionState, getOrganizationOverviewState } from "@/lib/dashboard-access";
 import { canManageOrganization } from "@/lib/org-permissions";
 
 type OrgStatus = {
@@ -76,9 +76,16 @@ export default function OrganizationPage() {
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
   const apiToken = (session as any)?.apiToken;
+  const activeCompanyId = session?.user?.activeCompanyId ?? null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   useEffect(() => {
+    const organizationTransitionState = getOrganizationDataTransitionState(Boolean(apiToken));
+    setOrgStatus(organizationTransitionState.orgStatus);
+    setCompanies(organizationTransitionState.companies);
+    setDepartments(organizationTransitionState.departments);
+    setOrgLoading(organizationTransitionState.orgLoading);
+
     if (!apiToken) return;
     const headers = { Authorization: `Bearer ${apiToken}` };
 
@@ -102,7 +109,7 @@ export default function OrganizationPage() {
       .then((response) => (response.ok ? response.json() : []))
       .then(setDepartments)
       .catch(() => setDepartments([]));
-  }, [apiToken]);
+  }, [activeCompanyId, apiToken, apiUrl]);
 
   useEffect(() => {
     if (!apiToken || !orgStatus?.activeCompanyId) {

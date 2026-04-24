@@ -6,7 +6,7 @@ import { CheckCircle2, Zap, Rocket, Building2, AlertTriangle, X } from "lucide-r
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getBillingPageState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
+import { getBillingDataTransitionState, getBillingPageState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 type Plan = {
   id: string;
@@ -68,11 +68,16 @@ export default function BillingPage() {
   const billingPageState = getBillingPageState(activeCompanyId);
 
   const fetchData = async () => {
-    if (!shouldFetchCompanyScopedData(apiToken, activeCompanyId)) {
-      setSubscription(null);
-      setPlans([]);
-      setError(null);
-      setLoading(false);
+    const billingTransitionState = getBillingDataTransitionState(
+      shouldFetchCompanyScopedData(apiToken, activeCompanyId)
+    );
+
+    setSubscription(billingTransitionState.subscription);
+    setPlans(billingTransitionState.plans);
+    setError(billingTransitionState.error);
+    setLoading(billingTransitionState.loading);
+
+    if (!billingTransitionState.loading) {
       return;
     }
 

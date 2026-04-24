@@ -18,7 +18,7 @@ import {
   Bell
 } from "lucide-react";
 
-import { hasActiveCompanyScope, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
+import { getSidebarModulesTransitionState, hasActiveCompanyScope, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
@@ -38,9 +38,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const token = (session as any)?.apiToken;
-    if (!shouldFetchCompanyScopedData(token, activeCompanyId)) {
-      setVisibleModules([]);
-      setModulesLoaded(true);
+    const sidebarTransitionState = getSidebarModulesTransitionState(
+      shouldFetchCompanyScopedData(token, activeCompanyId)
+    );
+
+    setVisibleModules(sidebarTransitionState.visibleModules);
+    setModulesLoaded(sidebarTransitionState.modulesLoaded);
+
+    if (sidebarTransitionState.modulesLoaded) {
       return;
     }
 

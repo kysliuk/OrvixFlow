@@ -38,6 +38,32 @@ export function shouldFetchCompanyScopedData(apiToken?: string | null, activeCom
   return Boolean(apiToken) && hasActiveCompanyScope(activeCompanyId)
 }
 
+
+export function getSidebarModulesTransitionState(hasCompanyScope: boolean) {
+  return {
+    visibleModules: [],
+    modulesLoaded: !hasCompanyScope,
+  }
+}
+
+export function getBillingDataTransitionState(hasCompanyScope: boolean) {
+  return {
+    subscription: null,
+    plans: [],
+    error: null,
+    loading: hasCompanyScope,
+  }
+}
+
+export function getOrganizationDataTransitionState(hasApiToken: boolean) {
+  return {
+    orgStatus: null,
+    companies: [],
+    departments: [],
+    orgLoading: hasApiToken,
+  }
+}
+
 export function getOrganizationOverviewState({
   hasOrganization,
   isLoading,
