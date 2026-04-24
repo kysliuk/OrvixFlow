@@ -102,7 +102,7 @@ public class AuthEndToEndFlowTests : IDisposable
         });
         await _db.SaveChangesAsync();
 
-        var inviteResult = await authService.InviteUserAsync(new InviteRequest(inviterId, _tenantId, "invite-flow@example.com", "Operator"));
+        var inviteResult = await authService.InviteUserAsync(new InviteRequest(inviterId, _tenantId, "invite-flow@example.com", "CompanyMember"));
         inviteResult.IsSuccess.Should().BeTrue();
         inviteResult.Token.Should().NotBeNullOrWhiteSpace();
 
@@ -120,7 +120,7 @@ public class AuthEndToEndFlowTests : IDisposable
 
         var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters()
             .SingleAsync(m => m.UserId == invitedUser.Id && m.CompanyId == _tenantId);
-        membership.CompanyRole.Should().Be("Operator");
+        membership.CompanyRole.Should().Be("CompanyMember");
         membership.Status.Should().Be("Active");
     }
 

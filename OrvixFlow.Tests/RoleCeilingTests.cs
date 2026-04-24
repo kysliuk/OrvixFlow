@@ -20,9 +20,8 @@ namespace OrvixFlow.Tests;
 
 /// <summary>
 /// Tests for F-08: Invitation role ceiling check
-/// Verifies that callers cannot assign roles higher than their own.
-/// Only callers who pass IsCompanyAdminOrAbove() (CompanyAdmin, CompanyOwner, SuperAdmin)
-/// can send invitations. DepartmentManager and Operator get Forbid at the admin check.
+/// Verifies that company admins manage company-tier invites and department managers
+/// can send scoped department invites once they are represented as CompanyMember.
 /// </summary>
 public class RoleCeilingTests : IDisposable
 {
@@ -161,33 +160,14 @@ public class RoleCeilingTests : IDisposable
     }
 
     [Fact]
-    public async Task CompanyAdmin_CanInviteAsOperator()
+    public async Task CompanyAdmin_CanInviteAsCompanyMember()
     {
-        // Arrange
         var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("CompanyAdmin");
         var controller = CreateController("CompanyAdmin", callerId, _tenantProvider.GetTenantId());
 
-        // Act
-        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "Operator"));
+        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "CompanyMember"));
 
-        // Assert
-        result.Should().BeOfType<OkObjectResult>(
-            because: "CompanyAdmin (rank 11) can invite as Operator (rank 30, lower privilege)");
-    }
-
-    [Fact]
-    public async Task CompanyAdmin_CanInviteAsViewer()
-    {
-        // Arrange
-        var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("CompanyAdmin");
-        var controller = CreateController("CompanyAdmin", callerId, _tenantProvider.GetTenantId());
-
-        // Act
-        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "Viewer"));
-
-        // Assert
-        result.Should().BeOfType<OkObjectResult>(
-            because: "CompanyAdmin (rank 11) can invite as Viewer (rank 31, lower privilege)");
+        result.Should().BeOfType<OkObjectResult>();
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -242,7 +222,7 @@ public class RoleCeilingTests : IDisposable
         var controller = CreateController("SuperAdmin", callerId, _tenantProvider.GetTenantId());
 
         // Act & Assert — SuperAdmin can invite any company role
-        foreach (var targetRole in new[] { "CompanyAdmin", "DepartmentManager", "Operator", "Viewer" })
+        foreach (var targetRole in new[] { "CompanyAdmin", "CompanyMember" })
         {
             var dto = new SendInviteDto($"{Guid.NewGuid()}@test.com", targetRole);
             var result = await controller.SendInvite(dto);
@@ -260,33 +240,44 @@ public class RoleCeilingTests : IDisposable
     // ═══════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task Operator_CannotInvite_ForbidAtAdminCheck()
+    public async Task CompanyMember_WithoutDeptContext_CannotInvite()
     {
-        // Arrange — Operator is not CompanyAdminOrAbove, so gets Forbid
-        var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("Operator");
-        var controller = CreateController("Operator", callerId, _tenantProvider.GetTenantId());
+        var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("CompanyMember");
+        var controller = CreateController("CompanyMember", callerId, _tenantProvider.GetTenantId());
 
-        // Act
-        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "Viewer"));
+        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "CompanyMember"));
 
-        // Assert — Operator is not an admin, so they can't invite at all
-        result.Should().BeOfType<ForbidResult>(
-            because: "Operator is not CompanyAdminOrAbove and cannot send invitations");
+        result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public async Task DepartmentManager_CannotInvite_ForbidAtAdminCheck()
+    public async Task CompanyMember_DepartmentManager_CanInviteScopedDepartmentMember()
     {
-        // Arrange
-        var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("DepartmentManager");
-        var controller = CreateController("DepartmentManager", callerId, _tenantProvider.GetTenantId());
+        var callerId = await SetupCompanyWithSubscriptionAndMemberAsync("CompanyMember");
+        var departmentId = Guid.NewGuid();
+        _db.Departments.Add(new Department { Id = departmentId, CompanyId = _tenantProvider.GetTenantId(), Name = "Ops", Code = "OPS" });
+        _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+        {
+            UserId = callerId,
+            CompanyId = _tenantProvider.GetTenantId(),
+            DepartmentId = departmentId,
+            DepartmentRole = "DepartmentManager",
+            Status = "Active"
+        });
+        await _db.SaveChangesAsync();
 
-        // Act
-        var result = await controller.SendInvite(new SendInviteDto($"{Guid.NewGuid()}@test.com", "Viewer"));
+        var controller = CreateController("CompanyMember", callerId, _tenantProvider.GetTenantId());
 
-        // Assert
-        result.Should().BeOfType<ForbidResult>(
-            because: "DepartmentManager is not CompanyAdminOrAbove and cannot send invitations");
+        var result = await controller.SendInvite(new SendInviteDto(
+            $"{Guid.NewGuid()}@test.com",
+            "CompanyMember",
+            departmentId,
+            "DepartmentOperator"));
+
+        result.Should().BeOfType<OkObjectResult>();
+        var invite = await _db.Invitations.SingleAsync();
+        invite.AssignedRole.Should().Be("CompanyMember");
+        invite.InvitedDepartmentRole.Should().Be("DepartmentOperator");
     }
 
     // ═══════════════════════════════════════════════════════════════════

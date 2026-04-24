@@ -16,7 +16,7 @@ dotnet test
 |-----------|----------|
 | `TenantIsolationTests.cs` | Multi-tenancy query filters |
 | `TenantProviderTests.cs` | Tenant resolution from JWT |
-| `AccessResolverTests.cs` | Module permission resolution |
+| `AccessResolverTests.cs` | Module permission resolution + department-membership fallback access |
 | `PolicyGateServiceTests.cs` | Workflow policy evaluation |
 | `AuthControllerTests.cs` | Auth endpoints |
 | `AgentServiceTests.cs` | AI agent processing |
@@ -30,6 +30,9 @@ dotnet test
 | `HmacSignatureMiddlewareTests.cs` | Webhook HMAC validation |
 | `RagPipelineIntegrationTests.cs` | End-to-end RAG orchestration |
 | `IngestionPipelineServiceTests.cs` | Multi-parser ingestion pipeline |
+| `DepartmentRbacPhase1Tests.cs` | RBAC schema + role parsing migration coverage |
+| `TeamControllerTests.cs` | Department-scoped team visibility and role changes |
+| `AuthServiceTests.cs` | CompanyMember JWT minting and invite acceptance paths |
 
 ## Test Utilities
 
@@ -69,3 +72,6 @@ cd orvixflow-web && npm run test
 |-----------|----------|
 | `app/register/page.test.tsx` | Registration flow |
 | `lib/api-client.test.ts` | API client helper |
+| `lib/org-permissions.test.ts` | Company-tier vs department-manager UI permission helpers |
+| `components/settings/TeamTab.test.tsx` | Department-manager organization UI flows |
+| `components/settings/DepartmentsTab.test.tsx` | Department-manager department tab access |

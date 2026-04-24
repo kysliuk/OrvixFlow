@@ -1,6 +1,6 @@
 # Auth Memory
 
-Last updated: 2026-04-24
+Last updated: 2026-04-24 (Phase 4 RBAC memory sync executed)
 
 This file is the auth-focused working memory for future agents. Read it before changing login, registration, JWT/session handling, company switching, invites, verification, or authorization filters.
 
@@ -16,7 +16,7 @@ This file is the auth-focused working memory for future agents. Read it before c
 - `User.Role` is for global roles only.
 - Valid global roles: `SuperAdmin`, `InternalOperator`, or empty string.
 - Company roles live in `UserCompanyMembership.CompanyRole`.
-- Valid company roles: `CompanyOwner`, `CompanyAdmin`, `DepartmentManager`, `Operator`, `Viewer`.
+- Valid company roles (live RBAC state): `CompanyOwner`, `CompanyAdmin`, `CompanyMember`. Legacy persisted values `DepartmentManager`, `Operator`, and `Viewer` are now treated as migration-era aliases.
 - JWT `Role` claim contains the global role for platform admins, otherwise the active company role.
 - Never write a company role into `User.Role`.
 
@@ -77,6 +77,8 @@ Files to inspect before changing this area:
 - Canonical invite path is `POST /api/invite` and `POST /api/invite/accept`.
 - Legacy `POST /api/org/invite` is intentionally retired with `410 Gone`.
 - Invite tokens are stored hashed in `Invitation.Token`.
+- Department RBAC phase 2 is live in the backend: company-tier invites still use `AssignedRole`, while department-scoped invites also persist `InvitedDepartmentRole` and accept into `CompanyMember` + department role memberships.
+- Phase 4 documentation sync keeps auth memory aligned with the completed backend/frontend RBAC rollout; future auth changes must preserve the company-role vs department-role split.
 - Invite delivery is durable via `NotificationQueue`.
 - New local users accepting invites must provide a password that passes complexity validation.
 - Invite acceptance marks the account verified.
@@ -114,13 +116,18 @@ Do not duplicate bootstrap logic in controllers or random services.
 - Company admins bypass user-level permission checks only after the company entitlement check passes.
 - `RequireModuleAttribute` now fails closed when required user context or `IAccessResolver` is missing.
 - Company-management role mutation is limited to company roles only. Platform roles must never enter `UserCompanyMembership.CompanyRole`.
-- `CompanyOwner` assignment is restricted to bootstrap/platform-only flows. Normal invite and team-role update flows may assign `CompanyAdmin`, `DepartmentManager`, `Operator`, or `Viewer` only.
-- Team management now includes three backend paths in `TeamController`:
-  - `PUT /api/team/{userId}/role`
-  - `DELETE /api/team/{userId}`
-  - `PUT /api/team/{userId}/departments`
+- `CompanyOwner` assignment is restricted to bootstrap/platform-only flows. Normal invite and team-role update flows may assign only company-tier roles (`CompanyAdmin`, `CompanyMember`) at the company level.
+- Department-scoped authority now comes from `UserDepartmentMembership.DepartmentRole`, not the JWT role claim. `CompanyMember` users may manage only departments where they hold `DepartmentManager`.
+- Team management backend paths now include:
+  - `PUT /api/team/{userId}/role` (company tier, company admin+)
+  - `DELETE /api/team/{userId}` (remove from company, company admin+)
+  - `PUT /api/team/{userId}/departments` (full reconcile, company admin+)
+  - `PUT /api/team/{userId}/department-role` (department tier, company admin+ or managing dept manager)
+  - `POST /api/team/{userId}/departments/{departmentId}` (assign/reactivate department membership)
+  - `DELETE /api/team/{userId}/departments/{departmentId}` (remove from one department)
+- `InviteController` now allows `CompanyMember` callers only when they are `DepartmentManager` in the target department; those invites are forced to `AssignedRole = "CompanyMember"` plus a department role.
+- `AccessResolver` fallback access now keys off active department membership presence and department-manager rows, not legacy company roles.
 - Member removal is soft-deactivation via membership `Status`, not hard delete.
-- Existing-member department assignment is a reconcile operation over the full set of department memberships for the active company.
 - Invitation acceptance now revalidates stored role/department data before creating memberships so stale pending invites cannot bypass the role-layer separation.
 - Company lifecycle now has a tenant-level archive state separate from billing state:
   - `Tenant.LifecycleStatus`
@@ -158,6 +165,9 @@ Files to inspect before changing authz:
 ## Frontend Session Assumptions
 
 - `orvixflow-web/auth.ts` is the highest-impact frontend auth file.
+- `orvixflow-web/app/(dashboard)/organization/page.tsx`, `components/settings/TeamTab.tsx`, and `components/settings/DepartmentsTab.tsx` must derive department-manager access from `/api/org/departments`, not from `session.user.role` alone.
+- Frontend org settings now treat `session.user.role` as company-tier only (`CompanyOwner` / `CompanyAdmin` / `CompanyMember`). Department-scoped access is unlocked only when the fetched department list contains `role = "DepartmentManager"`.
+- CompanyMember department managers can access the Team and Departments tabs, send department-scoped invites, and review scoped member lists, but company-role changes and remove-from-company actions remain company-admin-only.
 - NextAuth refresh logic must keep `apiToken`, `refreshToken`, and `activeCompanyId` aligned.
 - Refresh failure should invalidate backend token state so protected routes bounce the user back to login.
 - Middleware currently treats the user as logged in only if a usable backend `apiToken` exists.
@@ -173,7 +183,7 @@ Files to inspect before changing authz:
 - Do not bypass backend authorization because the frontend already hides UI.
 - Do not reintroduce `X-Tenant-ID` as a normal runtime auth mechanism.
 - Do not accept `CompanyOwner`, `SuperAdmin`, or `InternalOperator` in company invite/update-role flows.
-- Do not update company role without also considering department-role sync for active department memberships.
+- Do not treat company-role updates as implicit department-role updates; department roles are now managed separately.
 - Do not treat `Tenant.Plan` or `SubscriptionStatus` as the company lifecycle source of truth for archived companies; use tenant archive fields.
 
 ## High-Impact Files
@@ -199,7 +209,7 @@ Files to inspect before changing authz:
 - invite send -> invite accept
 - membership revoked / inactive membership blocks token minting
 - admin route access for `SuperAdmin` and `InternalOperator`
-- module access for company admin vs operator/viewer
+- module access for company admin vs company member with department operator/manager
 - logout refresh-token revocation
 
 ## Known Remaining Follow-Ups

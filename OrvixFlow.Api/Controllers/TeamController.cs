@@ -21,39 +21,40 @@ public class TeamController : ControllerBase
 
     public TeamController(AppDbContext db) => _db = db;
 
-    // ── GET api/team  ─────────────────────────────────────────────────────────
     [HttpGet]
     public async Task<IActionResult> GetTeamMembers()
     {
         var callerRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
-        if (!callerRole.IsCompanyAdminOrAbove())
+        if (!callerRole.IsCompanyMemberOrAbove())
             return Forbid();
 
-        if (!Guid.TryParse(User.FindFirst("ActiveCompanyId")?.Value
-                           ?? User.FindFirst("TenantId")?.Value, out var companyId))
+        var companyId = GetActiveCompanyId();
+        var callerUserId = GetCurrentUserId();
+        if (companyId == null || callerUserId == null)
             return Unauthorized();
 
-        var members = await _db.UserCompanyMemberships
-            .Include(m => m.User)
-            .Where(m => m.CompanyId == companyId && m.Status == "Active")
-            .Select(m => new {
-                m.UserId,
-                m.User.Email,
-                m.User.DisplayName,
-                m.CompanyRole,
-                m.JoinedAt,
-                // Fetch department IDs for this user in this company
-                DepartmentIds = _db.UserDepartmentMemberships
-                    .Where(d => d.UserId == m.UserId && d.CompanyId == companyId && d.Status == "Active")
-                    .Select(d => d.DepartmentId)
-                    .ToList()
-            })
+        if (callerRole.IsCompanyAdminOrAbove())
+        {
+            var members = await GetMembersByUserIdsAsync(companyId.Value, null);
+            return Ok(members);
+        }
+
+        var callerManagedDeptIds = await GetManagedDepartmentIdsAsync(callerUserId.Value, companyId.Value);
+        if (callerManagedDeptIds.Count == 0)
+            return Forbid();
+
+        var visibleUserIds = await _db.UserDepartmentMemberships
+            .Where(m => m.CompanyId == companyId.Value
+                     && m.Status == "Active"
+                     && callerManagedDeptIds.Contains(m.DepartmentId))
+            .Select(m => m.UserId)
+            .Distinct()
             .ToListAsync();
 
-        return Ok(members);
+        var scopedMembers = await GetMembersByUserIdsAsync(companyId.Value, visibleUserIds, callerManagedDeptIds);
+        return Ok(scopedMembers);
     }
 
-    // ── PUT api/team/{userId}/role  ───────────────────────────────────────────
     [HttpPut("{userId}/role")]
     public async Task<IActionResult> UpdateRole(Guid userId, [FromBody] UpdateRoleDto dto)
     {
@@ -90,14 +91,6 @@ public class TeamController : ControllerBase
             return BadRequest(new { error = "CompanyOwner assignment is restricted to company bootstrap or platform-only flows." });
 
         membership.CompanyRole = newRole.ToClaimValue();
-
-        var departmentMemberships = await _db.UserDepartmentMemberships
-            .Where(m => m.UserId == userId && m.CompanyId == companyId.Value && m.Status == "Active")
-            .ToListAsync();
-
-        foreach (var departmentMembership in departmentMemberships)
-            departmentMembership.DepartmentRole = newRole.ToDepartmentRoleValue();
-
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Role updated successfully." });
@@ -196,8 +189,8 @@ public class TeamController : ControllerBase
                 ? "Active"
                 : "Inactive";
 
-            if (existingMembership.Status == "Active")
-                existingMembership.DepartmentRole = targetRole.ToDepartmentRoleValue();
+            if (existingMembership.Status == "Active" && string.IsNullOrWhiteSpace(existingMembership.DepartmentRole))
+                existingMembership.DepartmentRole = UserRole.DepartmentOperator.ToDepartmentRoleValue();
         }
 
         var existingDepartmentIds = existingMemberships
@@ -211,7 +204,7 @@ public class TeamController : ControllerBase
                 UserId = userId,
                 CompanyId = companyId.Value,
                 DepartmentId = departmentId,
-                DepartmentRole = targetRole.ToDepartmentRoleValue(),
+                DepartmentRole = UserRole.DepartmentOperator.ToDepartmentRoleValue(),
                 Status = "Active"
             });
         }
@@ -219,6 +212,169 @@ public class TeamController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new { message = "Department memberships updated successfully.", departmentIds = requestedDepartmentIds });
+    }
+
+    [HttpPut("{userId}/department-role")]
+    public async Task<IActionResult> UpdateDepartmentRole(Guid userId, [FromBody] UpdateDepartmentRoleDto dto)
+    {
+        var callerRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!callerRole.IsCompanyMemberOrAbove())
+            return Forbid();
+
+        var companyId = GetActiveCompanyId();
+        var callerUserId = GetCurrentUserId();
+        if (companyId == null || callerUserId == null)
+            return Unauthorized();
+
+        var newDepartmentRole = UserRoleExtensions.ParseDeptRole(dto.NewDepartmentRole);
+        if (!newDepartmentRole.IsDepartmentScopedRole())
+            return BadRequest(new { error = "Invalid department role specified." });
+
+        var departmentExists = await _db.Departments
+            .AnyAsync(d => d.Id == dto.DepartmentId && d.CompanyId == companyId.Value);
+        if (!departmentExists)
+            return BadRequest(new { error = "Invalid department specified for this company." });
+
+        if (!callerRole.IsCompanyAdminOrAbove())
+        {
+            var managedDepartmentIds = await GetManagedDepartmentIdsAsync(callerUserId.Value, companyId.Value);
+            if (!managedDepartmentIds.Contains(dto.DepartmentId))
+                return Forbid();
+        }
+
+        var targetMembership = await _db.UserDepartmentMemberships
+            .FirstOrDefaultAsync(m => m.UserId == userId
+                                   && m.CompanyId == companyId.Value
+                                   && m.DepartmentId == dto.DepartmentId
+                                   && m.Status == "Active");
+
+        if (targetMembership == null)
+            return NotFound(new { error = "User is not assigned to the requested department." });
+
+        targetMembership.DepartmentRole = newDepartmentRole.ToDepartmentRoleValue();
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Department role updated successfully." });
+    }
+
+    [HttpPost("{userId}/departments/{departmentId}")]
+    public async Task<IActionResult> AddUserToDepartment(Guid userId, Guid departmentId, [FromBody] AddUserToDepartmentDto dto)
+    {
+        var authorizationResult = await AuthorizeDepartmentManagementAsync(departmentId);
+        if (authorizationResult != null)
+            return authorizationResult;
+
+        var companyId = GetActiveCompanyId()!.Value;
+        var targetCompanyMembership = await _db.UserCompanyMemberships
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active");
+        if (targetCompanyMembership == null)
+            return NotFound(new { error = "User is not an active member of this company." });
+
+        var departmentRole = UserRoleExtensions.ParseDeptRole(dto.DepartmentRole).ToDepartmentRoleValue();
+        var departmentMembership = await _db.UserDepartmentMemberships
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId && m.DepartmentId == departmentId);
+
+        if (departmentMembership == null)
+        {
+            _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+            {
+                UserId = userId,
+                CompanyId = companyId,
+                DepartmentId = departmentId,
+                DepartmentRole = departmentRole,
+                Status = "Active"
+            });
+        }
+        else
+        {
+            departmentMembership.DepartmentRole = departmentRole;
+            departmentMembership.Status = "Active";
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "User assigned to department successfully." });
+    }
+
+    [HttpDelete("{userId}/departments/{departmentId}")]
+    public async Task<IActionResult> RemoveUserFromDepartment(Guid userId, Guid departmentId)
+    {
+        var authorizationResult = await AuthorizeDepartmentManagementAsync(departmentId);
+        if (authorizationResult != null)
+            return authorizationResult;
+
+        var companyId = GetActiveCompanyId()!.Value;
+        var departmentMembership = await _db.UserDepartmentMemberships
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.CompanyId == companyId && m.DepartmentId == departmentId && m.Status == "Active");
+
+        if (departmentMembership == null)
+            return NotFound(new { error = "User is not assigned to the requested department." });
+
+        departmentMembership.Status = "Inactive";
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "User removed from department successfully." });
+    }
+
+    private async Task<List<object>> GetMembersByUserIdsAsync(Guid companyId, IReadOnlyCollection<Guid>? userIds, IReadOnlyCollection<Guid>? visibleDepartmentIds = null)
+    {
+        var query = _db.UserCompanyMemberships
+            .Include(m => m.User)
+            .Where(m => m.CompanyId == companyId && m.Status == "Active");
+
+        if (userIds != null)
+            query = query.Where(m => userIds.Contains(m.UserId));
+
+        return await query
+            .Select(m => new
+            {
+                m.UserId,
+                m.User.Email,
+                m.User.DisplayName,
+                CompanyRole = m.CompanyRole,
+                m.JoinedAt,
+                DepartmentIds = _db.UserDepartmentMemberships
+                    .Where(d => d.UserId == m.UserId
+                             && d.CompanyId == companyId
+                             && d.Status == "Active"
+                             && (visibleDepartmentIds == null || visibleDepartmentIds.Contains(d.DepartmentId)))
+                    .Select(d => d.DepartmentId)
+                    .ToList()
+            })
+            .Cast<object>()
+            .ToListAsync();
+    }
+
+    private async Task<IActionResult?> AuthorizeDepartmentManagementAsync(Guid departmentId)
+    {
+        var callerRole = UserRoleExtensions.ParseRole(User.FindFirst("Role")?.Value);
+        if (!callerRole.IsCompanyMemberOrAbove())
+            return Forbid();
+
+        var companyId = GetActiveCompanyId();
+        var callerUserId = GetCurrentUserId();
+        if (companyId == null || callerUserId == null)
+            return Unauthorized();
+
+        var departmentExists = await _db.Departments.AnyAsync(d => d.Id == departmentId && d.CompanyId == companyId.Value);
+        if (!departmentExists)
+            return BadRequest(new { error = "Invalid department specified for this company." });
+
+        if (callerRole.IsCompanyAdminOrAbove())
+            return null;
+
+        var managedDepartmentIds = await GetManagedDepartmentIdsAsync(callerUserId.Value, companyId.Value);
+        return managedDepartmentIds.Contains(departmentId) ? null : Forbid();
+    }
+
+    private async Task<List<Guid>> GetManagedDepartmentIdsAsync(Guid userId, Guid companyId)
+    {
+        return await _db.UserDepartmentMemberships
+            .Where(m => m.UserId == userId
+                     && m.CompanyId == companyId
+                     && m.Status == "Active"
+                     && UserRoleExtensions.ParseDeptRole(m.DepartmentRole) == UserRole.DepartmentManager)
+            .Select(m => m.DepartmentId)
+            .Distinct()
+            .ToListAsync();
     }
 
     private Guid? GetActiveCompanyId()
@@ -236,3 +392,5 @@ public class TeamController : ControllerBase
 
 public record UpdateRoleDto(string NewRole);
 public record UpdateDepartmentsDto(IReadOnlyList<Guid>? DepartmentIds);
+public record UpdateDepartmentRoleDto(Guid DepartmentId, string NewDepartmentRole);
+public record AddUserToDepartmentDto(string DepartmentRole);

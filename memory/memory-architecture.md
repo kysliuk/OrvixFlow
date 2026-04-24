@@ -197,7 +197,7 @@ This is safe because admin endpoints enforce their own authorization (`IsSuperAd
 - `POST /api/admin/companies/{id}/reactivate` — Reactivate suspended subscription
 - Frontend: Action buttons on company detail page with error handling
 
-## Role System (Two-Layer)
+## Role System (Three-Layer)
 
 ### Global (platform-level) — `User.Role`
 Stored in `User.Role`. Only for platform staff. Normal users have `User.Role = ""`.
@@ -215,23 +215,33 @@ Stored in `UserCompanyMembership.CompanyRole`. One per user-company relationship
 |------|-------------|
 | `CompanyOwner` | Full control within their company |
 | `CompanyAdmin` | Delegated company management |
-| `DepartmentManager` | Manages within assigned department(s) |
-| `Operator` | Performs work within assigned modules |
-| `Viewer` | Read-only within assigned modules |
+| `CompanyMember` | Belongs to the company and relies on department memberships for scoped access |
+
+### Department (department-level) — `UserDepartmentMembership.DepartmentRole`
+Stored per department membership row.
+
+| Role | Description |
+|------|-------------|
+| `DepartmentManager` | Can manage members and invites in that department |
+| `DepartmentOperator` | Can work within that department's modules/data |
 
 ### JWT `Role` Claim
 - Platform admins (`SuperAdmin`, `InternalOperator`): JWT contains the global role from `User.Role`
-- Normal users: JWT contains their `UserCompanyMembership.CompanyRole`
+- Normal users: JWT contains their active company role (`CompanyOwner`, `CompanyAdmin`, `CompanyMember`)
+- Department role is **not** carried in JWT and must be resolved from `UserDepartmentMembership`
 - Logic in `MintJwtAsync`: if `User.Role` is a platform admin role, use it; otherwise use `CompanyRole`
 
 ### Access Resolution
-- `AccessResolver` reads `UserCompanyMembership.CompanyRole` for permission checks
-- `ScopeContext` reads JWT `Role` claim — works because platform roles pass `IsCompanyAdminOrAbove()`
-- User's effective access = company plan modules + company module overrides, filtered by role permissions
+- `ScopeContext` treats only platform admins and company admins as company-wide; `CompanyMember` is always department-scoped
+- `AccessResolver` uses active department memberships for fallback module access and checks for `DepartmentManager` rows when deciding use-vs-view fallback
+- Team and invite management use database department membership checks instead of trusting the JWT role claim for department authority
+- User's effective access = company plan modules + company/module grants + department membership scope
+- Frontend organization settings treat `session.user.role` as company-tier only and derive department-manager UI access from `/api/org/departments`.
 
 ### Critical Rules
-- Never set `User.Role` to a company role value (e.g., `CompanyOwner`, `Operator`)
+- Never set `User.Role` to a company role value (e.g., `CompanyOwner`, `CompanyMember`)
 - Never compare `User.Role` against company roles
+- Do not derive department role from company role during team/invite flows; department role is managed independently
 - `User.Role` defaults to `string.Empty` — only populated for platform admins
 
 ## Webhook Security

@@ -90,14 +90,25 @@ public class AccessResolver : IAccessResolver
         if (grants.Count == 0)
         {
             var canUse = await _entitlements.CanUseModuleWithOverridesAsync(companyId, moduleKey);
-            if (canUse)
-            {
-                if (role is UserRole.Operator or UserRole.DepartmentManager)
-                    return new ModulePermissionResult(true, true, false, false, false, false, false, false);
-                if (role == UserRole.Viewer)
-                    return new ModulePermissionResult(true, false, false, false, false, false, false, false);
-            }
-            return Empty();
+            if (!canUse)
+                return Empty();
+
+            var hasDeptAccess = departmentIds.Count > 0;
+            if (!hasDeptAccess)
+                return Empty();
+
+            var isDeptManager = await _db.UserDepartmentMemberships
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .AnyAsync(m => m.UserId == userId
+                            && m.CompanyId == companyId
+                            && m.Status == "Active"
+                            && departmentIds.Contains(m.DepartmentId)
+                            && UserRoleExtensions.ParseDeptRole(m.DepartmentRole) == UserRole.DepartmentManager);
+
+            return isDeptManager
+                ? new ModulePermissionResult(true, true, false, false, false, false, false, false)
+                : new ModulePermissionResult(true, false, false, false, false, false, false, false);
         }
 
         // Union of grants (most permissive wins)

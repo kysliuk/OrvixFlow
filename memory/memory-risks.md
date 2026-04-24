@@ -189,13 +189,12 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 ### Company (organization-level) — stored in `UserCompanyMembership.CompanyRole`
 - `CompanyOwner` — full control within their company
 - `CompanyAdmin` — delegated company management
-- `DepartmentManager` — manages within assigned department(s)
-- `Operator` — performs work within assigned modules
-- `Viewer` — read-only within assigned modules
+- `CompanyMember` — belongs to the company but relies on department memberships for scoped access
+- Legacy values `DepartmentManager`, `Operator`, and `Viewer` are migration-era company-role aliases only during the RBAC redesign rollout
 
 **JWT `Role` claim:**
 - For users with a global role (`SuperAdmin`, `InternalOperator`): JWT contains the global role
-- For normal users: JWT contains their `UserCompanyMembership.CompanyRole`
+- For normal users: JWT contains their `UserCompanyMembership.CompanyRole` (phase 1 adds `CompanyMember` as the canonical non-admin company role)
 - Determined in `MintJwtAsync`: checks `User.Role` first, if it's a platform admin role, uses it; otherwise falls back to `CompanyRole`
 
 **Critical rule:** `User.Role` should ONLY be set for platform admins. Normal users should have `User.Role = ""`. The company role is stored in `UserCompanyMembership.CompanyRole`, NOT in `User.Role`.
@@ -203,8 +202,23 @@ g.ModuleAssignment != null && g.ModuleAssignment.CompanyId ...
 **When changing role logic:**
 - Never set `User.Role` to a company role (e.g., `CompanyOwner`, `Operator`)
 - Never compare `User.Role` against company roles
-- `AccessResolver` reads from `UserCompanyMembership.CompanyRole` — this is correct
-- `ScopeContext` reads from JWT `Role` claim — works because platform roles pass `IsCompanyAdminOrAbove()`
+- `AccessResolver` must use department memberships for non-admin fallback access; reintroducing legacy company-role checks will overgrant or undergrant users
+- `ScopeContext` may trust the JWT role only for company-wide vs scoped access; department-manager authority must still be resolved from `UserDepartmentMembership`
+
+---
+
+## High: Department-Scoped Authorization Must Not Trust JWT Role Alone
+
+**Location:** `OrvixFlow.Api/Controllers/InviteController.cs`, `OrvixFlow.Api/Controllers/TeamController.cs`, `OrvixFlow.Infrastructure/Auth/AccessResolver.cs`
+
+**Risk:** A `CompanyMember` can be a manager in one department and an operator in another. Using only the JWT `Role` claim would either overgrant company-wide management or block legitimate scoped management.
+
+**Pattern:** For department-scoped actions, first validate company membership from JWT/company role, then query `UserDepartmentMembership` for the target department with `DepartmentRole = "DepartmentManager"` and `Status = "Active"`.
+
+**When changing:**
+- Test own-department allow and other-department deny paths
+- Verify pending invite filtering/revocation stays scoped to managed departments
+- Verify company-role updates do not silently rewrite department roles
 
 ---
 
@@ -405,3 +419,14 @@ When modifying these areas, tests MUST pass:
 - **Location:** `OrvixFlow.Infrastructure/Storage/AzureBlobContainerInitializer.cs`
 - **Risk:** Creating the container without `PublicAccessType.None` can expose uploaded documents outside the API's RBAC and audit path.
 - **When changing:** Preserve private container creation with `PublicAccessType.None` and never allow public blob/container access.
+
+
+---
+
+## High: Department RBAC Redesign Regression Guard
+
+**Location:** `OrvixFlow.Core/Authorization/Roles.cs`, `OrvixFlow.Api/Controllers/InviteController.cs`, `OrvixFlow.Api/Controllers/TeamController.cs`, `OrvixFlow.Infrastructure/Auth/AccessResolver.cs`, `OrvixFlow.Infrastructure/Auth/ScopeContext.cs`, `orvixflow-web/lib/org-permissions.ts`
+
+**Risk:** The live RBAC model now depends on a strict three-layer split: platform role in `User.Role`, company role in `UserCompanyMembership.CompanyRole`, and department role in `UserDepartmentMembership.DepartmentRole`. Any future shortcut that trusts JWT `Role` for department authority, rewrites department roles from company roles, or reintroduces legacy `Operator`/`Viewer` semantics can silently overgrant or block access.
+
+**Pattern:** Preserve `CompanyMember` as the canonical non-admin company role, resolve department-manager authority from active department memberships, and keep frontend organization guards driven by fetched department-role data rather than `session.user.role` alone. When changing this area, rerun backend auth/team/invite tests plus frontend organization permission tests before merging.

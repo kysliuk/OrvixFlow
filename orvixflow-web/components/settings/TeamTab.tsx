@@ -1,11 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Mail, CheckCircle, XCircle, Trash2, Shield, Users, Pencil } from "lucide-react";
+import { Mail, CheckCircle, XCircle, Trash2, Pencil } from "lucide-react";
 
-import { canManageMember, canManageOrganization, getAssignableCompanyRoles } from "@/lib/org-permissions";
+import {
+  canAccessDepartmentScopedOrganizationSettings,
+  canManageMember,
+  canManageOrganization,
+  getAssignableCompanyRoles,
+  getManagedDepartmentIds,
+} from "@/lib/org-permissions";
 
 type Member = {
   userId: string;
@@ -20,6 +26,7 @@ type Invite = {
   id: string;
   email: string;
   assignedRole: string;
+  invitedDepartmentRole?: string | null;
   departmentId?: string | null;
   createdAt: string;
 };
@@ -38,29 +45,41 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Invite Form State
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Viewer");
+  const [inviteCompanyRole, setInviteCompanyRole] = useState("CompanyMember");
+  const [inviteDepartmentRole, setInviteDepartmentRole] = useState("DepartmentOperator");
   const [inviteDepartmentId, setInviteDepartmentId] = useState("");
   const [inviteMessage, setInviteMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [isInviting, setIsInviting] = useState(false);
   const [departmentEditorMember, setDepartmentEditorMember] = useState<Member | null>(null);
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([]);
   const [isSavingDepartments, setIsSavingDepartments] = useState(false);
+
   const resolvedRole = currentRole ?? session?.user?.role ?? null;
   const canManageOrg = canManageOrganization(resolvedRole);
   const assignableRoles = getAssignableCompanyRoles(resolvedRole);
+  const managedDepartmentIds = getManagedDepartmentIds(departments);
+  const canManageTeam = canAccessDepartmentScopedOrganizationSettings(resolvedRole, departments);
+  const visibleInviteDepartments = canManageOrg
+    ? departments
+    : departments.filter((department) => managedDepartmentIds.includes(department.departmentId));
+
+  useEffect(() => {
+    if (canManageOrg && assignableRoles.length > 0 && !assignableRoles.includes(inviteCompanyRole)) {
+      setInviteCompanyRole(assignableRoles[0]);
+    }
+  }, [assignableRoles, canManageOrg, inviteCompanyRole]);
 
   const fetchTeamData = async () => {
     if (!(session as any)?.apiToken) return;
     try {
       const headers = { Authorization: `Bearer ${(session as any).apiToken}` };
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
       const [membersRes, invitesRes, departmentsRes] = await Promise.all([
         fetch(`${apiUrl}/api/team`, { headers }),
         fetch(`${apiUrl}/api/invite`, { headers }),
-        fetch(`${apiUrl}/api/org/departments`, { headers })
+        fetch(`${apiUrl}/api/org/departments`, { headers }),
       ]);
 
       if (membersRes.ok) {
@@ -86,11 +105,13 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(session as any)?.apiToken) return;
-    
+
     setIsInviting(true);
     setInviteMessage(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/invite`, {
+      const assignedRole = canManageOrg ? inviteCompanyRole : "CompanyMember";
+      const invitedDepartmentRole = inviteDepartmentId ? inviteDepartmentRole : null;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/invite`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -98,8 +119,9 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
         },
         body: JSON.stringify({
           email: inviteEmail,
-          assignedRole: inviteRole,
+          assignedRole,
           departmentId: inviteDepartmentId || null,
+          invitedDepartmentRole,
         }),
       });
 
@@ -108,11 +130,12 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
         setInviteMessage({ text: "Invitation sent successfully!", isError: false });
         setInviteEmail("");
         setInviteDepartmentId("");
-        fetchTeamData(); // Refresh pending list
+        setInviteDepartmentRole("DepartmentOperator");
+        fetchTeamData();
       } else {
         setInviteMessage({ text: data.error || "Failed to send invitation.", isError: true });
       }
-    } catch (error) {
+    } catch {
       setInviteMessage({ text: "A network error occurred.", isError: true });
     } finally {
       setIsInviting(false);
@@ -124,7 +147,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
     if (!confirm("Remove this member from the active company?")) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/team/${userId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/team/${userId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${(session as any).apiToken}` },
       });
@@ -146,7 +169,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
 
     try {
       setIsSavingDepartments(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/team/${userId}/departments`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/team/${userId}/departments`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -170,32 +193,10 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
     }
   };
 
-  const getDepartmentName = (departmentId?: string | null) => {
-    if (!departmentId) return "Unassigned";
-    return departments.find((department) => department.departmentId === departmentId)?.name ?? "Unknown Department";
-  };
-
-  const openDepartmentEditor = (member: Member) => {
-    setDepartmentEditorMember(member);
-    setSelectedDepartmentIds(member.departmentIds);
-  };
-
-  const toggleDepartmentSelection = (departmentId: string) => {
-    setSelectedDepartmentIds((current) =>
-      current.includes(departmentId)
-        ? current.filter((id) => id !== departmentId)
-        : [...current, departmentId]
-    );
-  };
-
-  if (!canManageOrg) {
-    return <div className="text-sm text-muted">Company Admin permissions are required to manage team members.</div>;
-  }
-
   const handleRevokeInvite = async (inviteId: string) => {
     if (!(session as any)?.apiToken) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/invite/${inviteId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/invite/${inviteId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${(session as any).apiToken}` },
       });
@@ -208,13 +209,13 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
   const handleChangeRole = async (userId: string, newRole: string) => {
     if (!(session as any)?.apiToken) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/team/${userId}/role`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/team/${userId}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${(session as any).apiToken}`,
         },
-        body: JSON.stringify({ newRole })
+        body: JSON.stringify({ newRole }),
       });
       if (res.ok) fetchTeamData();
       else {
@@ -226,8 +227,28 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
     }
   };
 
+  const getDepartmentName = (departmentId?: string | null) => {
+    if (!departmentId) return "Unassigned";
+    return departments.find((department) => department.departmentId === departmentId)?.name ?? "Unknown Department";
+  };
+
+  const openDepartmentEditor = (member: Member) => {
+    setDepartmentEditorMember(member);
+    setSelectedDepartmentIds(member.departmentIds);
+  };
+
+  const toggleDepartmentSelection = (departmentId: string) => {
+    setSelectedDepartmentIds((current) =>
+      current.includes(departmentId) ? current.filter((id) => id !== departmentId) : [...current, departmentId]
+    );
+  };
+
   if (loading) {
     return <div className="animate-pulse text-muted text-sm">Loading team data...</div>;
+  }
+
+  if (!canManageTeam) {
+    return <div className="text-sm text-muted">Company Admin or Department Manager permissions are required to manage team members.</div>;
   }
 
   return (
@@ -237,36 +258,47 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
         <p className="text-sm text-muted">Manage your organization members and their access levels.</p>
       </div>
 
-      {/* Invite Section */}
       <div className="bg-background border border-white/5 rounded-xl p-6">
         <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
           <Mail className="w-4 h-4 text-primary" />
           Invite a New Member
         </h3>
+
+        {!canManageOrg ? (
+          <div className="mb-4 rounded-lg border border-white/10 bg-surface px-4 py-3 text-sm text-muted">
+            CompanyMember access is assigned automatically for department-scoped invites. Choose a managed department and department role below.
+          </div>
+        ) : null}
+
         <form onSubmit={handleSendInvite} className="flex flex-col md:flex-row items-start md:items-end gap-4">
           <div className="flex flex-col gap-1.5 flex-1 w-full">
             <label className="text-xs font-medium text-muted mb-1">Email Address</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               required
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="colleague@company.com" 
+              placeholder="colleague@company.com"
               className="bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
             />
           </div>
-          <div className="flex flex-col gap-1.5 w-full md:w-64 shrink-0">
-            <label className="text-xs font-medium text-muted mb-1">Role</label>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              className="bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-sm outline-none text-white focus:border-primary/50 hover:bg-white/5 transition-colors"
-            >
-              {assignableRoles.map(role => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
-          </div>
+
+          {canManageOrg ? (
+            <div className="flex flex-col gap-1.5 w-full md:w-64 shrink-0">
+              <label className="text-xs font-medium text-muted mb-1">Company Role</label>
+              <select
+                data-testid="company-role-select"
+                value={inviteCompanyRole}
+                onChange={(e) => setInviteCompanyRole(e.target.value)}
+                className="bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-sm outline-none text-white focus:border-primary/50 hover:bg-white/5 transition-colors"
+              >
+                {assignableRoles.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-1.5 w-full md:w-64 shrink-0">
             <label className="text-xs font-medium text-muted mb-1">Department</label>
             <select
@@ -274,32 +306,45 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
               onChange={(e) => setInviteDepartmentId(e.target.value)}
               className="bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-sm outline-none text-white focus:border-primary/50 hover:bg-white/5 transition-colors"
             >
-              <option value="">No department</option>
-              {departments.map((department) => (
+              <option value="">{canManageOrg ? "No department" : "Select department"}</option>
+              {visibleInviteDepartments.map((department) => (
                 <option key={department.departmentId} value={department.departmentId}>{department.name}</option>
               ))}
             </select>
           </div>
-          <button 
+
+          <div className="flex flex-col gap-1.5 w-full md:w-64 shrink-0">
+            <label className="text-xs font-medium text-muted mb-1">Department Role</label>
+            <select
+              data-testid="department-role-select"
+              value={inviteDepartmentRole}
+              onChange={(e) => setInviteDepartmentRole(e.target.value)}
+              className="bg-surface border border-white/10 rounded-lg px-3 py-2.5 text-sm outline-none text-white focus:border-primary/50 hover:bg-white/5 transition-colors"
+            >
+              <option value="DepartmentOperator">DepartmentOperator</option>
+              <option value="DepartmentManager">DepartmentManager</option>
+            </select>
+          </div>
+
+          <button
             type="submit"
-            disabled={isInviting || !inviteEmail || assignableRoles.length === 0}
+            disabled={isInviting || !inviteEmail || (!canManageOrg && !inviteDepartmentId)}
             className="px-5 py-2.5 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-medium rounded-lg text-sm shadow-[0_4px_14px_var(--accent-glow)] transition-all whitespace-nowrap"
           >
             {isInviting ? "Sending..." : "Send Invite"}
           </button>
         </form>
-        {inviteMessage && (
+        {inviteMessage ? (
           <div className={`mt-4 text-sm flex items-center gap-2 ${inviteMessage.isError ? "text-danger" : "text-emerald-400"}`}>
             {inviteMessage.isError ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
             {inviteMessage.text}
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="h-px bg-white/5" />
 
-      {/* Pending Invites */}
-      {invites.length > 0 && (
+      {invites.length > 0 ? (
         <div>
           <h3 className="text-sm font-semibold mb-4 text-muted">Pending Invitations ({invites.length})</h3>
           <div className="bg-surface border border-white/5 rounded-xl overflow-hidden">
@@ -307,7 +352,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
               <thead className="bg-white/5 text-muted text-xs uppercase tracking-wider">
                 <tr>
                   <th className="px-6 py-3 font-medium">Email</th>
-                  <th className="px-6 py-3 font-medium">Assigned Role</th>
+                  <th className="px-6 py-3 font-medium">Access</th>
                   <th className="px-6 py-3 font-medium">Department</th>
                   <th className="px-6 py-3 font-medium">Sent At</th>
                   <th className="px-6 py-3 font-medium text-right">Actions</th>
@@ -317,15 +362,15 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
                 {invites.map((invite) => (
                   <tr key={invite.id} className="hover:bg-white/5 transition-colors">
                     <td className="px-6 py-3 text-white">{invite.email}</td>
-                     <td className="px-6 py-3">
-                       <span className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">
-                         {invite.assignedRole}
-                       </span>
-                     </td>
-                     <td className="px-6 py-3 text-muted text-xs">{getDepartmentName(invite.departmentId)}</td>
-                     <td className="px-6 py-3 text-muted">{new Date(invite.createdAt).toLocaleDateString()}</td>
-                     <td className="px-6 py-3 text-right">
-                      <button 
+                    <td className="px-6 py-3">
+                      <span className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">
+                        {invite.invitedDepartmentRole ?? invite.assignedRole}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-muted text-xs">{getDepartmentName(invite.departmentId)}</td>
+                    <td className="px-6 py-3 text-muted">{new Date(invite.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-3 text-right">
+                      <button
                         onClick={() => handleRevokeInvite(invite.id)}
                         className="text-muted hover:text-danger p-1 rounded hover:bg-danger/10 transition-colors"
                         title="Revoke Invite"
@@ -339,9 +384,8 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
             </table>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Active Members */}
       <div>
         <h3 className="text-sm font-semibold mb-4 text-muted">Active Members ({members.length})</h3>
         <div className="bg-surface border border-white/5 rounded-xl overflow-x-auto shadow-lg">
@@ -349,88 +393,88 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
             <thead className="bg-white/5 text-muted text-xs uppercase tracking-wider font-semibold border-b border-white/5">
               <tr>
                 <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Role</th>
+                <th className="px-6 py-4">Company Role</th>
                 <th className="px-6 py-4">Departments</th>
                 <th className="px-6 py-4">Joined</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {members.map((member) => (
-                <tr key={member.userId} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs ring-1 ring-primary/30">
-                        {member.displayName?.charAt(0) || "U"}
+              {members.map((member) => {
+                const canManageCompanyMember = canManageOrg && canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id);
+                return (
+                  <tr key={member.userId} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs ring-1 ring-primary/30">
+                          {member.displayName?.charAt(0) || "U"}
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">{member.displayName}</div>
+                          <div className="text-xs text-muted">{member.email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-white">{member.displayName}</div>
-                        <div className="text-xs text-muted">{member.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id) ? (
-                      <select
-                        value={member.companyRole}
-                        onChange={(e) => handleChangeRole(member.userId, e.target.value)}
-                        className="min-w-36 bg-transparent border border-transparent group-hover:border-white/10 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-primary focus:bg-surface transition-all"
-                      >
-                        {assignableRoles.map((role) => (
-                          <option key={role} value={role} className="bg-surface text-white">{role}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">
-                        {member.companyRole}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {member.departmentIds.length > 0 ? (
-                        member.departmentIds.map((departmentId) => (
-                          <span key={departmentId} className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">
-                            {getDepartmentName(departmentId)}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted">No departments</span>
-                      )}
-
-                      {canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id) ? (
-                        <button
-                          onClick={() => openDepartmentEditor(member)}
-                          className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-muted hover:bg-white/5 hover:text-white transition-colors"
+                    </td>
+                    <td className="px-6 py-4">
+                      {canManageCompanyMember ? (
+                        <select
+                          value={member.companyRole}
+                          onChange={(e) => handleChangeRole(member.userId, e.target.value)}
+                          className="min-w-36 bg-transparent border border-transparent group-hover:border-white/10 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-primary focus:bg-surface transition-all"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                          {assignableRoles.map((role) => (
+                            <option key={role} value={role} className="bg-surface text-white">{role}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">{member.companyRole}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {member.departmentIds.length > 0 ? (
+                          member.departmentIds.map((departmentId) => (
+                            <span key={departmentId} className="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-muted">{getDepartmentName(departmentId)}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted">No departments</span>
+                        )}
+
+                        {canManageCompanyMember ? (
+                          <button
+                            onClick={() => openDepartmentEditor(member)}
+                            className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-muted hover:bg-white/5 hover:text-white transition-colors"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-muted text-xs">{new Date(member.joinedAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-right">
+                      {canManageCompanyMember ? (
+                        <button
+                          data-testid={`remove-company-member-${member.userId}`}
+                          onClick={() => handleRemoveMember(member.userId)}
+                          className="text-muted hover:text-danger p-1 rounded hover:bg-danger/10 transition-colors"
+                          title="Remove Member"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-muted text-xs">
-                    {new Date(member.joinedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {canManageMember(resolvedRole, member.companyRole, member.userId === (session?.user as any)?.id) ? (
-                      <button
-                        onClick={() => handleRemoveMember(member.userId)}
-                        className="text-muted hover:text-danger p-1 rounded hover:bg-danger/10 transition-colors"
-                        title="Remove Member"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+                      ) : (
+                        <span className="text-xs text-muted">Scoped access</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {departmentEditorMember && (
+      {canManageOrg && departmentEditorMember ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-surface shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
@@ -496,8 +540,7 @@ export function TeamTab({ currentRole }: { currentRole?: string | null }) {
             </div>
           </div>
         </div>
-      )}
-
+      ) : null}
     </div>
   );
 }

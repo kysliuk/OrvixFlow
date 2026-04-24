@@ -5,7 +5,7 @@ namespace OrvixFlow.Core.Entities;
 /// <summary>
 /// Tracks a pending user invitation to a company.
 /// On acceptance, the invited user's UserCompanyMembership and UserDepartmentMembership
-/// are created with the pre-assigned role and department.
+/// are created with the pre-assigned company and optional department roles.
 /// </summary>
 public class Invitation
 {
@@ -17,8 +17,11 @@ public class Invitation
     /// <summary>Company the user is being invited to.</summary>
     public Guid CompanyId { get; set; }
 
-    /// <summary>Canonical role assigned at invite time (e.g. "CompanyAdmin", "DepartmentManager").</summary>
+    /// <summary>Canonical company role assigned at invite time (e.g. "CompanyAdmin", "CompanyMember").</summary>
     public string AssignedRole { get; set; } = string.Empty;
+
+    /// <summary>Canonical department role assigned at invite time, if the invite is department-scoped.</summary>
+    public string? InvitedDepartmentRole { get; set; }
 
     /// <summary>Optional: department the user is pre-assigned to.</summary>
     public Guid? DepartmentId { get; set; }

@@ -563,7 +563,7 @@ public class AuthServiceTests : IDisposable
         {
             UserId = userId,
             CompanyId = activeCompanyId,
-            CompanyRole = "Operator",
+            CompanyRole = "CompanyMember",
             Status = "Active"
         });
         await _db.SaveChangesAsync();
@@ -574,7 +574,7 @@ public class AuthServiceTests : IDisposable
         result.Profile.Should().NotBeNull();
         result.Profile!.ActiveCompanyId.Should().Be(activeCompanyId);
         result.Profile.TenantId.Should().Be(activeCompanyId);
-        result.Profile.Role.Should().Be("Operator");
+        result.Profile.Role.Should().Be("CompanyMember");
 
         var updatedUser = await _db.Users.IgnoreQueryFilters().SingleAsync(u => u.Id == userId);
         updatedUser.ExternalId.Should().Be("new-google-id");
@@ -862,8 +862,9 @@ public class AuthServiceTests : IDisposable
             invitedByUserId,
             _tenantId,
             "invitee@example.com",
-            "Operator",
-            null));
+            "CompanyMember",
+            null,
+            "DepartmentOperator"));
 
         result.IsSuccess.Should().BeTrue();
         result.Token.Should().NotBeNullOrWhiteSpace();
@@ -882,6 +883,45 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AcceptInvitationAsync_Should_CreateCompanyMember_WithInvitedDepartmentRole()
+    {
+        var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
+        const string rawToken = "invite-creates-company-member-with-dept-role";
+        var departmentId = Guid.NewGuid();
+
+        _db.Departments.Add(new Department
+        {
+            Id = departmentId,
+            CompanyId = _tenantId,
+            Name = "Operations",
+            Code = "OPS"
+        });
+        _db.Invitations.Add(new Invitation
+        {
+            Email = "deptinvite@example.com",
+            CompanyId = _tenantId,
+            AssignedRole = "CompanyMember",
+            InvitedDepartmentRole = "DepartmentOperator",
+            DepartmentId = departmentId,
+            Token = ComputeTokenHash(rawToken),
+            Status = "Pending",
+            ExpiresAt = DateTime.UtcNow.AddDays(1),
+            InvitedByUserId = Guid.NewGuid()
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await authService.AcceptInvitationAsync(rawToken, "Dept Invitee", "ValidPassword123!");
+
+        result.IsSuccess.Should().BeTrue();
+        var invitedUser = await _db.Users.IgnoreQueryFilters().FirstAsync(u => u.Email == "deptinvite@example.com");
+        var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == invitedUser.Id && m.CompanyId == _tenantId);
+        membership.CompanyRole.Should().Be("CompanyMember");
+
+        var departmentMembership = await _db.UserDepartmentMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == invitedUser.Id && m.CompanyId == _tenantId && m.DepartmentId == departmentId);
+        departmentMembership.DepartmentRole.Should().Be("DepartmentOperator");
+    }
+
+    [Fact]
     public async Task AcceptInvitationAsync_Should_RequirePassword_For_NewLocalUser()
     {
         var authService = new AuthService(_db, _configMock.Object, _loggerMock.Object, _emailServiceMock.Object);
@@ -891,7 +931,7 @@ public class AuthServiceTests : IDisposable
         {
             Email = "newinvite@example.com",
             CompanyId = _tenantId,
-            AssignedRole = "Operator",
+            AssignedRole = "CompanyMember",
             Token = ComputeTokenHash(rawToken),
             Status = "Pending",
             ExpiresAt = DateTime.UtcNow.AddDays(1),
@@ -915,7 +955,7 @@ public class AuthServiceTests : IDisposable
         {
             Email = "verifiedinvite@example.com",
             CompanyId = _tenantId,
-            AssignedRole = "Operator",
+            AssignedRole = "CompanyMember",
             Token = ComputeTokenHash(rawToken),
             Status = "Pending",
             ExpiresAt = DateTime.UtcNow.AddDays(1),
@@ -983,7 +1023,7 @@ public class AuthServiceTests : IDisposable
         {
             UserId = userId,
             CompanyId = _tenantId,
-            CompanyRole = "Viewer",
+            CompanyRole = "CompanyMember",
             Status = "Inactive"
         });
         _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
@@ -998,7 +1038,8 @@ public class AuthServiceTests : IDisposable
         {
             Email = "returninginvite@example.com",
             CompanyId = _tenantId,
-            AssignedRole = "DepartmentManager",
+            AssignedRole = "CompanyMember",
+            InvitedDepartmentRole = "DepartmentManager",
             DepartmentId = departmentId,
             Token = ComputeTokenHash(rawToken),
             Status = "Pending",
@@ -1012,11 +1053,11 @@ public class AuthServiceTests : IDisposable
         result.IsSuccess.Should().BeTrue();
         var membership = await _db.UserCompanyMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == userId && m.CompanyId == _tenantId);
         membership.Status.Should().Be("Active");
-        membership.CompanyRole.Should().Be("DepartmentManager");
+        membership.CompanyRole.Should().Be("CompanyMember");
 
         var departmentMembership = await _db.UserDepartmentMemberships.IgnoreQueryFilters().FirstAsync(m => m.UserId == userId && m.CompanyId == _tenantId && m.DepartmentId == departmentId);
         departmentMembership.Status.Should().Be("Active");
-        departmentMembership.DepartmentRole.Should().Be("Manager");
+        departmentMembership.DepartmentRole.Should().Be("DepartmentManager");
     }
 
     private void AddActiveMembership(Guid userId, Guid companyId, string role)

@@ -414,10 +414,19 @@ public class AuthService : IAuthService
 
     public async Task<InviteResult> InviteUserAsync(InviteRequest request)
     {
-        // Validate role is canonical
         var role = UserRoleExtensions.ParseRole(request.AssignedRole);
         if (!role.IsCompanyScopedRole() || !UserRoleExtensions.CompanyRoleNames.Contains(request.AssignedRole))
             return new InviteResult(false, Error: $"Invalid role: {request.AssignedRole}");
+
+        string? invitedDepartmentRole = null;
+        if (!string.IsNullOrWhiteSpace(request.InvitedDepartmentRole))
+        {
+            var parsedDepartmentRole = UserRoleExtensions.ParseDeptRole(request.InvitedDepartmentRole);
+            if (!parsedDepartmentRole.IsDepartmentScopedRole() || !UserRoleExtensions.DepartmentRoleNames.Contains(parsedDepartmentRole.ToDepartmentRoleValue()))
+                return new InviteResult(false, Error: $"Invalid department role: {request.InvitedDepartmentRole}");
+
+            invitedDepartmentRole = parsedDepartmentRole.ToDepartmentRoleValue();
+        }
 
         // Revoke any existing pending invite for this email+company
         var existing = await _db.Invitations
@@ -437,6 +446,7 @@ public class AuthService : IAuthService
             CompanyId      = request.CompanyId,
             AssignedRole   = role.ToClaimValue(),
             DepartmentId   = request.DepartmentId,
+            InvitedDepartmentRole = invitedDepartmentRole,
             Token          = ComputeTokenHash(token),
             Status         = "Pending",
             InvitedByUserId = request.InvitedByUserId,
@@ -581,9 +591,9 @@ public class AuthService : IAuthService
             membership.InvitedByUserId = invitation.InvitedByUserId;
         }
 
-        // Apply department membership if specified
         if (invitation.DepartmentId.HasValue)
         {
+            var invitedDepartmentRole = UserRoleExtensions.ParseDeptRole(invitation.InvitedDepartmentRole).ToDepartmentRoleValue();
             var departmentMembership = await _db.UserDepartmentMemberships
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.UserId == user.Id
@@ -596,13 +606,13 @@ public class AuthService : IAuthService
                     UserId       = user.Id,
                     CompanyId    = invitation.CompanyId,
                     DepartmentId = invitation.DepartmentId.Value,
-                    DepartmentRole = invitedRole.ToDepartmentRoleValue(),
+                    DepartmentRole = invitedDepartmentRole,
                     Status       = "Active",
                 });
             }
             else
             {
-                departmentMembership.DepartmentRole = invitedRole.ToDepartmentRoleValue();
+                departmentMembership.DepartmentRole = invitedDepartmentRole;
                 departmentMembership.Status = "Active";
             }
         }

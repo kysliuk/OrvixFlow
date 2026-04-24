@@ -1,20 +1,46 @@
-const ORG_ADMIN_ROLES = new Set(["SuperAdmin", "InternalOperator", "CompanyOwner", "CompanyAdmin"])
+export type DepartmentScopedMembership = {
+  departmentId: string
+  role: string
+}
+
+const COMPANY_ADMIN_ROLES = new Set(["SuperAdmin", "InternalOperator", "CompanyOwner", "CompanyAdmin"])
+const DEPARTMENT_MANAGER_ROLE = "DepartmentManager"
+
 const MANAGEABLE_TARGET_ROLES = {
-  SuperAdmin: new Set(["CompanyOwner", "CompanyAdmin", "DepartmentManager", "Operator", "Viewer"]),
-  InternalOperator: new Set(["CompanyOwner", "CompanyAdmin", "DepartmentManager", "Operator", "Viewer"]),
-  CompanyOwner: new Set(["CompanyAdmin", "DepartmentManager", "Operator", "Viewer"]),
-  CompanyAdmin: new Set(["DepartmentManager", "Operator", "Viewer"]),
+  SuperAdmin: new Set(["CompanyOwner", "CompanyAdmin", "CompanyMember"]),
+  InternalOperator: new Set(["CompanyOwner", "CompanyAdmin", "CompanyMember"]),
+  CompanyOwner: new Set(["CompanyAdmin", "CompanyMember"]),
+  CompanyAdmin: new Set(["CompanyMember"]),
 } as const
 
 const ASSIGNABLE_COMPANY_ROLES = {
-  SuperAdmin: ["CompanyAdmin", "DepartmentManager", "Operator", "Viewer"],
-  InternalOperator: ["CompanyAdmin", "DepartmentManager", "Operator", "Viewer"],
-  CompanyOwner: ["CompanyAdmin", "DepartmentManager", "Operator", "Viewer"],
-  CompanyAdmin: ["CompanyAdmin", "DepartmentManager", "Operator", "Viewer"],
+  SuperAdmin: ["CompanyAdmin", "CompanyMember"],
+  InternalOperator: ["CompanyAdmin", "CompanyMember"],
+  CompanyOwner: ["CompanyAdmin", "CompanyMember"],
+  CompanyAdmin: ["CompanyAdmin", "CompanyMember"],
 } as const
 
 export function canManageOrganization(role?: string | null): boolean {
-  return !!role && ORG_ADMIN_ROLES.has(role)
+  return !!role && COMPANY_ADMIN_ROLES.has(role)
+}
+
+export function isCompanyMember(role?: string | null): boolean {
+  return role === "CompanyMember"
+}
+
+export function isDepartmentManager(role?: string | null): boolean {
+  return role === DEPARTMENT_MANAGER_ROLE
+}
+
+export function getManagedDepartmentIds(departments: DepartmentScopedMembership[] = []): string[] {
+  return departments.filter((department) => isDepartmentManager(department.role)).map((department) => department.departmentId)
+}
+
+export function canAccessDepartmentScopedOrganizationSettings(
+  role?: string | null,
+  departments: DepartmentScopedMembership[] = []
+): boolean {
+  return canManageOrganization(role) || getManagedDepartmentIds(departments).length > 0
 }
 
 export function getAssignableCompanyRoles(role?: string | null): string[] {

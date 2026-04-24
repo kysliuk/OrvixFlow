@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useSession } from "next-auth/react";
@@ -10,7 +10,7 @@ import { TeamTab } from "@/components/settings/TeamTab";
 import { DepartmentsTab } from "@/components/settings/DepartmentsTab";
 import { AuditLogTab } from "@/components/settings/AuditLogTab";
 import { getOrganizationDataTransitionState, getOrganizationOverviewState } from "@/lib/dashboard-access";
-import { canManageOrganization } from "@/lib/org-permissions";
+import { canAccessDepartmentScopedOrganizationSettings, canManageOrganization } from "@/lib/org-permissions";
 
 type OrgStatus = {
   hasOrganization: boolean;
@@ -127,6 +127,7 @@ export default function OrganizationPage() {
 
   const hasOrg = orgStatus?.hasOrganization === true;
   const canManageOrg = canManageOrganization(orgStatus?.role);
+  const canAccessDepartmentScopedSettings = canAccessDepartmentScopedOrganizationSettings(orgStatus?.role, departments);
   const organizationOverviewState = getOrganizationOverviewState({
     hasOrganization: hasOrg,
     isLoading: orgLoading,
@@ -134,13 +135,27 @@ export default function OrganizationPage() {
   });
 
   useEffect(() => {
-    if (!orgLoading && (!hasOrg || !canManageOrg)) {
+    if (orgLoading) {
+      return;
+    }
+
+    if (!hasOrg) {
       const currentSection = orgSections.find((section) => section.id === activeSection);
       if (currentSection?.gated) {
         setActiveSection("general");
       }
+      return;
     }
-  }, [activeSection, canManageOrg, hasOrg, orgLoading]);
+
+    if ((activeSection === "departments" || activeSection === "team") && !canAccessDepartmentScopedSettings) {
+      setActiveSection("general");
+      return;
+    }
+
+    if (activeSection === "security" && !canManageOrg) {
+      setActiveSection("general");
+    }
+  }, [activeSection, canAccessDepartmentScopedSettings, canManageOrg, hasOrg, orgLoading]);
 
   const handleSwitchCompany = async (companyId: string) => {
     if (!apiToken) {
@@ -285,7 +300,9 @@ export default function OrganizationPage() {
         <p className="max-w-md text-sm text-muted">
           {!hasOrg
             ? `You must belong to an organization before you can manage ${sectionLabel.toLowerCase()}.`
-            : `Company Admin or Company Owner access is required to manage ${sectionLabel.toLowerCase()}.`}
+            : activeSection === "security"
+              ? `Company Admin or Company Owner access is required to manage ${sectionLabel.toLowerCase()}.`
+              : `Company Admin, Company Owner, or Department Manager access is required to manage ${sectionLabel.toLowerCase()}.`}
         </p>
       </div>
       <button
@@ -310,7 +327,9 @@ export default function OrganizationPage() {
         <div className="mb-6 flex flex-wrap gap-2 border-b border-white/10 pb-4">
           {orgSections.map((section) => {
             const Icon = section.icon;
-            const isLocked = section.gated && (!hasOrg || !canManageOrg);
+            const isLocked = section.id === "security"
+              ? section.gated && (!hasOrg || !canManageOrg)
+              : section.gated && (!hasOrg || !canAccessDepartmentScopedSettings);
             const isActive = activeSection === section.id;
 
             return (
@@ -320,7 +339,7 @@ export default function OrganizationPage() {
                   if (!isLocked) setActiveSection(section.id);
                 }}
                 disabled={isLocked}
-                title={isLocked ? (!hasOrg ? "Create an organisation to unlock this section" : "Company Admin access is required for this section") : undefined}
+                title={isLocked ? (!hasOrg ? "Create an organisation to unlock this section" : section.id === "security" ? "Company Admin access is required for this section" : "Company Admin or Department Manager access is required for this section") : undefined}
                 className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all ${
                   isLocked
                     ? "cursor-not-allowed border-white/5 text-white/25"
@@ -511,10 +530,10 @@ export default function OrganizationPage() {
         )}
 
         {activeSection === "departments" && (
-          !hasOrg ? <LockedBanner sectionLabel="Departments" /> : canManageOrg ? <DepartmentsTab currentRole={orgStatus?.role} /> : <LockedBanner sectionLabel="Departments" />
+          !hasOrg ? <LockedBanner sectionLabel="Departments" /> : canAccessDepartmentScopedSettings ? <DepartmentsTab currentRole={orgStatus?.role} /> : <LockedBanner sectionLabel="Departments" />
         )}
         {activeSection === "team" && (
-          !hasOrg ? <LockedBanner sectionLabel="Team & Roles" /> : canManageOrg ? <TeamTab currentRole={orgStatus?.role} /> : <LockedBanner sectionLabel="Team & Roles" />
+          !hasOrg ? <LockedBanner sectionLabel="Team & Roles" /> : canAccessDepartmentScopedSettings ? <TeamTab currentRole={orgStatus?.role} /> : <LockedBanner sectionLabel="Team & Roles" />
         )}
         {activeSection === "security" && (
           !hasOrg ? <LockedBanner sectionLabel="Security" /> : canManageOrg ? <AuditLogTab /> : <LockedBanner sectionLabel="Security" />

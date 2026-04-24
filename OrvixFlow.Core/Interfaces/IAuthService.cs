@@ -42,7 +42,8 @@ public record InviteRequest(
     Guid CompanyId,
     string Email,
     string AssignedRole,
-    Guid? DepartmentId = null
+    Guid? DepartmentId = null,
+    string? InvitedDepartmentRole = null
 );
 
 public record InviteResult(bool IsSuccess, string? Token = null, string? Error = null, Guid? InvitationId = null);

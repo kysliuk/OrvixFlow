@@ -70,10 +70,10 @@ public class GlobalRoleTests : IDisposable
     }
 
     [Fact]
-    public async Task ParseRole_Member_ReturnsOperator()
+    public async Task ParseRole_Member_ReturnsCompanyMember()
     {
         var role = UserRoleExtensions.ParseRole("Member");
-        role.Should().Be(UserRole.Operator);
+        role.Should().Be(UserRole.CompanyMember);
     }
 
     [Fact]

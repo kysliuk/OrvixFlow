@@ -88,25 +88,34 @@ Stored in `User.Role`. Only populated for platform staff. **Never set `User.Role
 |-------|---------|
 | `CompanyOwner` | Full control within their company |
 | `CompanyAdmin` | Delegated company management |
-| `DepartmentManager` | Within assigned departments |
-| `Operator` | Works within assigned modules |
-| `Viewer` | Read-only within assigned modules |
+| `CompanyMember` | Belongs to the company but relies on department memberships for scoped access |
 
-Stored in `UserCompanyMembership.CompanyRole`. One row per user-company pair.
+Stored in `UserCompanyMembership.CompanyRole`. One row per user-company pair. Legacy values `DepartmentManager`, `Operator`, and `Viewer` are migration-era aliases only during the RBAC redesign rollout and must not be reintroduced in new logic.
+
+**Layer 3 — Department (org-subscope) — `UserDepartmentMembership.DepartmentRole`**
+
+| Value | Meaning |
+|-------|---------|
+| `DepartmentManager` | Can manage invites, assignments, and department-scoped data in that department |
+| `DepartmentOperator` | Can work within that department's modules/data without management authority |
+
+Stored per `UserDepartmentMembership` row. The same user may be `DepartmentManager` in one department and `DepartmentOperator` in another.
 
 **JWT `Role` claim** — resolved in `MintJwtAsync`:
 - If `User.Role` is a platform admin role → JWT `Role` = global role.
-- Otherwise → JWT `Role` = `UserCompanyMembership.CompanyRole`.
+- Otherwise → JWT `Role` = `UserCompanyMembership.CompanyRole` (`CompanyOwner`, `CompanyAdmin`, or `CompanyMember`).
+- Department role is **never** trusted from JWT; it must be resolved from `UserDepartmentMembership`.
 
 **Key files:**
-- `OrvixFlow.Core/Authorization/Roles.cs` — canonical enum + extension methods (`IsHigherThan`, `IsPlatformAdmin`, `IsCompanyAdmin`, `ParseRole`).
-- `OrvixFlow.Infrastructure/Auth/AccessResolver.cs` — reads `UserCompanyMembership.CompanyRole` for permission resolution.
-- `OrvixFlow.Infrastructure/Auth/ScopeContext.cs` — reads JWT `Role` claim.
+- `OrvixFlow.Core/Authorization/Roles.cs` — canonical enum + extension methods (`IsHigherThan`, `IsPlatformAdmin`, `IsCompanyAdmin`, `ParseRole`, department-role helpers).
+- `OrvixFlow.Infrastructure/Auth/AccessResolver.cs` — uses active department memberships for fallback permission resolution.
+- `OrvixFlow.Infrastructure/Auth/ScopeContext.cs` — uses JWT role only for company-wide vs scoped decisions.
+- `OrvixFlow.Api/Controllers/InviteController.cs` and `OrvixFlow.Api/Controllers/TeamController.cs` — enforce department-manager authority via DB membership checks.
 
 ### Permission Resolution
 
 1. `RequireModuleAttribute` — checks company plan entitlement (`CanUseModuleAsync`) **AND** user-level `CanUse` permission via `AccessResolver.GetEffectivePermissionsAsync()` (F-07 fixed). `CompanyAdmin` and above bypass user-level check.
-2. `AccessResolver.GetEffectivePermissionsAsync()` — resolves Company → Department → User scope chain.
+2. `AccessResolver.GetEffectivePermissionsAsync()` — resolves Company → Department → User scope chain and uses active department memberships for `CompanyMember` fallback access.
 3. `ModulePermissionGrant` — specific permissions: `CanView`, `CanUse`, `CanTest`, `CanConfigure`, `CanManageIntegrations`, `CanManagePrompts`, `CanViewLogs`, `IsAdmin`.
 
 ### Admin Panel Authorization
@@ -119,8 +128,8 @@ Stored in `UserCompanyMembership.CompanyRole`. One row per user-company pair.
 ### Critical Rules
 
 - Never compare `User.Role` against company role strings (e.g., `CompanyOwner`).
-- `AccessResolver` reads from `UserCompanyMembership.CompanyRole` — this is correct.
-- `ScopeContext` reads the JWT `Role` claim — this works because platform admin roles pass `IsCompanyAdminOrAbove()`.
+- `AccessResolver` must not fall back to legacy company-role checks for `Operator`/`Viewer`; it should use active department memberships for scoped access.
+- `ScopeContext` may use the JWT `Role` claim only to distinguish company-wide access (`CompanyOwner`/`CompanyAdmin`) from department-scoped `CompanyMember` access.
 - When adding a role: add to **both** `Core/Authorization/Roles.cs` (enum/extensions) **and** `Api/Roles.cs` (impersonation gating) if applicable.
 
 ---
