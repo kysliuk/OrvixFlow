@@ -49,6 +49,7 @@ Current endpoints expected to follow that contract:
 - No-org backend sessions currently emit a safe fallback `Plan` of `Free` and an empty non-platform `Role` claim so company-scoped access checks fail closed.
 - Existing OAuth-user sign-in now uses the same resolved session path as local login/refresh: archived default `TenantId` values are ignored in favor of an active non-archived membership, and archived-only users receive a no-org session.
 - Frontend refresh must send `activeCompanyId` so switched-company context survives refresh.
+- `orvixflow-web/auth.ts` now treats `tenantId` and `activeCompanyId` as nullable session fields and clears both when no active company exists; it must never derive `activeCompanyId` from `tenantId`.
 - `OrganizationController.GetOrgStatus()` must reflect the JWT `ActiveCompanyId` first, not an arbitrary first membership.
 
 ## Registration And Verification

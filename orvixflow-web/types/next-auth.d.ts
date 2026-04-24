@@ -7,8 +7,8 @@ declare module "next-auth" {
   interface Session {
     apiToken: string
     user: {
-      tenantId: string
-      activeCompanyId: string
+      tenantId: string | null
+      activeCompanyId: string | null
       plan: string
       role: string
       companies?: { companyId: string; companyName: string; role: string }[]
@@ -17,8 +17,8 @@ declare module "next-auth" {
 
   interface User {
     apiToken?: string
-    tenantId?: string
-    activeCompanyId?: string
+    tenantId?: string | null
+    activeCompanyId?: string | null
     plan?: string
     role?: string
     companies?: { companyId: string; companyName: string; role: string }[]

@@ -22,6 +22,43 @@ function parseJwtExp(token: string): number | null {
   }
 }
 
+function normalizeCompanyScope(tenantId: string | null | undefined, activeCompanyId: string | null | undefined) {
+  if (activeCompanyId == null) {
+    return {
+      tenantId: null,
+      activeCompanyId: null,
+    };
+  }
+
+  return {
+    tenantId: tenantId ?? null,
+    activeCompanyId,
+  };
+}
+
+function applyProfileToToken(token: any, profile: any) {
+  const companyScope = normalizeCompanyScope(profile?.tenantId, profile?.activeCompanyId);
+
+  token.name = profile?.displayName ?? token.name;
+  token.tenantId = companyScope.tenantId;
+  token.activeCompanyId = companyScope.activeCompanyId;
+  token.plan = profile?.plan;
+  token.role = profile?.role;
+  token.globalRole = profile?.globalRole;
+  token.companies = profile?.companies ?? [];
+}
+
+function clearAuthState(token: any) {
+  token.apiToken = "";
+  token.refreshToken = "";
+  token.tenantId = undefined;
+  token.activeCompanyId = undefined;
+  token.plan = undefined;
+  token.role = undefined;
+  token.globalRole = undefined;
+  token.companies = [];
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   providers: [
@@ -159,13 +196,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (session.token) token.apiToken = session.token;
         if ((session as any).refreshToken) token.refreshToken = (session as any).refreshToken;
         if (session.profile) {
-          token.name = session.profile.displayName;
-          token.tenantId = session.profile.tenantId;
-          token.activeCompanyId = session.profile.activeCompanyId;
-          token.plan = session.profile.plan;
-          token.role = session.profile.role;
-          (token as any).globalRole = session.profile.globalRole;
-          token.companies = session.profile.companies ?? [];
+          applyProfileToToken(token, session.profile);
         }
         return token;
       }
@@ -178,23 +209,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.apiToken = data.token;
             token.refreshToken = data.refreshToken;
             token.sub = data.profile.userId;
-            token.tenantId = data.profile.tenantId;
-            token.activeCompanyId = data.profile.activeCompanyId;
-            token.plan = data.profile.plan;
-            token.role = data.profile.role;
-            (token as any).globalRole = data.profile.globalRole;
-            token.companies = data.profile.companies ?? [];
+            applyProfileToToken(token, data.profile);
           }
         } else if (account.type === "credentials") {
           // Local login already has the token bundled inside `user`
           token.apiToken = (user as any).apiToken;
           token.refreshToken = (user as any).refreshToken;
-          token.tenantId = (user as any).tenantId;
-          token.activeCompanyId = (user as any).activeCompanyId;
-          token.plan = (user as any).plan;
-          token.role = (user as any).role;
-          (token as any).globalRole = (user as any).globalRole;
-          token.companies = (user as any).companies ?? [];
+          applyProfileToToken(token, {
+            displayName: user.name,
+            tenantId: (user as any).tenantId,
+            activeCompanyId: (user as any).activeCompanyId,
+            plan: (user as any).plan,
+            role: (user as any).role,
+            globalRole: (user as any).globalRole,
+            companies: (user as any).companies,
+          });
         }
       }
 
@@ -220,24 +249,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 const data = await refreshRes.json();
                 token.apiToken = data.token;
                 token.refreshToken = data.refreshToken;
-                token.tenantId = data.profile?.tenantId ?? token.tenantId;
-                token.activeCompanyId = data.profile?.activeCompanyId ?? token.activeCompanyId;
-                token.plan = data.profile?.plan ?? token.plan;
-                token.role = data.profile?.role ?? token.role;
-                (token as any).globalRole = data.profile?.globalRole ?? (token as any).globalRole;
-                token.companies = data.profile?.companies ?? token.companies;
+                if (data.profile) {
+                  applyProfileToToken(token, data.profile);
+                }
               } else {
                 console.warn(`Failed to refresh token. API returned: ${refreshRes.status}`);
                 // Invalidate API token to force re-auth on the next protected request.
-                token.apiToken = "";
-                token.refreshToken = "";
-                token.activeCompanyId = undefined;
+                clearAuthState(token);
               }
             } catch (e) {
               console.error("Refresh token fetch failed", e);
-              token.apiToken = "";
-              token.refreshToken = "";
-              token.activeCompanyId = undefined;
+              clearAuthState(token);
             }
           }
         }
@@ -247,12 +269,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
+        const companyScope = normalizeCompanyScope(token.tenantId as string | null | undefined, token.activeCompanyId as string | null | undefined);
+
         session.user.id = token.sub!;
         session.user.name = token.name as string;
-        // Pass the API Token and Tenant data into the active session
+        // Pass the API Token and company scope into the active session
         session.apiToken = token.apiToken as string;
-        session.user.tenantId = token.tenantId as string;
-        session.user.activeCompanyId = (token.activeCompanyId as string) || (token.tenantId as string);
+        session.user.tenantId = companyScope.tenantId;
+        session.user.activeCompanyId = companyScope.activeCompanyId;
         session.user.plan = token.plan as string;
         session.user.role = token.role as string;
         (session.user as any).globalRole = (token as any).globalRole as string;
