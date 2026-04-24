@@ -3,7 +3,10 @@
 
 import { useSession } from "next-auth/react";
 import { CheckCircle2, Zap, Rocket, Building2, Users, FileText, HardDrive, Activity } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+
+import { getNoOrgState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 type BillingData = {
   plan: {
@@ -39,10 +42,17 @@ export default function SettingsBillingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const apiToken = (session as any)?.apiToken;
+  const activeCompanyId = session?.user?.activeCompanyId ?? null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const noOrgState = getNoOrgState("settings-billing");
 
   useEffect(() => {
-    if (!apiToken) return;
+    if (!shouldFetchCompanyScopedData(apiToken, activeCompanyId)) {
+      setBillingData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
@@ -61,7 +71,7 @@ export default function SettingsBillingPage() {
         setError(err.message);
         setLoading(false);
       });
-  }, [apiToken]);
+  }, [activeCompanyId, apiToken]);
 
   const planName = billingData?.plan?.name || "Free";
   const status = billingData?.status || "Active";
@@ -96,6 +106,27 @@ export default function SettingsBillingPage() {
       <div className="flex flex-col gap-6 max-w-4xl animate-in fade-in duration-300">
         <div className="h-8 w-48 bg-surface animate-pulse rounded" />
         <div className="h-64 bg-surface animate-pulse rounded-2xl border border-white/5" />
+      </div>
+    );
+  }
+
+  if (!activeCompanyId) {
+    return (
+      <div className="flex flex-col gap-6 max-w-4xl">
+        <div>
+          <h1 className="text-2xl font-semibold mb-1">Plan & Billing</h1>
+          <p className="text-sm text-muted">Manage your organization&apos;s subscription and usage.</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-surface p-6">
+          <h2 className="text-lg font-semibold text-white mb-2">{noOrgState.title}</h2>
+          <p className="text-sm text-muted mb-5">{noOrgState.description}</p>
+          <Link
+            href={noOrgState.ctaHref}
+            className="inline-flex items-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary/90"
+          >
+            {noOrgState.ctaLabel}
+          </Link>
+        </div>
       </div>
     );
   }

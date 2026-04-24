@@ -135,6 +135,7 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 
 | Feature | Controller | Service | Entity |
 |---------|-----------|---------|--------|
+| Frontend No-Org Dashboard Guards | Frontend Dashboard | `dashboard-access.ts` | Session state only |
 | Modules | ModulesController | AccessResolver | ModuleDefinition, ModuleAssignment |
 | Departments | TeamController | - | Department |
 | Team Members | TeamController | - | UserCompanyMembership, UserDepartmentMembership |

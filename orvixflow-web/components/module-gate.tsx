@@ -5,6 +5,8 @@ import { Lock } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { getModuleGateState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
+
 interface ModuleGateProps {
   moduleKey: string;
   children: React.ReactNode;
@@ -33,62 +35,94 @@ const MODULE_LIMIT_TYPES: Record<string, string> = {
 
 export function ModuleGate({ moduleKey, children, fallbackMessage, requiredLimits }: ModuleGateProps) {
   const { data: session, status } = useSession();
-  const [permissions, setPermissions] = useState<PermissionData | null>(null);
-  const [limitStatus, setLimitStatus] = useState<LimitData | null>(null);
+  const [permissionsState, setPermissionsState] = useState<{ key: string; value: PermissionData } | null>(null);
+  const [limitStatusState, setLimitStatusState] = useState<{ key: string; value: LimitData } | null>(null);
   const limitTypes = requiredLimits || [{ type: MODULE_LIMIT_TYPES[moduleKey] || "ai-tokens" }];
   const activeLimit = limitTypes.find((limit) => limit.type);
+  const apiToken = session?.apiToken;
+  const activeCompanyId = session?.user?.activeCompanyId ?? null;
+  const canFetchCompanyScopedData = shouldFetchCompanyScopedData(apiToken, activeCompanyId);
+  const permissionKey = `${activeCompanyId ?? "no-org"}:${moduleKey}`;
+  const limitKey = `${permissionKey}:${activeLimit?.type ?? "no-limit"}:${activeLimit?.amount ?? 1}`;
+  const permissions = permissionsState?.key === permissionKey ? permissionsState.value : null;
+  const limitStatus = limitStatusState?.key === limitKey ? limitStatusState.value : null;
 
   useEffect(() => {
-    if (!session?.apiToken) return;
+    if (!canFetchCompanyScopedData) {
+      return;
+    }
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/modules/${moduleKey}/permissions`, {
-      headers: { Authorization: `Bearer ${session.apiToken}` },
+      headers: { Authorization: `Bearer ${apiToken}` },
     })
       .then(async (res) => {
         if (res.status === 404) {
-          setPermissions({ canView: false, canUse: false });
-          return null;
+          return { canView: false, canUse: false } satisfies PermissionData;
         }
         if (!res.ok) throw new Error("Failed permissions fetch");
-        return res.json();
+        const data = await res.json();
+        return { canView: !!data.canView, canUse: !!data.canUse } satisfies PermissionData;
       })
       .then((data) => {
-        if (data) {
-          setPermissions({ canView: !!data.canView, canUse: !!data.canUse });
-        }
+        setPermissionsState({ key: permissionKey, value: data });
       })
-      .catch(() => setPermissions({ canView: false, canUse: false }));
-  }, [moduleKey, session?.apiToken]);
+      .catch(() => setPermissionsState({ key: permissionKey, value: { canView: false, canUse: false } }));
+  }, [apiToken, canFetchCompanyScopedData, moduleKey, permissionKey]);
 
   useEffect(() => {
-    if (!session?.apiToken || !permissions?.canView) return;
-
-    if (!activeLimit) return;
+    if (!canFetchCompanyScopedData || !permissions?.canView || !activeLimit) {
+      return;
+    }
 
     fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/billing/limits/${activeLimit.type}?amount=${activeLimit.amount || 1}`,
-      { headers: { Authorization: `Bearer ${session.apiToken}` } }
+      { headers: { Authorization: `Bearer ${apiToken}` } }
     )
       .then(async (res) => {
         if (res.status === 402) {
           const data = await res.json();
-          setLimitStatus({ allowed: false, ...data });
-          return;
+          return { allowed: false, ...data } satisfies LimitData;
         }
         if (!res.ok) throw new Error("Failed limit check");
-        return res.json();
+        return (await res.json()) as LimitData;
       })
       .then((data) => {
-        if (data) setLimitStatus(data);
+        setLimitStatusState({ key: limitKey, value: data });
       })
-      .catch(() => setLimitStatus({ allowed: true }));
-  }, [activeLimit, moduleKey, session?.apiToken, permissions?.canView]);
+      .catch(() => setLimitStatusState({ key: limitKey, value: { allowed: true } }));
+  }, [activeLimit, apiToken, canFetchCompanyScopedData, limitKey, permissions?.canView]);
 
-  if (status === "loading" || permissions == null) return null;
+  const gateState = getModuleGateState({
+    status,
+    activeCompanyId,
+    permissions,
+    limitStatus,
+    hasActiveLimit: !!activeLimit,
+  });
 
-  if (!permissions.canView) return null;
+  if (gateState.kind === "loading") return null;
 
-  if (activeLimit && limitStatus !== null && !limitStatus.allowed) {
+  if (gateState.kind === "no-org") {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] bg-surface/50 border-2 border-dashed border-white/10 rounded-2xl">
+        <div className="w-16 h-16 rounded-full bg-surface-hover flex items-center justify-center mb-6">
+          <Lock className="w-8 h-8 text-primary" />
+        </div>
+        <h2 className="text-2xl font-semibold mb-2 text-white">{gateState.title}</h2>
+        <p className="text-muted max-w-md mx-auto mb-8">{gateState.description}</p>
+        <Link
+          href={gateState.ctaHref}
+          className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg shadow-[0_4px_12px_var(--accent-glow)] transition-all active:scale-[0.98]"
+        >
+          {gateState.ctaLabel}
+        </Link>
+      </div>
+    );
+  }
+
+  if (gateState.kind === "hidden") return null;
+
+  if (gateState.kind === "limit-exceeded") {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] bg-surface/50 border-2 border-dashed border-danger/30 rounded-2xl">
         <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center mb-6">
@@ -96,13 +130,13 @@ export function ModuleGate({ moduleKey, children, fallbackMessage, requiredLimit
         </div>
         <h2 className="text-2xl font-semibold mb-2 text-white">Limit Exceeded</h2>
         <p className="text-muted max-w-md mx-auto mb-2">
-          You&apos;ve reached your {limitStatus.exceededLimit} limit.
+          You&apos;ve reached your {gateState.exceededLimit} limit.
         </p>
         <p className="text-sm text-muted mb-6">
-          {limitStatus.currentUsage} / {limitStatus.limit} used
+          {gateState.currentUsage} / {gateState.limit} used
         </p>
-        <Link 
-          href={limitStatus.upgradeUrl || "/billing"} 
+        <Link
+          href={gateState.upgradeUrl || "/billing"}
           className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg shadow-[0_4px_12px_var(--accent-glow)] transition-all active:scale-[0.98]"
         >
           Upgrade to Continue
@@ -111,7 +145,7 @@ export function ModuleGate({ moduleKey, children, fallbackMessage, requiredLimit
     );
   }
 
-  if (permissions.canUse) return <>{children}</>;
+  if (gateState.kind === "allowed") return <>{children}</>;
 
   return (
     <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] bg-surface/50 border-2 border-dashed border-white/10 rounded-2xl">
@@ -122,8 +156,8 @@ export function ModuleGate({ moduleKey, children, fallbackMessage, requiredLimit
       <p className="text-muted max-w-md mx-auto mb-8">
         {fallbackMessage || "Your role can view this module but cannot execute actions inside it."}
       </p>
-      <Link 
-        href="/billing" 
+      <Link
+        href="/billing"
         className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg shadow-[0_4px_12px_var(--accent-glow)] transition-all active:scale-[0.98]"
       >
         View Billing & Access

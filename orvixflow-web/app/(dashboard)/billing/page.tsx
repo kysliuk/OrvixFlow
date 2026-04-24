@@ -3,7 +3,10 @@
 
 import { useSession } from "next-auth/react";
 import { CheckCircle2, Zap, Rocket, Building2, AlertTriangle, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+
+import { getBillingPageState, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 type Plan = {
   id: string;
@@ -60,10 +63,15 @@ export default function BillingPage() {
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   const apiToken = (session as any)?.apiToken;
+  const activeCompanyId = session?.user?.activeCompanyId ?? null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const billingPageState = getBillingPageState(activeCompanyId);
 
   const fetchData = async () => {
-    if (!apiToken) {
+    if (!shouldFetchCompanyScopedData(apiToken, activeCompanyId)) {
+      setSubscription(null);
+      setPlans([]);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -96,7 +104,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     fetchData();
-  }, [apiToken]);
+  }, [activeCompanyId, apiToken]);
 
   const handleUpgradeClick = (plan: Plan) => {
     setSelectedPlan(plan);
@@ -203,6 +211,28 @@ export default function BillingPage() {
   const renewalStr = subscription?.currentPeriodEnd 
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString() 
     : "N/A";
+
+  if (billingPageState.kind === "no-org") {
+    return (
+      <div className="flex flex-col gap-6 max-w-3xl animate-in fade-in duration-300">
+        <div>
+          <h1 className="text-3xl font-semibold mb-3 tracking-tight">Manage Subscription</h1>
+          <p className="text-muted">Billing is managed per organization, so account-level access stays available while company billing stays safely locked.</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-surface p-8 text-center">
+          <h2 className="text-2xl font-semibold text-white mb-3">{billingPageState.title}</h2>
+          <p className="text-muted max-w-xl mx-auto mb-6">{billingPageState.description}</p>
+          <Link
+            href={billingPageState.ctaHref}
+            className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-medium text-white transition-all hover:bg-primary/90"
+          >
+            {billingPageState.ctaLabel}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8 max-w-6xl animate-in fade-in duration-300">

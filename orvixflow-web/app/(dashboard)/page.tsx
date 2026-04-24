@@ -4,10 +4,14 @@ import { useSession } from "next-auth/react";
 import { Activity, ShieldCheck, Zap, ArrowRight, MousePointerClick, Cpu } from "lucide-react";
 import Link from "next/link";
 
+import { getNoOrgState, hasActiveCompanyScope } from "@/lib/dashboard-access";
+
 export default function Dashboard() {
   const { data: session } = useSession();
 
   const isPro = session?.user?.plan === "Starter" || session?.user?.plan === "Pro" || session?.user?.plan === "Enterprise";
+  const hasCompanyScope = hasActiveCompanyScope(session?.user?.activeCompanyId);
+  const noOrgState = getNoOrgState("dashboard");
 
   return (
     <div className="flex flex-col gap-8 max-w-7xl">
@@ -93,25 +97,41 @@ export default function Dashboard() {
           </h2>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-            <Link 
-              href="/inbox" 
-              className="flex flex-col p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-primary/10 hover:border-primary/50 transition-all group"
-            >
-              <h3 className="font-semibold text-white group-hover:text-primary transition-colors flex items-center gap-2 mb-2">
-                Launch Inbox Guardian <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </h3>
-              <p className="text-sm text-muted">Monitor real-time email triage, automated replies, and human escalations from the AI engine.</p>
-            </Link>
+            {hasCompanyScope ? (
+              <>
+                <Link 
+                  href="/inbox" 
+                  className="flex flex-col p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-primary/10 hover:border-primary/50 transition-all group"
+                >
+                  <h3 className="font-semibold text-white group-hover:text-primary transition-colors flex items-center gap-2 mb-2">
+                    Launch Inbox Guardian <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </h3>
+                  <p className="text-sm text-muted">Monitor real-time email triage, automated replies, and human escalations from the AI engine.</p>
+                </Link>
 
-            <Link 
-              href="/knowledge" 
-              className="flex flex-col p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-primary/10 hover:border-primary/50 transition-all group"
-            >
-              <h3 className="font-semibold text-white group-hover:text-primary transition-colors flex items-center gap-2 mb-2">
-                Update Knowledge Base <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </h3>
-              <p className="text-sm text-muted">Upload new policies and facts to improve agent accuracy and autonomy rates.</p>
-            </Link>
+                <Link 
+                  href="/knowledge" 
+                  className="flex flex-col p-6 rounded-xl border border-white/10 bg-white/5 hover:bg-primary/10 hover:border-primary/50 transition-all group"
+                >
+                  <h3 className="font-semibold text-white group-hover:text-primary transition-colors flex items-center gap-2 mb-2">
+                    Update Knowledge Base <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </h3>
+                  <p className="text-sm text-muted">Upload new policies and facts to improve agent accuracy and autonomy rates.</p>
+                </Link>
+              </>
+            ) : (
+              <div className="sm:col-span-2 rounded-xl border border-white/10 bg-white/5 p-6">
+                <h3 className="font-semibold text-white mb-2">{noOrgState.title}</h3>
+                <p className="text-sm text-muted mb-4">{noOrgState.description}</p>
+                <Link
+                  href={noOrgState.ctaHref}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary/90"
+                >
+                  {noOrgState.ctaLabel}
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 

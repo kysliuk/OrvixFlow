@@ -202,6 +202,7 @@
 | Login Page | `orvixflow-web/app/login/page.tsx` |
 | Register Page | `orvixflow-web/app/register/page.tsx` |
 | Dashboard Layout | `orvixflow-web/app/(dashboard)/layout.tsx` |
+| Dashboard Access Helpers | `orvixflow-web/lib/dashboard-access.ts` |
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
 | Settings Tabs | `orvixflow-web/components/settings/*.tsx` |
 | Settings Billing | `orvixflow-web/app/(dashboard)/settings/billing/page.tsx` |

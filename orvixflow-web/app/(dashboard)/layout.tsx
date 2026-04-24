@@ -15,13 +15,16 @@ import {
   LogOut,
   TerminalSquare,
   Search,
-  ChevronDown,
   Bell
 } from "lucide-react";
+
+import { hasActiveCompanyScope, shouldFetchCompanyScopedData } from "@/lib/dashboard-access";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const activeCompanyId = session?.user?.activeCompanyId ?? null;
+  const hasCompanyScope = hasActiveCompanyScope(activeCompanyId);
 
   const [visibleModules, setVisibleModules] = useState<string[]>([]);
   const [modulesLoaded, setModulesLoaded] = useState(false);
@@ -29,12 +32,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!session) {
+      setVisibleModules([]);
       setModulesLoaded(true);
       return;
     }
 
     const token = (session as any)?.apiToken;
-    if (!token) {
+    if (!shouldFetchCompanyScopedData(token, activeCompanyId)) {
+      setVisibleModules([]);
       setModulesLoaded(true);
       return;
     }
@@ -56,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setModulesLoaded(true);
       })
       .finally(() => clearTimeout(timeoutId));
-  }, [session]);
+  }, [activeCompanyId, session]);
 
   const allLinks = [
     { name: "Dashboard", href: "/", icon: Home, moduleKey: null },

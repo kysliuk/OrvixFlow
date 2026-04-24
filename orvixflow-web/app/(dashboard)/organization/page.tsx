@@ -9,6 +9,7 @@ import { AlertTriangle, Building, Lock, Network, Shield, Trash2, Users } from "l
 import { TeamTab } from "@/components/settings/TeamTab";
 import { DepartmentsTab } from "@/components/settings/DepartmentsTab";
 import { AuditLogTab } from "@/components/settings/AuditLogTab";
+import { getOrganizationOverviewState } from "@/lib/dashboard-access";
 import { canManageOrganization } from "@/lib/org-permissions";
 
 type OrgStatus = {
@@ -119,6 +120,11 @@ export default function OrganizationPage() {
 
   const hasOrg = orgStatus?.hasOrganization === true;
   const canManageOrg = canManageOrganization(orgStatus?.role);
+  const organizationOverviewState = getOrganizationOverviewState({
+    hasOrganization: hasOrg,
+    isLoading: orgLoading,
+    companyCount: companies.length,
+  });
 
   useEffect(() => {
     if (!orgLoading && (!hasOrg || !canManageOrg)) {
@@ -325,7 +331,7 @@ export default function OrganizationPage() {
 
         {activeSection === "general" && (
           <div className="space-y-8">
-            {!hasOrg && !orgLoading && (
+            {organizationOverviewState.showNoOrgBanner && (
               <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
@@ -341,7 +347,7 @@ export default function OrganizationPage() {
                   <h2 className="text-lg font-semibold text-white">Your Companies</h2>
                   <p className="text-sm text-muted">Switch active company context and review your current organization memberships.</p>
                 </div>
-                {companies.length === 0 ? (
+                {organizationOverviewState.showCreateOrganizationCta ? (
                   <button
                     onClick={() => setShowCreateOrgModal(true)}
                     className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
@@ -351,7 +357,7 @@ export default function OrganizationPage() {
                 ) : null}
               </div>
 
-              {companies.length === 0 ? (
+              {organizationOverviewState.showCreateOrganizationCta ? (
                 <div className="rounded-xl border border-white/5 bg-background p-8 text-center">
                   <Building className="mx-auto mb-3 h-8 w-8 text-white/20" />
                   <p className="mb-4 text-sm text-muted">No active company memberships found.</p>
