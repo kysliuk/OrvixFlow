@@ -616,6 +616,41 @@ public class AuthService : IAuthService
                 departmentMembership.Status = "Active";
             }
         }
+        else
+        {
+            // No specific department was assigned in the invite.
+            // Auto-assign the user to the company's General department (Code = "general") so that
+            // AccessResolver can grant them module access via the fallback grant path.
+            // Without at least one active UserDepartmentMembership, AccessResolver returns Empty()
+            // for all modules (departmentIds.Count == 0 guard) blocking all module access.
+            var generalDept = await _db.Departments
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.CompanyId == invitation.CompanyId && d.Code == "general");
+
+            if (generalDept != null)
+            {
+                var existingGeneralMembership = await _db.UserDepartmentMemberships
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(m => m.UserId == user.Id
+                                              && m.CompanyId == invitation.CompanyId
+                                              && m.DepartmentId == generalDept.Id);
+                if (existingGeneralMembership == null)
+                {
+                    _db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+                    {
+                        UserId         = user.Id,
+                        CompanyId      = invitation.CompanyId,
+                        DepartmentId   = generalDept.Id,
+                        DepartmentRole = "DepartmentOperator",
+                        Status         = "Active",
+                    });
+                }
+                else
+                {
+                    existingGeneralMembership.Status = "Active";
+                }
+            }
+        }
 
         invitation.Status = "Accepted";
         await _db.SaveChangesAsync();

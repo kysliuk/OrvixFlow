@@ -256,6 +256,34 @@ public class EntitlementResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task GetSubscription_CreatesFreeSubscription_WhenCompanyExistsWithoutSubscription()
+    {
+        var module = new ModuleDefinition { Key = "knowledge-base", DisplayName = "Knowledge Base", IsActive = true };
+        _dbContext.ModuleDefinitions.Add(module);
+        _dbContext.PlanTemplates.Add(new PlanTemplate
+        {
+            Id = PlanCatalog.FreeId,
+            Name = "Free",
+            Slug = "free",
+            IsActive = true,
+            ModuleInclusions = new List<PlanModuleInclusion>
+            {
+                new() { ModuleDefinitionId = module.Id }
+            }
+        });
+        _dbContext.Tenants.Add(new Tenant { Id = _tenantId, Name = "Recovered Company", Plan = "Free", SubscriptionStatus = "Active" });
+        await _dbContext.SaveChangesAsync();
+
+        var subscription = await _resolver.GetSubscriptionAsync(_tenantId);
+
+        subscription.Should().NotBeNull();
+        subscription!.PlanTemplateId.Should().Be(PlanCatalog.FreeId);
+
+        var canUse = await _resolver.CanUseModuleAsync(_tenantId, "knowledge-base");
+        canUse.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetEntitlements_ReturnsDefaults_WhenNoEntitlements()
     {
         var plan = new PlanTemplate

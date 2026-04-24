@@ -69,6 +69,8 @@ public class CompanyBootstrapService : ICompanyBootstrapService
             });
         }
 
+        await EnsureDefaultSubscriptionAsync(companyId);
+
         await _db.SaveChangesAsync();
     }
 

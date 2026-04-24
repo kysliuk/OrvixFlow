@@ -53,7 +53,9 @@ public class RequireModuleAttribute : Attribute, IAsyncAuthorizationFilter
         // FIX: Check company billing entitlement BEFORE user-level permissions.
         // All roles (including CompanyAdmin and CompanyOwner) must pass this billing check.
         // The company must be entitled to the module before any user can access it.
-        var canUseModule = await entitlementResolver.CanUseModuleAsync(companyId, _requiredModule);
+        // Use CanUseModuleWithOverridesAsync so that CompanyModuleOverride rows are respected
+        // at the API gate — consistent with the AccessResolver fallback path.
+        var canUseModule = await entitlementResolver.CanUseModuleWithOverridesAsync(companyId, _requiredModule);
         if (!canUseModule)
         {
             context.Result = new ObjectResult(new 

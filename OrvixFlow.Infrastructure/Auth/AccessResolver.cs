@@ -42,6 +42,7 @@ public class AccessResolver : IAccessResolver
 
         // Resolve company role and parse at boundary
         var userRoleString = await _db.UserCompanyMemberships
+            .IgnoreQueryFilters()
             .Where(m => m.UserId == userId && m.CompanyId == companyId && m.Status == "Active")
             .Select(m => m.CompanyRole)
             .FirstOrDefaultAsync();
@@ -106,7 +107,17 @@ public class AccessResolver : IAccessResolver
                             && departmentIds.Contains(m.DepartmentId)
                             && (m.DepartmentRole == "DepartmentManager" || m.DepartmentRole == "Manager"));
 
-            return new ModulePermissionResult(true, true, false, false, false, false, false, false);
+            // DepartmentManager gets CanViewLogs in the fallback grant;
+            // DepartmentOperator gets View+Use only. Both are below CanConfigure/IsAdmin.
+            return new ModulePermissionResult(
+                CanView: true,
+                CanUse: true,
+                CanTest: false,
+                CanConfigure: false,
+                CanManageIntegrations: false,
+                CanManagePrompts: false,
+                CanViewLogs: isDeptManager,
+                IsAdmin: false);
         }
 
         // Union of grants (most permissive wins)

@@ -106,7 +106,7 @@ public class RequireModuleAttributeTests
         
         var entitlementResolver = new Mock<IEntitlementResolver>();
         entitlementResolver
-            .Setup(x => x.CanUseModuleAsync(_companyId, "inbox-guardian"))
+            .Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "inbox-guardian"))
             .ReturnsAsync(true); // Company IS entitled to this module
 
         var accessResolver = new Mock<IAccessResolver>();
@@ -129,7 +129,7 @@ public class RequireModuleAttributeTests
         
         var entitlementResolver = new Mock<IEntitlementResolver>();
         entitlementResolver
-            .Setup(x => x.CanUseModuleAsync(_companyId, "inbox-guardian"))
+            .Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "inbox-guardian"))
             .ReturnsAsync(false);
 
         var accessResolver = new Mock<IAccessResolver>();
@@ -154,7 +154,7 @@ public class RequireModuleAttributeTests
         
         var entitlementResolver = new Mock<IEntitlementResolver>();
         entitlementResolver
-            .Setup(x => x.CanUseModuleAsync(_companyId, "inbox-guardian"))
+            .Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "inbox-guardian"))
             .ReturnsAsync(true); // Company entitled
 
         var accessResolver = new Mock<IAccessResolver>();
@@ -207,7 +207,7 @@ public class RequireModuleAttributeTests
     public async Task Operator_WithMissingSubClaim_FailsClosed()
     {
         var entitlementResolver = new Mock<IEntitlementResolver>();
-        entitlementResolver.Setup(x => x.CanUseModuleAsync(_companyId, "knowledge")).ReturnsAsync(true);
+        entitlementResolver.Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "knowledge")).ReturnsAsync(true);
 
         var accessResolver = new Mock<IAccessResolver>();
         var context = CreateAuthorizationFilterContextWithoutSub("Operator", _companyId);
@@ -223,7 +223,7 @@ public class RequireModuleAttributeTests
     public async Task Operator_WithMissingAccessResolver_FailsClosed()
     {
         var entitlementResolver = new Mock<IEntitlementResolver>();
-        entitlementResolver.Setup(x => x.CanUseModuleAsync(_companyId, "knowledge")).ReturnsAsync(true);
+        entitlementResolver.Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "knowledge")).ReturnsAsync(true);
 
         var context = CreateAuthorizationFilterContext("Operator", _companyId, _userId);
         RegisterServices(context.HttpContext.RequestServices, entitlementResolver.Object, accessResolver: null);
@@ -284,6 +284,72 @@ public class RequireModuleAttributeTests
             new ActionDescriptor());
 
         return new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
+    }
+
+    [Fact]
+    public async Task CompanyMember_WithDept_CanAccessEntitledModule()
+    {
+        // CompanyMember with dept membership should pass RequireModuleAttribute
+        // when the company is entitled to the module and the user has permission.
+        var entitlementResolver = new Mock<IEntitlementResolver>();
+        entitlementResolver
+            .Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "inbox-guardian"))
+            .ReturnsAsync(true); // Company entitled
+
+        var accessResolver = new Mock<IAccessResolver>();
+        accessResolver
+            .Setup(x => x.GetEffectivePermissionsAsync(_userId, _companyId, "inbox-guardian"))
+            .ReturnsAsync(new ModulePermissionResult(
+                CanView: true,
+                CanUse: true,
+                CanTest: false,
+                CanConfigure: false,
+                CanManageIntegrations: false,
+                CanManagePrompts: false,
+                CanViewLogs: false,
+                IsAdmin: false
+            ));
+
+        var context = CreateAuthorizationFilterContext("CompanyMember", _companyId, _userId);
+        RegisterServices(context.HttpContext.RequestServices, entitlementResolver.Object, accessResolver.Object);
+
+        var attr = new RequireModuleAttribute("inbox-guardian");
+        await attr.OnAuthorizationAsync(context);
+
+        context.Result.Should().BeNull("CompanyMember with valid dept permissions should access entitled module");
+    }
+
+    [Fact]
+    public async Task CompanyMember_CanAccessModule_GrantedViaCompanyModuleOverride()
+    {
+        // CompanyModuleOverride grants a module that wasn't in the plan.
+        // CanUseModuleWithOverridesAsync (now used in the attribute) must return true.
+        var entitlementResolver = new Mock<IEntitlementResolver>();
+        entitlementResolver
+            .Setup(x => x.CanUseModuleWithOverridesAsync(_companyId, "custom-module"))
+            .ReturnsAsync(true); // Granted via override even if not in base plan
+
+        var accessResolver = new Mock<IAccessResolver>();
+        accessResolver
+            .Setup(x => x.GetEffectivePermissionsAsync(_userId, _companyId, "custom-module"))
+            .ReturnsAsync(new ModulePermissionResult(
+                CanView: true,
+                CanUse: true,
+                CanTest: false,
+                CanConfigure: false,
+                CanManageIntegrations: false,
+                CanManagePrompts: false,
+                CanViewLogs: false,
+                IsAdmin: false
+            ));
+
+        var context = CreateAuthorizationFilterContext("CompanyMember", _companyId, _userId);
+        RegisterServices(context.HttpContext.RequestServices, entitlementResolver.Object, accessResolver.Object);
+
+        var attr = new RequireModuleAttribute("custom-module");
+        await attr.OnAuthorizationAsync(context);
+
+        context.Result.Should().BeNull("CompanyModuleOverride-granted module should be accessible after the gate fix");
     }
 
     private static void RegisterServices(IServiceProvider services, IEntitlementResolver entitlementResolver, IAccessResolver? accessResolver)

@@ -21,7 +21,7 @@ public class EntitlementResolver : IEntitlementResolver
 
     public async Task<CompanySubscription?> GetSubscriptionAsync(Guid companyId)
     {
-        return await _dbContext.CompanySubscriptions
+        var subscription = await _dbContext.CompanySubscriptions
             .IgnoreQueryFilters()
             .Include(s => s.PlanTemplate)
                 .ThenInclude(p => p!.Entitlements)
@@ -29,6 +29,41 @@ public class EntitlementResolver : IEntitlementResolver
                 .ThenInclude(p => p!.ModuleInclusions)
                     .ThenInclude(m => m.ModuleDefinition)
             .FirstOrDefaultAsync(s => s.CompanyId == companyId);
+
+        if (subscription != null)
+            return subscription;
+
+        var tenantExists = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.Id == companyId);
+        if (!tenantExists)
+            return null;
+
+        var freePlanExists = await _dbContext.PlanTemplates
+            .IgnoreQueryFilters()
+            .AnyAsync(p => p.Id == PlanCatalog.FreeId);
+        if (!freePlanExists)
+            return null;
+
+        _dbContext.CompanySubscriptions.Add(new CompanySubscription
+        {
+            CompanyId = companyId,
+            PlanTemplateId = PlanCatalog.FreeId,
+            Status = SubscriptionState.Active,
+            BillingInterval = BillingInterval.Monthly,
+            CurrentPeriodStart = DateTime.UtcNow,
+            CurrentPeriodEnd = DateTime.UtcNow.AddYears(100)
+        });
+        await _dbContext.SaveChangesAsync();
+
+        return await _dbContext.CompanySubscriptions
+            .IgnoreQueryFilters()
+            .Include(s => s.PlanTemplate)
+                .ThenInclude(p => p!.Entitlements)
+            .Include(s => s.PlanTemplate)
+                .ThenInclude(p => p!.ModuleInclusions)
+                    .ThenInclude(m => m.ModuleDefinition)
+            .FirstAsync(s => s.CompanyId == companyId);
     }
 
     public async Task<PlanTemplate?> GetActivePlanAsync(Guid companyId)

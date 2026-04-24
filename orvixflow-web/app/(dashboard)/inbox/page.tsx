@@ -36,7 +36,7 @@ const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; b
 };
 
 export default function InboxGuardianPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [testEmail, setTestEmail] = useState("");
   const [responseLog, setResponseLog] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,17 +48,19 @@ export default function InboxGuardianPage() {
   const [selectedEvent, setSelectedEvent] = useState<InboxEvent | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const apiToken = (session as any)?.apiToken;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   useEffect(() => {
+    if (status === "loading") return;
     fetchEvents();
-  }, [statusFilter]);
+  }, [apiToken, status, statusFilter]);
 
   const fetchEvents = async () => {
     setLoadingEvents(true);
     setEventsError(null);
     
     try {
-      const apiToken = (session as any)?.apiToken;
       if (!apiToken) {
         setEventsError("Not authenticated");
         return;
@@ -70,7 +72,7 @@ export default function InboxGuardianPage() {
       };
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      let url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/events?limit=100`;
+      let url = `${apiBaseUrl}/api/v1/inbox/events?limit=100`;
       if (statusFilter) {
         url += `&status=${encodeURIComponent(statusFilter)}`;
       }
@@ -99,21 +101,21 @@ export default function InboxGuardianPage() {
     setIsProcessing(true);
     setResponseLog(null);
     
-    if (!(session as any)?.apiToken) {
-      setResponseLog("CRITICAL ERROR: API Token is missing from the NextAuth session. Ensure Next.js is restarted if .env.local changed.");
-      setIsProcessing(false);
-      return;
+      if (!apiToken) {
+        setResponseLog("CRITICAL ERROR: API Token is missing from the NextAuth session. Ensure Next.js is restarted if .env.local changed.");
+        setIsProcessing(false);
+        return;
     }
 
     try {
       const imp = localStorage.getItem("impersonateTenantId");
       const headers: any = {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${(session as any)?.apiToken}`
+        "Authorization": `Bearer ${apiToken}`
       };
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/inbox/process`, {
+      const res = await fetch(`${apiBaseUrl}/api/inbox/process`, {
         method: "POST",
         headers,
         body: JSON.stringify({ prompt: testEmail }),

@@ -40,7 +40,7 @@ interface DocumentsResponse {
 type TabType = "documents" | "text";
 
 export default function KnowledgeBasePage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>("documents");
 
   // Text ingestion state
@@ -68,11 +68,14 @@ export default function KnowledgeBasePage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const apiToken = (session as any)?.apiToken;
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   useEffect(() => {
+    if (status === "loading") return;
     fetchKnowledge();
     fetchDocuments();
-  }, [searchQuery, docPage]);
+  }, [apiToken, docPage, searchQuery, status]);
 
   const getHeaders = () => {
     const apiToken = (session as any)?.apiToken;
@@ -89,7 +92,6 @@ export default function KnowledgeBasePage() {
     setListError(null);
     
     try {
-      const apiToken = (session as any)?.apiToken;
       if (!apiToken) {
         setListError("Not authenticated");
         return;
@@ -101,7 +103,7 @@ export default function KnowledgeBasePage() {
       };
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      let url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge?limit=100`;
+      let url = `${apiBaseUrl}/api/v1/knowledge?limit=100`;
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
       }
@@ -126,7 +128,6 @@ export default function KnowledgeBasePage() {
     setDocumentsError(null);
     
     try {
-      const apiToken = (session as any)?.apiToken;
       if (!apiToken) {
         setDocumentsError("Not authenticated");
         return;
@@ -138,7 +139,7 @@ export default function KnowledgeBasePage() {
       const imp = localStorage.getItem("impersonateTenantId");
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge/documents?page=${docPage}&pageSize=20`, { headers });
+      const res = await fetch(`${apiBaseUrl}/api/v1/knowledge/documents?page=${docPage}&pageSize=20`, { headers });
 
       if (!res.ok) {
         throw new Error(`Failed to fetch: ${res.status}`);
@@ -160,7 +161,7 @@ export default function KnowledgeBasePage() {
     setIsProcessing(true);
     setIngestLog(null);
     
-    if (!(session as any)?.apiToken) {
+    if (!apiToken) {
       setIngestLog("CRITICAL ERROR: API Token is missing from the NextAuth session. Your login failed to sync with the backend database.");
       setIsProcessing(false);
       return;
@@ -170,11 +171,11 @@ export default function KnowledgeBasePage() {
       const imp = localStorage.getItem("impersonateTenantId");
       const headers: any = {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${(session as any)?.apiToken}`
+        "Authorization": `Bearer ${apiToken}`
       };
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agent/ingest`, {
+      const res = await fetch(`${apiBaseUrl}/api/agent/ingest`, {
         method: "POST",
         headers,
         body: JSON.stringify({ prompt }),
@@ -203,7 +204,6 @@ export default function KnowledgeBasePage() {
     if (!confirm("Are you sure you want to delete this knowledge entry?")) return;
 
     try {
-      const apiToken = (session as any)?.apiToken;
       if (!apiToken) return;
 
       const imp = localStorage.getItem("impersonateTenantId");
@@ -212,7 +212,7 @@ export default function KnowledgeBasePage() {
       };
       if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge/${id}`, {
+      const res = await fetch(`${apiBaseUrl}/api/v1/knowledge/${id}`, {
         method: "DELETE",
         headers,
       });
@@ -268,7 +268,6 @@ export default function KnowledgeBasePage() {
 
     for (const id of idsToDelete) {
       try {
-        const apiToken = (session as any)?.apiToken;
         if (!apiToken) continue;
 
         const imp = localStorage.getItem("impersonateTenantId");
@@ -277,7 +276,7 @@ export default function KnowledgeBasePage() {
         };
         if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge/${id}`, {
+        const res = await fetch(`${apiBaseUrl}/api/v1/knowledge/${id}`, {
           method: "DELETE",
           headers,
         });
@@ -315,14 +314,13 @@ export default function KnowledgeBasePage() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const apiToken = (session as any)?.apiToken;
         const imp = localStorage.getItem("impersonateTenantId");
         const headers: Record<string, string> = {
           "Authorization": `Bearer ${apiToken}`
         };
         if (imp) headers["X-Impersonate-Tenant"] = imp;
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/knowledge/upload`, {
+        const res = await fetch(`${apiBaseUrl}/api/v1/knowledge/upload`, {
           method: "POST",
           headers,
           body: formData,

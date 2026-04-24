@@ -113,8 +113,12 @@ Do not duplicate bootstrap logic in controllers or random services.
 - Module access is enforced by `RequireModuleAttribute`.
 - Billing entitlement check happens before user-level permission checks.
 - Platform admins bypass module checks.
-- Company admins bypass user-level permission checks only after the company entitlement check passes.
+- Company admins (`CompanyOwner`, `CompanyAdmin`) bypass user-level permission checks only after the company entitlement check passes.
+- `RequireModuleAttribute` now uses `CanUseModuleWithOverridesAsync()` (not `CanUseModuleAsync()`) so `CompanyModuleOverride` rows are respected at the API gate — consistent with `AccessResolver`'s fallback path.
 - `RequireModuleAttribute` now fails closed when required user context or `IAccessResolver` is missing.
+- `AccessResolver` fallback for `CompanyMember` + dept users: `DepartmentManager` gets `(CanView, CanUse, CanViewLogs)`, `DepartmentOperator` gets `(CanView, CanUse)` only. Previously `isDeptManager` was computed but never applied (dead code) — now drives `CanViewLogs` in the fallback.
+- `CompanyMember` with NO active dept memberships gets `Empty()` permissions — they cannot use modules until assigned to a department.
+- `AcceptInvitationAsync` auto-assigns users to the company's General department (`Code = "general"`) when the invitation has no explicit `DepartmentId`. This prevents invited `CompanyMember` users from being permanently locked out of modules. The General department is created by `EnsureOwnerBootstrapAsync` and always exists for bootstrapped companies.
 - Company-management role mutation is limited to company roles only. Platform roles must never enter `UserCompanyMembership.CompanyRole`.
 - `CompanyOwner` assignment is restricted to bootstrap/platform-only flows. Normal invite and team-role update flows may assign only company-tier roles (`CompanyAdmin`, `CompanyMember`) at the company level.
 - Department-scoped authority now comes from `UserDepartmentMembership.DepartmentRole`, not the JWT role claim. `CompanyMember` users may manage only departments where they hold `DepartmentManager`.

@@ -120,6 +120,312 @@ public class AccessResolverTests
         db.Dispose();
     }
 
+    /// <summary>
+    /// DepartmentManager gets CanViewLogs=true in the fallback; DepartmentOperator does not.
+    /// This verifies the fix for the previously dead isDeptManager variable.
+    /// </summary>
+    [Fact]
+    public async Task CompanyMember_DeptManager_FallbackGrant_GetsCanViewLogs()
+    {
+        var (db, resolver, companyId, userId) = await CreateFallbackResolverAsync("DepartmentManager");
+
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanViewLogs.Should().BeTrue("DepartmentManager should get CanViewLogs in the fallback grant");
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// DepartmentOperator does NOT get CanViewLogs in the fallback — only View+Use.
+    /// </summary>
+    [Fact]
+    public async Task CompanyMember_DeptOperator_FallbackGrant_DoesNotGetCanViewLogs()
+    {
+        var (db, resolver, companyId, userId) = await CreateFallbackResolverAsync("DepartmentOperator");
+
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanViewLogs.Should().BeFalse("DepartmentOperator should not get CanViewLogs in fallback — only DepartmentManager does");
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// CompanyMember with NO department memberships must be blocked even when company is entitled.
+    /// </summary>
+    [Fact]
+    public async Task CompanyMember_NoDeptMemberships_Returns_Empty_EvenWhenEntitled()
+    {
+        var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "NoDept" });
+        db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "nodept@test.com", Role = string.Empty });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = companyId,
+            CompanyRole = "CompanyMember",
+            Status = "Active",
+            JoinedAt = DateTime.UtcNow
+        });
+        // NO UserDepartmentMemberships
+        db.ModuleDefinitions.Add(new ModuleDefinition { Key = "inbox-guardian", DisplayName = "Inbox", Tier = "Utility", Visibility = "UserFacing", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(false);
+        scope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid>().AsReadOnly());
+
+        var entitlements = new Mock<IEntitlementResolver>();
+        entitlements.Setup(e => e.CanUseModuleWithOverridesAsync(companyId, "inbox-guardian")).ReturnsAsync(true);
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanView.Should().BeFalse("CompanyMember with no dept assignments must not get module access");
+        permissions.CanUse.Should().BeFalse("CompanyMember with no dept assignments must not get module access");
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// CompanyOwner gets full access (all permissions) without needing explicit grants.
+    /// </summary>
+    [Fact]
+    public async Task CompanyOwner_HasFullAccess_WhenEntitled()
+    {
+        var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "OwnerCo" });
+        db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "owner@test.com", Role = string.Empty });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = companyId,
+            CompanyRole = "CompanyOwner",
+            Status = "Active",
+            JoinedAt = DateTime.UtcNow
+        });
+        db.ModuleDefinitions.Add(new ModuleDefinition { Key = "inbox-guardian", DisplayName = "Inbox", Tier = "Utility", Visibility = "UserFacing", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(true);
+
+        var entitlements = new Mock<IEntitlementResolver>();
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanView.Should().BeTrue();
+        permissions.CanUse.Should().BeTrue();
+        permissions.CanConfigure.Should().BeTrue();
+        permissions.IsAdmin.Should().BeTrue();
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// CompanyAdmin gets full access (all permissions) without needing explicit grants.
+    /// </summary>
+    [Fact]
+    public async Task CompanyAdmin_HasFullAccess_WhenEntitled()
+    {
+        var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "AdminCo" });
+        db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "admin@test.com", Role = string.Empty });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = companyId,
+            CompanyRole = "CompanyAdmin",
+            Status = "Active",
+            JoinedAt = DateTime.UtcNow
+        });
+        db.ModuleDefinitions.Add(new ModuleDefinition { Key = "inbox-guardian", DisplayName = "Inbox", Tier = "Utility", Visibility = "UserFacing", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(true);
+
+        var entitlements = new Mock<IEntitlementResolver>();
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanView.Should().BeTrue();
+        permissions.CanUse.Should().BeTrue();
+        permissions.CanConfigure.Should().BeTrue();
+        permissions.IsAdmin.Should().BeTrue();
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// A user who belongs to a different company must not access modules in this company.
+    /// Cross-company isolation guard.
+    /// </summary>
+    [Fact]
+    public async Task AnotherCompanyUser_Returns_Empty()
+    {
+        var companyId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "OurCo" });
+        db.Tenants.Add(new Tenant { Id = otherCompanyId, Name = "OtherCo" });
+        db.Users.Add(new User { Id = userId, TenantId = otherCompanyId, Email = "foreign@test.com", Role = string.Empty });
+        db.Departments.Add(new Department { Id = departmentId, CompanyId = otherCompanyId, Name = "Ext", Code = "EXT" });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId,
+            CompanyId = otherCompanyId,
+            CompanyRole = "CompanyMember",
+            Status = "Active",
+            JoinedAt = DateTime.UtcNow
+        });
+        db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+        {
+            UserId = userId, CompanyId = otherCompanyId, DepartmentId = departmentId,
+            DepartmentRole = "DepartmentOperator", Status = "Active"
+        });
+        db.ModuleDefinitions.Add(new ModuleDefinition { Key = "inbox-guardian", DisplayName = "Inbox", Tier = "Utility", Visibility = "UserFacing", IsActive = true });
+        await db.SaveChangesAsync();
+
+        // ScopeContext returns no departments in OUR company for this user
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(false);
+        scope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid>().AsReadOnly());
+
+        var entitlements = new Mock<IEntitlementResolver>();
+        entitlements.Setup(e => e.CanUseModuleWithOverridesAsync(companyId, "inbox-guardian")).ReturnsAsync(true);
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "inbox-guardian");
+
+        permissions.CanView.Should().BeFalse("User from another company must not access this company's modules");
+        permissions.CanUse.Should().BeFalse("User from another company must not access this company's modules");
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// Inactive/disabled module is blocked even if user has valid dept membership and company is entitled.
+    /// </summary>
+    [Fact]
+    public async Task CompanyMember_WithDept_DisabledModule_Returns_Empty()
+    {
+        var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "DisabledMod" });
+        db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "test@test.com", Role = string.Empty });
+        db.Departments.Add(new Department { Id = departmentId, CompanyId = companyId, Name = "Ops", Code = "OPS" });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId, CompanyId = companyId, CompanyRole = "CompanyMember", Status = "Active", JoinedAt = DateTime.UtcNow
+        });
+        db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+        {
+            UserId = userId, CompanyId = companyId, DepartmentId = departmentId,
+            DepartmentRole = "DepartmentOperator", Status = "Active"
+        });
+        // Module is INACTIVE
+        db.ModuleDefinitions.Add(new ModuleDefinition { Key = "disabled-module", DisplayName = "Disabled", Tier = "Utility", Visibility = "UserFacing", IsActive = false });
+        await db.SaveChangesAsync();
+
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(false);
+        scope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid> { departmentId }.AsReadOnly());
+
+        var entitlements = new Mock<IEntitlementResolver>();
+        entitlements.Setup(e => e.CanUseModuleWithOverridesAsync(companyId, "disabled-module")).ReturnsAsync(false);
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var permissions = await resolver.GetEffectivePermissionsAsync(userId, companyId, "disabled-module");
+
+        permissions.CanView.Should().BeFalse("Inactive module must always be blocked");
+        permissions.CanUse.Should().BeFalse("Inactive module must always be blocked");
+        db.Dispose();
+    }
+
+    /// <summary>
+    /// GetVisibleModulesAsync returns only entitled modules for a dept-scoped user.
+    /// Non-entitled modules must not appear, even if user has dept membership.
+    /// </summary>
+    [Fact]
+    public async Task GetVisibleModules_ForDeptMember_ReturnsOnlyEntitledModules()
+    {
+        var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var departmentId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var db = new AppDbContext(options, Mock.Of<ITenantProvider>(x => x.GetTenantId() == companyId));
+        db.Tenants.Add(new Tenant { Id = companyId, Name = "VisibleCo" });
+        db.Users.Add(new User { Id = userId, TenantId = companyId, Email = "visible@test.com", Role = string.Empty });
+        db.Departments.Add(new Department { Id = departmentId, CompanyId = companyId, Name = "Sales", Code = "SALES" });
+        db.UserCompanyMemberships.Add(new UserCompanyMembership
+        {
+            UserId = userId, CompanyId = companyId, CompanyRole = "CompanyMember", Status = "Active", JoinedAt = DateTime.UtcNow
+        });
+        db.UserDepartmentMemberships.Add(new UserDepartmentMembership
+        {
+            UserId = userId, CompanyId = companyId, DepartmentId = departmentId,
+            DepartmentRole = "DepartmentOperator", Status = "Active"
+        });
+        db.ModuleDefinitions.AddRange(
+            new ModuleDefinition { Key = "inbox-guardian", DisplayName = "Inbox", Tier = "Utility", Visibility = "UserFacing", IsActive = true },
+            new ModuleDefinition { Key = "knowledge-base", DisplayName = "KB", Tier = "Utility", Visibility = "UserFacing", IsActive = true }
+        );
+        await db.SaveChangesAsync();
+
+        var scope = new Mock<IScopeContext>();
+        scope.Setup(s => s.InitializeAsync()).Returns(Task.CompletedTask);
+        scope.Setup(s => s.HasCompanyWideAccess).Returns(false);
+        scope.Setup(s => s.AllowedDepartmentIds).Returns(new List<Guid> { departmentId }.AsReadOnly());
+
+        var entitlements = new Mock<IEntitlementResolver>();
+        // Only inbox-guardian is entitled; knowledge-base is not
+        entitlements.Setup(e => e.CanUseModuleWithOverridesAsync(companyId, "inbox-guardian")).ReturnsAsync(true);
+        entitlements.Setup(e => e.CanUseModuleWithOverridesAsync(companyId, "knowledge-base")).ReturnsAsync(false);
+
+        var resolver = new AccessResolver(db, scope.Object, entitlements.Object);
+        var visible = await resolver.GetVisibleModulesAsync(userId, companyId);
+
+        visible.Should().Contain("inbox-guardian");
+        visible.Should().NotContain("knowledge-base", "non-entitled module must not appear in visible list");
+        db.Dispose();
+    }
+
     private static async Task<(AppDbContext db, AccessResolver resolver, Guid companyId, Guid userId)> CreateFallbackResolverAsync(string departmentRole)
     {
         var companyId = Guid.NewGuid();
