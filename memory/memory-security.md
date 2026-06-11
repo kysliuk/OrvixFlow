@@ -52,7 +52,12 @@ DisplayName    → display string
 ### Key Security Properties of Current Auth
 
 - **JWT lifetime:** 60 minutes (down from 7 days — F-01 fixed).
-- **No refresh token** — users must re-login after expiry. This is intentional for now; future work may add refresh tokens.
+- **Refresh Token System:** Fully implemented to support continuous session renewal:
+  - **Lifetime:** 7-day TTL.
+  - **Opaque Format:** Tokens are formatted as `lookupKey.secret` (opaque token format).
+  - **Hash-based Storage:** Tokens are hashed using SHA-256 before storing in the `RefreshToken` database table (separate from JWTs).
+  - **Rotation on Use:** On each refresh request (`RefreshSessionAsync`), the old refresh token is revoked (its `RevokedAt` timestamp is set) and a new one is returned.
+  - **Family-based Revocation:** Tokens in the same family are linked via `FamilyId`. If explicit logout is performed (`LogoutAsync`), all active tokens in that family are revoked. If token reuse/theft is suspected or membership is inactive, session creation falls back to the default active company or fails.
 - **No server-side blacklist** — a revoked membership is only effective after the current JWT expires (max 60 min).
 - **Password requirements:** min 12 chars, lower + upper + digit + special char (F-04 fixed via `ValidatePasswordComplexity()`).
 - **Rate limiting on login:** 5 attempts/min per IP (sliding window) via `[EnableRateLimiting("login")]` (F-03 fixed).

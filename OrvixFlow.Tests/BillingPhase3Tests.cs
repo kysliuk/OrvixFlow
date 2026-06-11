@@ -162,7 +162,7 @@ public class BillingPhase3Tests : IDisposable
 /// <summary>
 /// Additional Phase 3 tests for UsagePeriodRolloverJob
 /// </summary>
-public class UsagePeriodRolloverJobTests
+public class BillingPhase3UsagePeriodRolloverJobTests
 {
     [Fact]
     public async Task UsagePeriodRollover_AdvancesPeriod_WhenExpired()
