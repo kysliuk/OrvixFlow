@@ -1,291 +1,179 @@
-# Phase 0 — Security & Stability Hardening
+# Phase 0 - Stabilization And Release Blockers
 
-> **Status:** Validation Pending  
-> **Estimated effort:** 1 week  
-> **Dependencies:** None — all tasks are standalone  
-> **Blocks:** All subsequent phases  
-
----
+> Status: Active
+> Depends on: none
+> Blocks: all later production phases
+> Source of truth: `tasks/production/current-state-audit.md`
 
 ## Goal
 
-Close all critical and high-severity security gaps before any production traffic or further development. This phase has no external dependencies and produces zero new features — it only removes production blockers.
+Restore a truthful, buildable, deployable baseline.
 
----
+## Why This Phase Exists
 
-## Why
+The verified audit shows the current release path is broken even though large parts of the product are implemented.
 
-Three of the five most dangerous production gaps exist in infrastructure configuration, not in application code:
+This phase exists to remove the blockers that prevent the repository from being safely treated as releasable:
 
-1. **n8n admin UI is unauthenticated** — any network-accessible n8n instance exposes full workflow creation/editing to anyone who reaches port 5678. This is a critical exposure.
-2. **`N8N_ENCRYPTION_KEY` is the dev placeholder** — all n8n credentials are encrypted with a publicly known key. Trivially reversible in production.
-3. **`STRIPE_WEBHOOK_SECRET` is missing from `.env.example`** — any operator deploying from the template silently omits this, causing Stripe to reject all webhooks and subscriptions to never activate.
+1. frontend production build failure
+2. CI that depends on the broken build
+3. deploy workflow that can report success without deploying
+4. inconsistent image naming between workflow and production compose
+5. production web builds that still bake `http://localhost:8080`
 
-The remaining two tasks (register rate limiting, CSP, admin route consolidation) close medium-severity gaps that are cheap to fix now and expensive to retrofit later.
+Do not start provider validation or production signoff while these issues remain open.
 
----
+## In Scope
 
-## Scope
+- fix the frontend build blocker in `orvixflow-web/next.config.ts`
+- re-establish truthful frontend verification
+- replace deploy stub behavior with real deployment commands and checks
+- align container image references
+- correct production web API URL handling
 
-- Secure n8n in `docker-compose.yml`
-- Document `STRIPE_WEBHOOK_SECRET` in `.env.example`
-- Add rate limiting to `POST /api/auth/register`
-- Implement Content Security Policy headers (backend + frontend)
-- Audit and consolidate the dual admin route structure
+## Out Of Scope
 
----
+- no provider validation
+- no backup/restore validation
+- no mailbox OAuth operational proof
+- no Stripe live-mode proof
+- no documentation-only completion claims
+- no unrelated frontend refactors
 
-## Out of Scope
+## Audit Findings Covered
 
-- No new features
-- No database migrations
-- No Stripe live-mode configuration (that is Phase 2)
-- No email delivery validation (that is Phase 1)
-- No CI/CD setup (that is Phase 4)
-- Do not change any auth logic, RBAC, or billing code
+From `tasks/production/current-state-audit.md`:
 
----
-
-## Dependencies
-
-None. All five tasks are independent of each other and of other phases. They may be executed in any order or in parallel.
-
----
-
-## Files / Components Likely Involved
-
-| File | Task |
-|---|---|
-| `docker-compose.yml` | P0-1: n8n auth + encryption key |
-| `.env.example` | P0-1 (N8N vars), P0-2 (STRIPE_WEBHOOK_SECRET) |
-| `OrvixFlow.Api/Program.cs` | P0-3: register rate limit; P0-4: CSP header middleware |
-| `orvixflow-web/next.config.ts` | P0-4: CSP headers |
-| `orvixflow-web/app/admin/` | P0-5: dual route audit |
-| `orvixflow-web/app/(admin)/` | P0-5: dual route audit |
-| `orvixflow-web/middleware.ts` | P0-5: route protection verification |
-| `OrvixFlow.Tests/` | P0-3: register rate limit test |
-
----
+- Critical 1: fix `orvixflow-web/next.config.ts` so `npm run build` passes
+- Critical 2: restore CI truthfulness after frontend build is fixed
+- Critical 3: replace fake-success deploy step in `.github/workflows/deploy.yml`
+- Critical 4: standardize image tags between deploy workflow and `docker-compose.prod.yml`
+- Critical 5: stop building the web image with `NEXT_PUBLIC_API_URL=http://localhost:8080`
 
 ## Implementation Tasks
 
-### P0-1 — Secure n8n in docker-compose.yml
+### P0-1 Fix Frontend Build Blocker
 
-**Files:** `docker-compose.yml`, `.env.example`
+Files:
+- `orvixflow-web/next.config.ts`
+- frontend Sentry config files if required by the real fix
 
-- [x] Configure a managed instance owner for current n8n builds:
-  ```yaml
-  - N8N_INSTANCE_OWNER_MANAGED_BY_ENV=true
-  - N8N_INSTANCE_OWNER_EMAIL=${N8N_OWNER_EMAIL}
-  - N8N_INSTANCE_OWNER_FIRST_NAME=${N8N_OWNER_FIRST_NAME}
-  - N8N_INSTANCE_OWNER_LAST_NAME=${N8N_OWNER_LAST_NAME}
-  - N8N_INSTANCE_OWNER_PASSWORD_HASH=${N8N_OWNER_PASSWORD_HASH}
-  ```
-- [x] Change `N8N_ENCRYPTION_KEY` default from `dev-encryption-key-change-me` to require an env var with no fallback:
-  ```yaml
-  - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
-  ```
-  (The `:?` syntax causes `docker compose up` to fail if the var is not set — safe by design)
-- [x] Add to `.env.example`:
-  ```
-  # n8n Instance Owner Authentication (REQUIRED in production)
-  N8N_OWNER_EMAIL=admin@orvixflow.local
-  N8N_OWNER_FIRST_NAME=Orvix
-  N8N_OWNER_LAST_NAME=Admin
-  N8N_OWNER_PASSWORD_HASH=REPLACE-WITH-A-BCRYPT-HASH
-  N8N_ENCRYPTION_KEY=REPLACE-WITH-A-64-CHAR-RANDOM-KEY
-  ```
-- [x] Complete the initial owner bootstrap once via `POST /rest/owner/setup` so `showSetupOnFirstLoad` becomes `false`
-- [x] Generate a real `N8N_ENCRYPTION_KEY` value (64-char hex) and store in local `.env` (gitignored)
+Action:
+- remove or replace the invalid Sentry/Next option causing the production build failure
+- keep the change minimal and compatible with the current Next.js/Sentry versions in the repo
 
-> ⚠️ **IMPORTANT:** If n8n already has workflows created with the dev encryption key, those workflows' credentials are encrypted with that key. Rotating the key without migrating credentials will break existing workflows. Before rotating in any non-fresh environment, export all n8n workflows, rotate the key, and re-import to force re-encryption.
+Validation:
+- run `npm run build` in `orvixflow-web/`
 
-### P0-2 — Add STRIPE_WEBHOOK_SECRET to .env.example
+Exit criteria:
+- production build succeeds without patching around the error elsewhere
 
-**File:** `.env.example`
+### P0-2 Re-Run Frontend Verification
 
-- [x] Add the following to the Stripe section in `.env.example`:
-  ```
-  # Stripe Webhook Secret (REQUIRED — get from Stripe dashboard → Webhooks → signing secret)
-  STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret_here
-  ```
-- [x] Verify `docker-compose.yml` maps it correctly (it already does: `Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}`)
-- [x] Verify `Program.cs` startup warning fires when it's missing (already implemented at line ~240)
+Files:
+- none required unless failures force additional targeted fixes
 
-### P0-3 — Add Rate Limiting to POST /api/auth/register
+Action:
+- run the normal frontend verification commands after P0-1
 
-**Files:** `OrvixFlow.Api/Program.cs`, `OrvixFlow.Api/Controllers/AuthController.cs`, `OrvixFlow.Tests/`
+Validation:
+- `npm run build`
+- `npm run lint`
+- `npm run test`
 
-- [x] In `Program.cs`, add a new rate limiting policy in the existing `AddRateLimiter` block:
-  ```csharp
-  // P0-3: Rate limiting on registration endpoint to prevent bulk account creation and email flooding
-  // 10 attempts per hour per IP address.
-  options.AddPolicy("register", context =>
-      RateLimitPartition.GetFixedWindowLimiter(
-          partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-          factory: _ => new FixedWindowRateLimiterOptions
-          {
-              PermitLimit = 10,
-              Window = TimeSpan.FromHours(1),
-              QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-              QueueLimit = 0
-          }));
-  ```
-- [x] In `AuthController.cs`, add `[EnableRateLimiting("register")]` to the `Register` action (same pattern as login's `[EnableRateLimiting("login")]`)
-- [x] Add unit test in `OrvixFlow.Tests/AuthControllerTests.cs` (or a new `RegisterRateLimitTests.cs`):
-  - Test: `Register_ExceedsRateLimit_Returns429` — mock the rate limiter or test the policy configuration
-  - Pattern: follow the existing `AuthControllerTests` setup (InMemory DB, `MockTenantProvider`)
+Exit criteria:
+- all three commands pass, or any remaining failures are documented as separate blockers with evidence
 
-**Code reference:** `Program.cs` lines 84–95 show the existing `login` rate limiter pattern. Follow that exactly.
+### P0-3 Align Production Image References
 
-### P0-4 — Implement CSP Headers
+Files:
+- `.github/workflows/deploy.yml`
+- `docker-compose.prod.yml`
 
-**Files:** `OrvixFlow.Api/Program.cs`, `orvixflow-web/next.config.ts`
+Action:
+- standardize image naming so the workflow pushes exactly what production compose pulls
+- prefer one canonical registry path format across API and web services
 
-#### Step 1: Audit inline scripts
+Validation:
+- manually compare pushed image names to compose image references
 
-Before writing the CSP policy, audit all inline scripts:
+Exit criteria:
+- no repo-owner vs repo-name mismatch remains
 
-- In `orvixflow-web/app/`, grep for `<script>` tags with inline JS:
-  ```bash
-  grep -r "<script" orvixflow-web/app/ --include="*.tsx" --include="*.ts" | grep -v "src="
-  ```
-- In `OrvixFlow.Api/`, check if any razor/HTML responses use inline scripts (unlikely — API only)
+### P0-4 Replace Fake Deploy Success With Real Deploy Flow
 
-#### Step 2: Backend CSP
+Files:
+- `.github/workflows/deploy.yml`
 
-In `Program.cs`, in the existing security headers middleware (lines ~181–189), add:
-```csharp
-context.Response.Headers.Append("Content-Security-Policy",
-    "default-src 'self'; " +
-    "script-src 'self'; " +        // tighten if no inline scripts found in audit
-    "style-src 'self' 'unsafe-inline'; " +  // most CSS frameworks need this
-    "img-src 'self' data: https:; " +
-    "font-src 'self' https:; " +
-    "connect-src 'self'; " +
-    "frame-ancestors 'none';");
-```
+Action:
+- replace placeholder success output with a real deployment sequence
+- include at least pull, restart, and basic verification steps
+- fail the workflow if deployment verification fails
 
-If inline scripts exist and cannot be immediately moved: use `'unsafe-inline'` as a temporary measure and document it as a known gap to close. Do NOT leave CSP disabled entirely.
+Validation:
+- workflow file clearly performs real remote deployment actions
+- no step claims success before verification
 
-#### Step 3: Frontend CSP
+Exit criteria:
+- deploy workflow is no longer a stub
 
-In `orvixflow-web/next.config.ts`, uncomment and configure the CSP header in the `headers()` array. Use the same policy as the backend, adjusting for Next.js's needs:
-- `connect-src` must include the API base URL (from env)
-- If Google/Microsoft OAuth is used: `connect-src` must include `https://accounts.google.com`, `https://login.microsoftonline.com`
+### P0-5 Correct Production Web API URL Handling
 
-#### Step 4: Verify
+Files:
+- `.github/workflows/deploy.yml`
+- `orvixflow-web/Dockerfile` if needed
+- `orvixflow-web/next.config.ts` or runtime config surface if needed
+
+Action:
+- stop baking `NEXT_PUBLIC_API_URL=http://localhost:8080` into production builds
+- use the correct externally reachable production API URL strategy for the current deployment model
+
+Validation:
+- deploy workflow no longer hardcodes localhost for the production web image
+
+Exit criteria:
+- production web build uses a correct production-facing API base URL strategy
+
+## Risks And Edge Cases
+
+- Sentry config changes can fix the build while silently disabling desired instrumentation; confirm the fix is minimal and explicit.
+- Deploy workflow changes must not pretend to verify deployment by printing static output.
+- API URL handling must match how the frontend actually reaches the backend in production; do not swap to a new runtime model without evidence.
+
+## Required Tests And Manual Checks
+
+Commands:
 
 ```bash
-# Verify header is present on API response
-curl -I http://localhost:5000/health/rag
-# Verify header is present on frontend
-curl -I http://localhost:3000
+cd orvixflow-web && npm run build
+cd orvixflow-web && npm run lint
+cd orvixflow-web && npm run test
 ```
 
-### P0-5 — Audit and Consolidate Dual Admin Route Structure
+Manual checks:
 
-**Files:** `orvixflow-web/app/admin/`, `orvixflow-web/app/(admin)/`, `orvixflow-web/middleware.ts`
+- inspect `.github/workflows/deploy.yml` for real deployment commands
+- inspect `docker-compose.prod.yml` for exact image-name alignment
+- confirm no production localhost API URL remains in the web build path
 
-- [x] Enumerate all pages in both route trees:
-  ```
-  app/admin/companies/[id]/audit/page.tsx
-  app/admin/companies/[id]/page.tsx
-  app/admin/modules/page.tsx
-  app/admin/page.tsx
-  app/admin/plans/[id]/page.tsx
-  app/admin/plans/page.tsx
-  app/admin/tenants/page.tsx
-  app/admin/test/page.tsx
-  
-  app/(admin)/companies/[id]/inbox/page.tsx
-  app/(admin)/inbox-metrics/page.tsx
-  app/(admin)/layout.tsx
-  app/(admin)/page.tsx
-  ```
-- [x] Check `orvixflow-web/middleware.ts` to determine which routes are protected by which middleware matchers
-- [x] Verify both route trees enforce `SuperAdmin` or `InternalOperator` role via session check
-- [x] Decision: consolidate all admin pages under `app/(admin)/` (the newer group layout pattern)
-  - Move any remaining `app/admin/` pages into `app/(admin)/`
-  - Update navigation links if any reference `/admin/...` paths
-  - Remove the `app/admin/` directory once all pages are migrated
-- [x] If `app/admin/` and `app/(admin)/` serve different purposes (e.g., legacy vs new): document this explicitly in `app/(admin)/layout.tsx` with a comment
+## Evidence Required Before Marking Complete
 
----
+- successful `npm run build`
+- successful `npm run lint`
+- successful `npm run test`
+- diff evidence showing aligned image references
+- deploy workflow evidence showing real remote deploy and verification steps
 
-## Architecture Rules
+## Completion Checklist
 
-- Rate limiting must use the existing `AddRateLimiter` / `[EnableRateLimiting]` pattern from `Program.cs` — do not introduce a new rate limiting library
-- CSP implementation must be in the existing security headers middleware (do not add a new middleware for it)
-- All frontend route protection must go through `middleware.ts` and NextAuth session — do not add per-page auth checks in `layout.tsx` as the primary gate
-- Do not modify any entity, migration, or service during this phase
+- [ ] `orvixflow-web/next.config.ts` build blocker fixed
+- [ ] frontend build passes
+- [ ] frontend lint passes
+- [ ] frontend tests pass
+- [ ] deploy workflow is no longer a stub
+- [ ] image references are aligned
+- [ ] production localhost API URL is removed from the deploy path
 
----
+## Definition Of Done
 
-## Tests Required
-
-### Unit Tests
-
-- `Register_ExceedsRateLimit_Returns429` — verify the `register` rate limit policy is applied
-
-### Manual Validation
-
-- `docker compose up` must fail with a clear error if `N8N_ENCRYPTION_KEY` is not set
-- n8n at `http://localhost:5678` must require authenticated owner login after initial bootstrap
-- `curl -X POST http://localhost:5000/api/auth/register` 11 times in under an hour — 11th must return 429
-- `curl -I http://localhost:5000/health/rag` — must include `Content-Security-Policy` header
-- `curl -I http://localhost:3000` — must include `Content-Security-Policy` header
-- Navigate to `/admin` — must require SuperAdmin or InternalOperator session
-
----
-
-## Validation Checklist
-
-- [ ] `docker compose up` fails with clear error if `N8N_ENCRYPTION_KEY` env var is missing
-- [x] n8n owner login is required after initial bootstrap
-- [ ] `N8N_ADMIN_USER`, `N8N_ADMIN_PASSWORD`, `N8N_ENCRYPTION_KEY` are documented in `.env.example`
-- [ ] `STRIPE_WEBHOOK_SECRET` is documented in `.env.example`
-- [ ] `POST /api/auth/register` returns 429 after 10 attempts per hour
-- [ ] Register rate limit test passes: `dotnet test --filter "FullyQualifiedName~Register"`
-- [ ] `Content-Security-Policy` header present on API responses
-- [ ] `Content-Security-Policy` header present on frontend responses
-- [ ] All admin pages enforce SuperAdmin/InternalOperator role
-- [ ] No admin pages are accessible to CompanyOwner, CompanyAdmin, or CompanyMember roles
-- [ ] `dotnet test` — still 561 passing, 0 failing
-- [ ] `npm run build && npm run lint && npm run test` — all pass
-
----
-
-## Definition of Done
-
-All five items are complete AND:
-- 0 test failures in `dotnet test`
-- 0 TypeScript errors in `npm run build`
-- CSP header present on both API and frontend
-- n8n requires owner login
-- `.env.example` documents all required secrets
-- Register endpoint has rate limiting
-
----
-
-## Common Mistakes
-
-1. **Forgetting to update `.env.example` after adding compose vars** — always update the template alongside the compose file
-2. **Writing CSP as `'unsafe-inline' 'unsafe-eval'`** — this defeats the purpose. Audit first, move inlines to files, then write strict policy
-3. **Only protecting one admin route tree** — both `/admin` and `/(admin)` must be protected until one is removed
-4. **Using `SlideWindow` rate limiter instead of `FixedWindow`** — the project already uses `FixedWindowRateLimiter`. Be consistent.
-5. **Not testing the rate limit with actual HTTP calls** — unit tests on the policy configuration are insufficient; verify with curl
-
----
-
-## Handoff to Phase 1
-
-Before Phase 1 starts, confirm:
-
-1. `docker compose up` works with updated `.env` (all new required vars filled in)
-2. 0 test failures
-3. CSP header is live
-4. n8n is authenticated
-5. Register rate limiting is active
-
-Phase 1 requires a Resend account and verified sending domain. Prepare those credentials before starting Phase 1.
+Phase 0 is complete only when the repo has a truthful frontend verification path and a non-fake deployment path. Code presence alone is not enough.
