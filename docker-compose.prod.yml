@@ -1,0 +1,193 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: orvix_traefik
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "letsencrypt:/letsencrypt"
+    restart: unless-stopped
+    networks:
+      - external
+
+  orvix-db:
+    image: pgvector/pgvector:pg16
+    container_name: orvix_postgres_prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  orvix-minio:
+    image: minio/minio:latest
+    container_name: orvix_minio_prod
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - internal
+
+  clamav:
+    image: clamav/clamav:stable_base
+    container_name: orvix_clamav_prod
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+    volumes:
+      - clamav_data:/var/lib/clamav
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - internal
+
+  orvix-n8n:
+    image: n8nio/n8n:latest
+    container_name: orvix_n8n_prod
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_INSTANCE_OWNER_MANAGED_BY_ENV=true
+      - N8N_INSTANCE_OWNER_EMAIL=${N8N_OWNER_EMAIL}
+      - N8N_INSTANCE_OWNER_FIRST_NAME=${N8N_OWNER_FIRST_NAME}
+      - N8N_INSTANCE_OWNER_LAST_NAME=${N8N_OWNER_LAST_NAME}
+      - N8N_INSTANCE_OWNER_PASSWORD_HASH=${N8N_OWNER_PASSWORD_HASH}
+      - WEBHOOK_URL=https://${N8N_DOMAIN}/
+      - EXECUTIONS_MODE=regular
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_DOMAIN}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=le"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - external
+      - internal
+
+  orvix-api:
+    image: ghcr.io/${GITHUB_REPO_OWNER}/orvixflow-api:latest
+    container_name: orvix_api_prod
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=orvix-db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER:-orvixflow}
+      Jwt__Audience: ${JWT_AUDIENCE:-orvixflow-web}
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Email__Provider: ${EMAIL_PROVIDER:-Resend}
+      Email__ResendApiKey: ${EMAIL_RESEND_API_KEY}
+      Email__FromEmail: ${EMAIL_FROM_EMAIL}
+      Email__FromName: ${EMAIL_FROM_NAME}
+      Storage__Provider: ${STORAGE_PROVIDER:-MinIO}
+      Storage__MinIO__Endpoint: orvix-minio:9000
+      Storage__MinIO__AccessKey: ${MINIO_ACCESS_KEY}
+      Storage__MinIO__SecretKey: ${MINIO_SECRET_KEY}
+      Storage__MinIO__Bucket: ${MINIO_BUCKET:-orvixflow}
+      Storage__MinIO__UseSSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      Automation__N8nBaseUrl: http://orvix-n8n:5678
+      Automation__Key: ${AUTOMATION_KEY}
+      Security__VirusScan__Provider: ${VIRUS_SCAN_PROVIDER:-Noop}
+      Security__VirusScan__ClamAv__Host: clamav
+      Security__VirusScan__ClamAv__Port: 3310
+      Frontend__BaseUrl: https://${WEB_DOMAIN}
+      Telemetry__OtlpEndpoint: ${OTEL_ENDPOINT:-}
+      Logging__SeqUrl: ${SEQ_URL:-}
+    depends_on:
+      orvix-db:
+        condition: service_healthy
+      orvix-minio:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=le"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+    restart: unless-stopped
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - external
+      - internal
+
+  orvix-web:
+    image: ghcr.io/${GITHUB_REPO_OWNER}/orvixflow-web:latest
+    container_name: orvix_web_prod
+    environment:
+      NEXTAUTH_URL: https://${WEB_DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+      NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`${WEB_DOMAIN}`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls.certresolver=le"
+      - "traefik.http.services.web.loadbalancer.server.port=3000"
+    depends_on:
+      - orvix-api
+    restart: unless-stopped
+    networks:
+      - external
+
+volumes:
+  postgres_data:
+  minio_data:
+  n8n_data:
+  letsencrypt:
+  uploads_data:
+  clamav_data:
+
+networks:
+  external:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true

@@ -202,3 +202,18 @@ Create credentials → Store N8nWorkflowId/N8nCredentialId → Connection become
 ### Enforcement
 - **Downgrade Safety:** `ChangePlanAsync` throws `DowngradeNotAllowedException` or `SeatLimitExceededException` (409 Conflict) if limits are breached.
 - **Entitlement Checks:** Limit checks (`IsWithinTokenLimitAsync`, etc.) respect admin overrides via `GetEffectiveEntitlementsAsync()`.
+
+## Observability & Production Operations
+
+| Feature | Component | Technology | Purpose |
+|---------|-----------|------------|---------|
+| Application Metrics | `Program.cs` | OpenTelemetry | Gathers AspNetCore, HttpClient, EFCore, and Runtime metrics |
+| Application Traces | `Program.cs` | OpenTelemetry (OTLP) | Emits distributed traces via OTLP protocol |
+| Structured Logging | `Program.cs` | Serilog (Console + Seq) | Outputs structured logs to console and Seq aggregator |
+| Background Job Alerts | `JobFailureAlertFilter` | Hangfire & Serilog | Intercepts background job failures and logs critical details |
+| Frontend Tracking | Sentry Config | `@sentry/nextjs` | Captures client, server, and edge errors in Next.js |
+| Data Sanitization | Sentry `beforeSend` | JavaScript Filter | Scrubs credentials/headers (Authorization/Cookie) |
+| Database Backup | `scripts/backup.sh` | pg_dump, GPG, mc | Daily encrypted AES-256 backup uploaded to MinIO/S3 |
+| TLS & Reverse Proxy | Traefik | Let's Encrypt | Secures external HTTPS endpoints with automated SSL renewal |
+| Container Security | `docker-compose.prod.yml` | Isolated networks | Keeps Postgres and MinIO isolated internally |
+| Operations Runbooks | `runbooks/*` | Markdown | Detailed procedures for setup, backups, restore, and rollbacks |

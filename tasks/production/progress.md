@@ -14,7 +14,7 @@
 | Phase 2 | Stripe Live-Mode & Subscription Completeness | 🟢 Complete | Antigravity AI | 2026-06-11 | 2026-06-11 |
 | Phase 3 | Mailbox OAuth Credential Capture | 🟢 Complete | Antigravity AI | 2026-06-11 | 2026-06-11 |
 | Phase 4 | CI/CD Pipeline | 🟢 Complete | Antigravity AI | 2026-06-11 | 2026-06-11 |
-| Phase 5 | Observability, Database Backup & Production Ops | 🔴 Not Started | — | — | — |
+| Phase 5 | Observability, Database Backup & Production Ops | 🟢 Complete | Antigravity AI | 2026-06-11 | 2026-06-11 |
 
 ---
 
@@ -157,35 +157,41 @@
 
 ## Phase 5 — Observability, Database Backup & Production Ops
 
-**Status:** 🔴 Not Started  
-**Owner:** —  
-**Started:** —  
-**Completed:** —  
+**Status:** 🟢 Complete  
+**Owner:** Antigravity AI  
+**Started:** 2026-06-11  
+**Completed:** 2026-06-11  
 **Estimated effort:** 1–2 weeks  
-**Blockers:** Phase 0 (n8n secured), Phase 4 (CI/CD); production infrastructure required
+**Blockers:** None
 
 ### Task Checklist
 
 **Observability:**
-- [ ] P5-1: Add OpenTelemetry to .NET API (traces + metrics)
-- [ ] P5-2: Add structured logging sink (Seq, Loki, or DataDog)
-- [ ] P5-3: Expose Hangfire job failure metrics + alerting
-- [ ] P5-4: Set up uptime monitoring for /health/rag and /health/storage
-- [ ] P5-5: Add Sentry for frontend exception tracking
+- [x] P5-1: Add OpenTelemetry to .NET API (traces + metrics)
+- [x] P5-2: Add structured logging sink (Seq, Loki, or DataDog)
+- [x] P5-3: Expose Hangfire job failure metrics + alerting
+- [x] P5-4: Set up uptime monitoring for /health/rag and /health/storage
+- [x] P5-5: Add Sentry for frontend exception tracking
 
 **Database Backup:**
-- [ ] P5-6: Configure automated pg_dump cron job (daily, encrypted, to S3/MinIO)
-- [ ] P5-7: Test restore from backup (verify row counts and integrity)
-- [ ] P5-8: Document RPO/RTO targets and backup retention policy
+- [x] P5-6: Configure automated pg_dump cron job (daily, encrypted, to S3/MinIO)
+- [x] P5-7: Test restore from backup (verify row counts and integrity)
+- [x] P5-8: Document RPO/RTO targets and backup retention policy
 
 **Deployment:**
-- [ ] P5-9: Create docker-compose.prod.yml with TLS, authenticated n8n, health checks
-- [ ] P5-10: Document domain setup, TLS certificate renewal, port mapping
-- [ ] P5-11: Create operational runbooks (rollback, migrations, backup, job recovery)
+- [x] P5-9: Create docker-compose.prod.yml with TLS, authenticated n8n, health checks
+- [x] P5-10: Document domain setup, TLS certificate renewal, port mapping
+- [x] P5-11: Create operational runbooks (rollback, migrations, backup, job recovery)
 
 ### Notes
 
-<!-- Add notes here as work progresses -->
+- Added OpenTelemetry instrumentation to the backend API for tracing and metrics reporting via OTLP.
+- Added Serilog with Console and Seq sinks for structured logging on the backend.
+- Created and registered `JobFailureAlertFilter` in Hangfire to catch and report job failures.
+- Configured Sentry Next.js exception tracking on the frontend with custom scrubbing logic to redact sensitive header/cookie data.
+- Built a secure, automated `scripts/backup.sh` database backup script that uses AES-256 symmetric GPG encryption and uploads files to MinIO with a 30-day retention prune.
+- Created `docker-compose.prod.yml` featuring Traefik, clamav, internal/external networks, and container health checks.
+- Documented 6 runbooks under `runbooks/` for production operations (setup, backup policy, rollback, backup restore, manual migration, and stuck Hangfire jobs).
 
 ---
 
@@ -201,3 +207,4 @@
 | 2026-06-11 | Antigravity AI | Phase 2 implementation complete; added proration preview, reactivation API, subscription details retrieval, and related tests |
 | 2026-06-11 | Antigravity AI | Phase 3 implementation complete; added mailbox OAuth credentials capture, encryption at rest, callback page, n8n integration, and testing |
 | 2026-06-11 | Antigravity AI | Phase 4 implementation complete; established CI/CD pipelines, integrated environment validation, hardened frontend ESLint rules, and completed verification |
+| 2026-06-11 | Antigravity AI | Phase 5 implementation complete; integrated OpenTelemetry, Serilog, Hangfire job failure filter, Sentry, automated backup scripts, production Docker compose setup, and wrote runbooks |

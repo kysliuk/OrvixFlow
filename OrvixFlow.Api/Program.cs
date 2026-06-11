@@ -14,8 +14,25 @@ using OrvixFlow.Infrastructure.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using OrvixFlow.Api.Security;
+using Serilog;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using OrvixFlow.Api.Filters;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "OrvixFlow")
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.Seq(context.Configuration["Logging:SeqUrl"] ?? "http://localhost:5341",
+        apiKey: context.Configuration["Logging:SeqApiKey"]));
 
 // CORS – allow Next.js frontend
 builder.Services.AddCors(o => o.AddPolicy("Frontend", p =>
@@ -158,6 +175,34 @@ builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddSingleton<ITenantProviderFactory, TenantProviderFactory>(); 
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// P5-1: OpenTelemetry — traces and metrics
+var otlpEndpoint = builder.Configuration["Telemetry:OtlpEndpoint"];
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddEntityFrameworkCoreInstrumentation();
+        
+        if (!string.IsNullOrEmpty(otlpEndpoint))
+        {
+            tracing.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+        }
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+        
+        if (!string.IsNullOrEmpty(otlpEndpoint))
+        {
+            metrics.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+        }
+    });
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                        ?? "Host=localhost;Database=orvixflow;Username=postgres;Password=postgres";
 
@@ -169,6 +214,9 @@ builder.Services.AddHangfire(config => config
 builder.Services.AddHangfireServer();
 
 var app = builder.Build();
+
+GlobalJobFilters.Filters.Add(new JobFailureAlertFilter(
+    app.Services.GetRequiredService<ILogger<JobFailureAlertFilter>>()));
 
 // F-32 FIX: Add HTTP security headers before authentication middleware.
 // These headers protect against XSS, clickjacking, MIME sniffing, and enforce HTTPS.

@@ -198,6 +198,7 @@
 | Rate limit policies | `OrvixFlow.Api/Security/RateLimitPolicies.cs` |
 | Rate limit policy names | `OrvixFlow.Api/Security/RateLimitPolicyNames.cs` |
 | Security header policies | `OrvixFlow.Api/Security/SecurityHeaderPolicies.cs` |
+| JobFailureAlertFilter | `OrvixFlow.Api/Filters/JobFailureAlertFilter.cs` |
 
 ## Frontend
 
@@ -219,6 +220,9 @@
 | Inbox Settings | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
 | Inbox History | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
 | Admin Inbox Metrics | `orvixflow-web/app/(admin)/admin/inbox-metrics/page.tsx` |
+| Sentry Client Config | `orvixflow-web/sentry.client.config.ts` |
+| Sentry Server Config | `orvixflow-web/sentry.server.config.ts` |
+| Sentry Edge Config | `orvixflow-web/sentry.edge.config.ts` |
 
 ## Data
 
@@ -242,6 +246,8 @@
 | `orvixflow-web/auth.ts` | NextAuth configuration |
 | `.github/workflows/ci.yml` | CI build, lint, and test validation workflow |
 | `.github/workflows/deploy.yml` | Production deployment template stub |
+| `docker-compose.prod.yml` | Production-specific Docker Compose setup |
+| `scripts/backup.sh` | Automated encrypted database backup script |
 
 
 ## Storage & File Governance
@@ -259,3 +265,15 @@
 | LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` — [LEGACY] dev-only fallback |
 | StorageHealthCheck | `OrvixFlow.Api/Health/StorageHealthCheck.cs` |
 | StorageMigrationController | `OrvixFlow.Api/Controllers/StorageMigrationController.cs` |
+
+## Operations & Runbooks
+
+| File | Purpose |
+|------|---------|
+| `runbooks/backup-policy.md` | RPO/RTO objectives, retention rules, and GPG encryption rotation |
+| `runbooks/production-setup.md` | Prerequisites, bootstrap commands, automated TLS, and update instructions |
+| `runbooks/rollback.md` | Rollback instructions using specific image tags or git reverts |
+| `runbooks/backup-restore.md` | Validation and disaster recovery database restore steps |
+| `runbooks/migration-production.md` | Automated startup migrations, history inspection, and manual SQL scripting |
+| `runbooks/hangfire-stuck-job.md` | Procedures to resolve frozen or failing background jobs |
+
