@@ -483,9 +483,11 @@ services:
     image: n8nio/n8n:latest
     environment:
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_ADMIN_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_ADMIN_PASSWORD}
+      - N8N_INSTANCE_OWNER_MANAGED_BY_ENV=true
+      - N8N_INSTANCE_OWNER_EMAIL=${N8N_OWNER_EMAIL}
+      - N8N_INSTANCE_OWNER_FIRST_NAME=${N8N_OWNER_FIRST_NAME}
+      - N8N_INSTANCE_OWNER_LAST_NAME=${N8N_OWNER_LAST_NAME}
+      - N8N_INSTANCE_OWNER_PASSWORD_HASH=${N8N_OWNER_PASSWORD_HASH}
       - WEBHOOK_URL=https://${N8N_DOMAIN}/
     labels:
       - "traefik.enable=true"
@@ -659,7 +661,7 @@ If images are not available, revert the commit and let CI/CD redeploy.
 ## Architecture Rules
 
 - `docker-compose.prod.yml` must use `internal: true` network for all non-public services (Postgres, MinIO)
-- n8n must be behind Traefik authentication AND have `N8N_BASIC_AUTH_ACTIVE=true`
+- n8n must be behind Traefik authentication and require owner login via `N8N_INSTANCE_OWNER_*`
 - All services must have `restart: unless-stopped`
 - The `orvix-db` service must NOT expose any ports to the host — it is internal only
 - OpenTelemetry exporter must use OTLP (not Jaeger direct) for vendor neutrality
@@ -673,7 +675,7 @@ If images are not available, revert the commit and let CI/CD redeploy.
 - Database port (5432) must NOT be exposed to the internet — use the internal Docker network only
 - MinIO admin UI (port 9001) must NOT be exposed via Traefik without authentication
 - All TLS certificates must be renewed automatically via Let's Encrypt
-- n8n admin UI must require authentication (`N8N_BASIC_AUTH_ACTIVE=true`)
+- n8n admin UI must require authentication via owner login bootstrap
 - Backup encryption key must not be stored in the same location as the backup files
 
 ---
@@ -719,7 +721,7 @@ dotnet test
 - [ ] `app.yourdomain.com` returns valid HTTPS with Next.js app
 - [ ] Postgres port NOT accessible from internet
 - [ ] MinIO admin UI NOT accessible without authentication
-- [ ] n8n admin UI requires username/password
+- [ ] n8n admin UI requires owner login
 - [ ] All runbooks exist and are accurate
 - [ ] `dotnet test` still passes (0 failures)
 

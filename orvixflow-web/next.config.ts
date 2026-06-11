@@ -1,12 +1,31 @@
 import type { NextConfig } from "next";
 
+function buildContentSecurityPolicy() {
+  const connectSources = [
+    "'self'",
+    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080",
+    "https://accounts.google.com",
+    "https://login.microsoftonline.com",
+  ];
+
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' https:",
+    `connect-src ${connectSources.join(" ")}` ,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self' https://accounts.google.com https://login.microsoftonline.com",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
 const nextConfig: NextConfig = {
-  // F-32 FIX: Add HTTP security headers to protect against XSS, clickjacking,
-  // MIME sniffing, and enforce strict referrer policy.
   async headers() {
     return [
       {
-        // Apply to all routes
         source: "/:path*",
         headers: [
           {
@@ -26,18 +45,13 @@ const nextConfig: NextConfig = {
             value: "strict-origin-when-cross-origin",
           },
           {
-            // Permissions Policy restricts access to browser features.
-            // Camera, microphone, and geolocation are disabled by default.
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
-          // Content-Security-Policy should be audited and tightened once all
-          // inline scripts are moved to separate files. For now, a basic
-          // restrictive policy is better than none.
-          // {
-          //   key: "Content-Security-Policy",
-          //   value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self';",
-          // },
+          {
+            key: "Content-Security-Policy",
+            value: buildContentSecurityPolicy(),
+          },
         ],
       },
     ];

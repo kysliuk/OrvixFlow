@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OrvixFlow.Core.Interfaces;
 using System;
 using Microsoft.AspNetCore.RateLimiting;
+using OrvixFlow.Api.Security;
 
 namespace OrvixFlow.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitPolicyNames.Register)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
@@ -42,7 +44,7 @@ public class AuthController : ControllerBase
     // F-03 FIX: Apply per-IP rate limiting to prevent brute-force password attacks.
     // The "login" rate limiter policy allows 5 attempts per minute per IP address.
     [HttpPost("login")]
-    [EnableRateLimiting("login")]
+    [EnableRateLimiting(RateLimitPolicyNames.Login)]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var result = await _authService.LoginAsync(req.Email, req.Password);

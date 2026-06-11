@@ -13,6 +13,7 @@ using OrvixFlow.Infrastructure;
 using OrvixFlow.Infrastructure.Services;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using OrvixFlow.Api.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -83,19 +84,20 @@ builder.Services.AddRateLimiter(options =>
     
     // F-03 FIX: Per-IP rate limiting on login endpoint to prevent brute-force attacks.
     // 5 attempts per minute per IP address.
-    options.AddPolicy("login", context =>
+    options.AddPolicy(RateLimitPolicyNames.Login, context =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            }));
+            factory: _ => RateLimitPolicies.CreateLoginOptions()));
+
+    // P0-3: Per-IP rate limiting on register endpoint to prevent bulk account creation and email flooding.
+    // 10 attempts per hour per IP address.
+    options.AddPolicy(RateLimitPolicyNames.Register, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => RateLimitPolicies.CreateRegisterOptions()));
 
     // Existing upload policy
-    options.AddFixedWindowLimiter(policyName: "upload", options =>
+    options.AddFixedWindowLimiter(policyName: RateLimitPolicyNames.Upload, options =>
     {
         options.PermitLimit = 10;
         options.Window = TimeSpan.FromMinutes(1);
@@ -105,7 +107,7 @@ builder.Services.AddRateLimiter(options =>
 
     // F-27 FIX: Rate limiting on AI-consuming endpoints
     // Per-tenant+IP to prevent AI API cost abuse
-    options.AddPolicy("ai-process", context =>
+    options.AddPolicy(RateLimitPolicyNames.AiProcess, context =>
     {
         var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -121,7 +123,7 @@ builder.Services.AddRateLimiter(options =>
     });
 
     // Rate limiting on embedding API calls
-    options.AddPolicy("ai-ingest", context =>
+    options.AddPolicy(RateLimitPolicyNames.AiIngest, context =>
     {
         var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -137,7 +139,7 @@ builder.Services.AddRateLimiter(options =>
     });
 
     // Rate limiting on knowledge base search
-    options.AddPolicy("ai-search", context =>
+    options.AddPolicy(RateLimitPolicyNames.AiSearch, context =>
     {
         var tenantId = context.User.FindFirst("TenantId")?.Value ?? context.User.FindFirst("ActiveCompanyId")?.Value ?? "no-tenant";
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -168,6 +170,24 @@ builder.Services.AddHangfireServer();
 
 var app = builder.Build();
 
+// F-32 FIX: Add HTTP security headers before authentication middleware.
+// These headers protect against XSS, clickjacking, MIME sniffing, and enforce HTTPS.
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+        context.Response.Headers["Content-Security-Policy"] = SecurityHeaderPolicies.ApiContentSecurityPolicy;
+
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
+
 app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
@@ -175,18 +195,6 @@ if (app.Environment.IsDevelopment())
     app.UseOpenApi();
     app.UseSwaggerUi();
 }
-
-// F-32 FIX: Add HTTP security headers before authentication middleware.
-// These headers protect against XSS, clickjacking, MIME sniffing, and enforce HTTPS.
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-    // Content-Security-Policy should be added once inline scripts are audited.
-    await next();
-});
 
 // F-32 FIX: HSTS (HTTP Strict Transport Security) in production only.
 // Tells browsers to only connect via HTTPS for the specified max-age.

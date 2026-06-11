@@ -33,6 +33,7 @@ dotnet test
 | `DepartmentRbacPhase1Tests.cs` | RBAC schema + role parsing migration coverage |
 | `TeamControllerTests.cs` | Department-scoped team visibility and role changes |
 | `AuthServiceTests.cs` | CompanyMember JWT minting and invite acceptance paths |
+| `Phase0SecurityHardeningTests.cs` | Register limiter wiring + API CSP policy coverage |
 
 ## Test Utilities
 
@@ -75,3 +76,5 @@ cd orvixflow-web && npm run test
 | `lib/org-permissions.test.ts` | Company-tier vs department-manager UI permission helpers |
 | `components/settings/TeamTab.test.tsx` | Department-manager organization UI flows |
 | `components/settings/DepartmentsTab.test.tsx` | Department-manager department tab access |
+| `next.config.test.ts` | Frontend CSP/security header coverage |
+| `middleware.test.ts` | Frontend admin-route protection guard |

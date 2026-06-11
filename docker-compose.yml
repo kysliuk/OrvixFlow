@@ -26,12 +26,13 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=UTC
-      - EXECUTIONS_MODE=internal
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-dev-encryption-key-change-me}
-      # Optional: N8N basic auth - SHOULD BE SET in production
-      # - N8N_BASIC_AUTH_ACTIVE=true
-      # - N8N_BASIC_AUTH_USER=admin
-      # - N8N_BASIC_AUTH_PASSWORD=${N8N_ADMIN_PASSWORD}
+      - EXECUTIONS_MODE=regular
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
+      - N8N_INSTANCE_OWNER_MANAGED_BY_ENV=true
+      - N8N_INSTANCE_OWNER_EMAIL=${N8N_OWNER_EMAIL:?N8N_OWNER_EMAIL must be set}
+      - N8N_INSTANCE_OWNER_FIRST_NAME=${N8N_OWNER_FIRST_NAME:-Orvix}
+      - N8N_INSTANCE_OWNER_LAST_NAME=${N8N_OWNER_LAST_NAME:-Admin}
+      - N8N_INSTANCE_OWNER_PASSWORD_HASH=${N8N_OWNER_PASSWORD_HASH:?N8N_OWNER_PASSWORD_HASH must be set}
     volumes:
       - n8n_data:/home/node/.n8n
     restart: unless-stopped
@@ -117,8 +118,6 @@ services:
       Security__VirusScan__Provider: ${VIRUS_SCAN_PROVIDER:-ClamAv}
       Security__VirusScan__ClamAv__Host: clamav
       Security__VirusScan__ClamAv__Port: 3310
-    env_file:
-      - .env
     depends_on:
       orvix-db:
         condition: service_started
@@ -156,8 +155,6 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
       AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET}
-    env_file:
-      - .env
     depends_on:
       - orvix-api
     restart: unless-stopped

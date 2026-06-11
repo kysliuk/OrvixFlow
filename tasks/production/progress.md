@@ -9,7 +9,7 @@
 
 | Phase | Name | Status | Owner | Started | Completed |
 |---|---|---|---|---|---|
-| Phase 0 | Security & Stability Hardening | 🔴 Not Started | — | — | — |
+| Phase 0 | Security & Stability Hardening | 🟡 Validation Pending | Antigravity AI | 2026-06-11 | — |
 | Phase 1 | Production Email Validation | 🔴 Not Started | — | — | — |
 | Phase 2 | Stripe Live-Mode & Subscription Completeness | 🔴 Not Started | — | — | — |
 | Phase 3 | Mailbox OAuth Credential Capture | 🔴 Not Started | — | — | — |
@@ -20,24 +20,30 @@
 
 ## Phase 0 — Security & Stability Hardening
 
-**Status:** 🔴 Not Started  
-**Owner:** —  
-**Started:** —  
+**Status:** 🟡 Validation Pending  
+**Owner:** Antigravity AI  
+**Started:** 2026-06-11  
 **Completed:** —  
 **Estimated effort:** ~1 week  
 **Blockers:** None (standalone fixes)
 
 ### Task Checklist
 
-- [ ] P0-1: Secure n8n in docker-compose.yml (enable basic auth, rotate encryption key)
-- [ ] P0-2: Add `STRIPE_WEBHOOK_SECRET` to `.env.example`
-- [ ] P0-3: Add rate limiting to `POST /api/auth/register` (10/hour per IP)
-- [ ] P0-4: Implement CSP headers (backend `Program.cs` + frontend `next.config.ts`)
-- [ ] P0-5: Resolve dual admin route (`/admin` vs `/(admin)`) — audit and consolidate
+- [x] P0-1: Secure n8n in docker-compose.yml (require stable encryption key, bootstrap owner login)
+- [x] P0-2: Add `STRIPE_WEBHOOK_SECRET` to `.env.example`
+- [x] P0-3: Add rate limiting to `POST /api/auth/register` (10/hour per IP)
+- [x] P0-4: Implement CSP headers (backend `Program.cs` + frontend `next.config.ts`)
+- [x] P0-5: Resolve dual admin route (`/admin` vs `/(admin)`) — audit and consolidate
 
 ### Notes
 
-<!-- Add notes here as work progresses -->
+- Register endpoint now uses a dedicated fixed-window `register` limiter (10/hour per IP) with coverage in `Phase0SecurityHardeningTests.cs`.
+- API and Next.js now emit CSP headers; frontend policy keeps `'unsafe-inline'` temporarily for Next.js compatibility.
+- API security-header middleware was moved ahead of OpenAPI and switched to `Response.OnStarting(...)` so CSP now appears on live `/health/*` and Swagger responses.
+- Admin pages were consolidated under `orvixflow-web/app/(admin)/admin/**`, preserving `/admin/*` URLs while removing the split route tree.
+- `docker compose --env-file /dev/null config` now fails fast when `N8N_ENCRYPTION_KEY` is missing; `docker-compose.yml` also now uses `EXECUTIONS_MODE=regular` for current n8n images.
+- Current n8n image no longer honors legacy `N8N_BASIC_AUTH_*` vars. Local validation now uses owner bootstrap via `N8N_INSTANCE_OWNER_*` plus `POST /rest/owner/setup`, after which `/rest/login` succeeds and the instance is login-protected.
+- Local `n8n_data` was reset during validation because the prior volume was encrypted with a different key.
 
 ---
 
@@ -177,3 +183,6 @@
 | Date | Agent | Change |
 |---|---|---|
 | 2026-06-11 | Antigravity AI | Initial progress file created from audit |
+| 2026-06-11 | Antigravity AI | Phase 0 implementation complete; awaiting optional live runtime smoke checks |
+| 2026-06-11 | OpenCode | Live smoke found API CSP gap and invalid n8n execution mode; fixed API middleware ordering/OnStarting and updated n8n execution mode to `regular` |
+| 2026-06-11 | OpenCode | Reset local `n8n` state, switched compose/docs from legacy `N8N_BASIC_AUTH_*` to current owner-bootstrap auth, and verified `/rest/login` succeeds |

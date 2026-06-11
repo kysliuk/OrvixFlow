@@ -1,6 +1,6 @@
 # Phase 0 — Security & Stability Hardening
 
-> **Status:** Not Started  
+> **Status:** Validation Pending  
 > **Estimated effort:** 1 week  
 > **Dependencies:** None — all tasks are standalone  
 > **Blocks:** All subsequent phases  
@@ -73,25 +73,30 @@ None. All five tasks are independent of each other and of other phases. They may
 
 **Files:** `docker-compose.yml`, `.env.example`
 
-- [ ] Uncomment and enable n8n basic auth in `docker-compose.yml`:
+- [x] Configure a managed instance owner for current n8n builds:
   ```yaml
-  - N8N_BASIC_AUTH_ACTIVE=true
-  - N8N_BASIC_AUTH_USER=${N8N_ADMIN_USER}
-  - N8N_BASIC_AUTH_PASSWORD=${N8N_ADMIN_PASSWORD}
+  - N8N_INSTANCE_OWNER_MANAGED_BY_ENV=true
+  - N8N_INSTANCE_OWNER_EMAIL=${N8N_OWNER_EMAIL}
+  - N8N_INSTANCE_OWNER_FIRST_NAME=${N8N_OWNER_FIRST_NAME}
+  - N8N_INSTANCE_OWNER_LAST_NAME=${N8N_OWNER_LAST_NAME}
+  - N8N_INSTANCE_OWNER_PASSWORD_HASH=${N8N_OWNER_PASSWORD_HASH}
   ```
-- [ ] Change `N8N_ENCRYPTION_KEY` default from `dev-encryption-key-change-me` to require an env var with no fallback:
+- [x] Change `N8N_ENCRYPTION_KEY` default from `dev-encryption-key-change-me` to require an env var with no fallback:
   ```yaml
   - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
   ```
   (The `:?` syntax causes `docker compose up` to fail if the var is not set — safe by design)
-- [ ] Add to `.env.example`:
+- [x] Add to `.env.example`:
   ```
-  # n8n Admin Authentication (REQUIRED in production)
-  N8N_ADMIN_USER=admin
-  N8N_ADMIN_PASSWORD=REPLACE-WITH-A-SECURE-PASSWORD
+  # n8n Instance Owner Authentication (REQUIRED in production)
+  N8N_OWNER_EMAIL=admin@orvixflow.local
+  N8N_OWNER_FIRST_NAME=Orvix
+  N8N_OWNER_LAST_NAME=Admin
+  N8N_OWNER_PASSWORD_HASH=REPLACE-WITH-A-BCRYPT-HASH
   N8N_ENCRYPTION_KEY=REPLACE-WITH-A-64-CHAR-RANDOM-KEY
   ```
-- [ ] Generate a real `N8N_ENCRYPTION_KEY` value (64-char hex) and store in local `.env` (gitignored)
+- [x] Complete the initial owner bootstrap once via `POST /rest/owner/setup` so `showSetupOnFirstLoad` becomes `false`
+- [x] Generate a real `N8N_ENCRYPTION_KEY` value (64-char hex) and store in local `.env` (gitignored)
 
 > ⚠️ **IMPORTANT:** If n8n already has workflows created with the dev encryption key, those workflows' credentials are encrypted with that key. Rotating the key without migrating credentials will break existing workflows. Before rotating in any non-fresh environment, export all n8n workflows, rotate the key, and re-import to force re-encryption.
 
@@ -99,19 +104,19 @@ None. All five tasks are independent of each other and of other phases. They may
 
 **File:** `.env.example`
 
-- [ ] Add the following to the Stripe section in `.env.example`:
+- [x] Add the following to the Stripe section in `.env.example`:
   ```
   # Stripe Webhook Secret (REQUIRED — get from Stripe dashboard → Webhooks → signing secret)
   STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret_here
   ```
-- [ ] Verify `docker-compose.yml` maps it correctly (it already does: `Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}`)
-- [ ] Verify `Program.cs` startup warning fires when it's missing (already implemented at line ~240)
+- [x] Verify `docker-compose.yml` maps it correctly (it already does: `Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}`)
+- [x] Verify `Program.cs` startup warning fires when it's missing (already implemented at line ~240)
 
 ### P0-3 — Add Rate Limiting to POST /api/auth/register
 
 **Files:** `OrvixFlow.Api/Program.cs`, `OrvixFlow.Api/Controllers/AuthController.cs`, `OrvixFlow.Tests/`
 
-- [ ] In `Program.cs`, add a new rate limiting policy in the existing `AddRateLimiter` block:
+- [x] In `Program.cs`, add a new rate limiting policy in the existing `AddRateLimiter` block:
   ```csharp
   // P0-3: Rate limiting on registration endpoint to prevent bulk account creation and email flooding
   // 10 attempts per hour per IP address.
@@ -126,8 +131,8 @@ None. All five tasks are independent of each other and of other phases. They may
               QueueLimit = 0
           }));
   ```
-- [ ] In `AuthController.cs`, add `[EnableRateLimiting("register")]` to the `Register` action (same pattern as login's `[EnableRateLimiting("login")]`)
-- [ ] Add unit test in `OrvixFlow.Tests/AuthControllerTests.cs` (or a new `RegisterRateLimitTests.cs`):
+- [x] In `AuthController.cs`, add `[EnableRateLimiting("register")]` to the `Register` action (same pattern as login's `[EnableRateLimiting("login")]`)
+- [x] Add unit test in `OrvixFlow.Tests/AuthControllerTests.cs` (or a new `RegisterRateLimitTests.cs`):
   - Test: `Register_ExceedsRateLimit_Returns429` — mock the rate limiter or test the policy configuration
   - Pattern: follow the existing `AuthControllerTests` setup (InMemory DB, `MockTenantProvider`)
 
@@ -182,7 +187,7 @@ curl -I http://localhost:3000
 
 **Files:** `orvixflow-web/app/admin/`, `orvixflow-web/app/(admin)/`, `orvixflow-web/middleware.ts`
 
-- [ ] Enumerate all pages in both route trees:
+- [x] Enumerate all pages in both route trees:
   ```
   app/admin/companies/[id]/audit/page.tsx
   app/admin/companies/[id]/page.tsx
@@ -198,13 +203,13 @@ curl -I http://localhost:3000
   app/(admin)/layout.tsx
   app/(admin)/page.tsx
   ```
-- [ ] Check `orvixflow-web/middleware.ts` to determine which routes are protected by which middleware matchers
-- [ ] Verify both route trees enforce `SuperAdmin` or `InternalOperator` role via session check
-- [ ] Decision: consolidate all admin pages under `app/(admin)/` (the newer group layout pattern)
+- [x] Check `orvixflow-web/middleware.ts` to determine which routes are protected by which middleware matchers
+- [x] Verify both route trees enforce `SuperAdmin` or `InternalOperator` role via session check
+- [x] Decision: consolidate all admin pages under `app/(admin)/` (the newer group layout pattern)
   - Move any remaining `app/admin/` pages into `app/(admin)/`
   - Update navigation links if any reference `/admin/...` paths
   - Remove the `app/admin/` directory once all pages are migrated
-- [ ] If `app/admin/` and `app/(admin)/` serve different purposes (e.g., legacy vs new): document this explicitly in `app/(admin)/layout.tsx` with a comment
+- [x] If `app/admin/` and `app/(admin)/` serve different purposes (e.g., legacy vs new): document this explicitly in `app/(admin)/layout.tsx` with a comment
 
 ---
 
@@ -226,7 +231,7 @@ curl -I http://localhost:3000
 ### Manual Validation
 
 - `docker compose up` must fail with a clear error if `N8N_ENCRYPTION_KEY` is not set
-- n8n admin UI at `http://localhost:5678` must prompt for username/password
+- n8n at `http://localhost:5678` must require authenticated owner login after initial bootstrap
 - `curl -X POST http://localhost:5000/api/auth/register` 11 times in under an hour — 11th must return 429
 - `curl -I http://localhost:5000/health/rag` — must include `Content-Security-Policy` header
 - `curl -I http://localhost:3000` — must include `Content-Security-Policy` header
@@ -237,7 +242,7 @@ curl -I http://localhost:3000
 ## Validation Checklist
 
 - [ ] `docker compose up` fails with clear error if `N8N_ENCRYPTION_KEY` env var is missing
-- [ ] n8n admin UI requires username/password login
+- [x] n8n owner login is required after initial bootstrap
 - [ ] `N8N_ADMIN_USER`, `N8N_ADMIN_PASSWORD`, `N8N_ENCRYPTION_KEY` are documented in `.env.example`
 - [ ] `STRIPE_WEBHOOK_SECRET` is documented in `.env.example`
 - [ ] `POST /api/auth/register` returns 429 after 10 attempts per hour
@@ -257,7 +262,7 @@ All five items are complete AND:
 - 0 test failures in `dotnet test`
 - 0 TypeScript errors in `npm run build`
 - CSP header present on both API and frontend
-- n8n admin UI requires authentication
+- n8n requires owner login
 - `.env.example` documents all required secrets
 - Register endpoint has rate limiting
 

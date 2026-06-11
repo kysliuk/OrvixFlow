@@ -217,14 +217,15 @@ Every protected endpoint → [Authorize] (JWT validated by ASP.NET Core)
 ### HTTP Security Headers
 
 Present on both API and frontend (F-32 fixed):
-- API middleware (`Program.cs`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`, HSTS in non-dev.
-- Frontend (`next.config.ts`): above + `Permissions-Policy`.
+- API middleware (`Program.cs`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`, `Content-Security-Policy`, HSTS in non-dev.
+- Frontend (`next.config.ts`): above + `Permissions-Policy` and route-wide `Content-Security-Policy`.
 
 ### Rate Limiting Policies (defined in `Program.cs`)
 
 | Policy | Endpoint | Limit |
 |--------|----------|-------|
-| `login` | `POST /api/auth/login` | 5/min per IP (sliding window) |
+| `login` | `POST /api/auth/login` | 5/min per IP (fixed window) |
+| `register` | `POST /api/auth/register` | 10/hour per IP (fixed window) |
 | `upload` | `POST /api/v1/knowledge/upload` | 10/min per tenant+IP |
 | `ai-process` | `POST /api/inbox/process` | 30/min per tenant+IP |
 | `ai-ingest` | `POST /api/agent/ingest` | 20/min per tenant+IP |
@@ -247,7 +248,7 @@ Present on both API and frontend (F-32 fixed):
 
 - **Backend:** `[Authorize(Policy = "SuperAdminOnly")]` or `[Authorize(Policy = "PlatformAdmin")]` on all `/api/admin/*` routes.
 - **Frontend:** Next.js middleware checks `req.auth?.user?.role` for `/admin` routes and redirects non-platform-admins to `/`. Runs server-side before any render (F-25 fixed).
-- Admin layout (`admin/layout.tsx`) also checks — this is defense-in-depth only.
+- Admin layout (`app/(admin)/admin/layout.tsx`) also checks — this is defense-in-depth only.
 - **Hangfire dashboard (`/hangfire`):** Protected by `HangfireDashboardAuthorizationFilter` requiring SuperAdmin JWT (F-22 fixed).
 
 ### Plan / Subscription Assignment
@@ -310,11 +311,11 @@ As of 2026-04-15, all Critical and High findings from the security review are fi
 
 **Impact:** Uploaded files are not scanned for malware unless ClamAV provider is configured.
 
-### Gap: No Content-Security-Policy
+### Gap: Content-Security-Policy Uses Compatibility Mode For Next.js
 
-**Current state:** Other security headers are present; full CSP header requires auditing inline scripts in the Next.js frontend first (commented out in `next.config.ts`).
+**Current state:** CSP is now enabled on both API and frontend responses. The frontend policy still allows `'unsafe-inline'` for scripts/styles to remain compatible with Next.js runtime output and existing inline style usage.
 
-**Impact:** XSS risk if malicious content is rendered without a CSP.
+**Impact:** Stronger protection than no CSP, but not the strict nonce/hash-based policy desired for long-term hardening. Future tightening should remove `'unsafe-inline'` where feasible.
 
 ---
 

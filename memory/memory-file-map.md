@@ -161,12 +161,12 @@
 | SmtpEmailService | `OrvixFlow.Infrastructure/Services/SmtpEmailService.cs` |
 | ResendEmailService | `OrvixFlow.Infrastructure/Services/ResendEmailService.cs` |
 | Load Test Script | `scripts/load-test-inbox.sh` |
-| Company Detail Page | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
-| Company Audit Page | `orvixflow-web/app/admin/companies/[id]/audit/page.tsx` |
-| Modules Page | `orvixflow-web/app/admin/modules/page.tsx` |
+| Company Detail Page | `orvixflow-web/app/(admin)/admin/companies/[id]/page.tsx` |
+| Company Audit Page | `orvixflow-web/app/(admin)/admin/companies/[id]/audit/page.tsx` |
+| Modules Page | `orvixflow-web/app/(admin)/admin/modules/page.tsx` |
 | Inbox Settings Page | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
 | Inbox History Page | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
-| Admin Inbox Metrics | `orvixflow-web/app/(admin)/inbox-metrics/page.tsx` |
+| Admin Inbox Metrics | `orvixflow-web/app/(admin)/admin/inbox-metrics/page.tsx` |
 | LocalFileStorage | `OrvixFlow.Infrastructure/Storage/LocalFileStorage.cs` — [LEGACY] dev-only fallback |
 | PolicyGateService | `OrvixFlow.Infrastructure/Services/PolicyGateService.cs` |
 | WebhookCallbackService | `OrvixFlow.Infrastructure/Services/WebhookCallbackService.cs` |
@@ -192,6 +192,9 @@
 | RequireModuleAttribute | `OrvixFlow.Api/Filters/RequireModuleAttribute.cs` |
 | RequireAutomationKeyAttribute | `OrvixFlow.Api/Filters/RequireAutomationKeyAttribute.cs` |
 | TenantProvider | `OrvixFlow.Api/Services/TenantProvider.cs` |
+| Rate limit policies | `OrvixFlow.Api/Security/RateLimitPolicies.cs` |
+| Rate limit policy names | `OrvixFlow.Api/Security/RateLimitPolicyNames.cs` |
+| Security header policies | `OrvixFlow.Api/Security/SecurityHeaderPolicies.cs` |
 
 ## Frontend
 
@@ -208,11 +211,11 @@
 | Settings Billing | `orvixflow-web/app/(dashboard)/settings/billing/page.tsx` |
 | Billing/Upgrade Page | `orvixflow-web/app/(dashboard)/billing/page.tsx` |
 | Module Gate | `orvixflow-web/components/module-gate.tsx` |
-| Admin Plans Page | `orvixflow-web/app/admin/plans/page.tsx` |
-| Admin Company Detail | `orvixflow-web/app/admin/companies/[id]/page.tsx` |
+| Admin Plans Page | `orvixflow-web/app/(admin)/admin/plans/page.tsx` |
+| Admin Company Detail | `orvixflow-web/app/(admin)/admin/companies/[id]/page.tsx` |
 | Inbox Settings | `orvixflow-web/app/(dashboard)/settings/inbox/page.tsx` |
 | Inbox History | `orvixflow-web/app/(dashboard)/inbox/history/page.tsx` |
-| Admin Inbox Metrics | `orvixflow-web/app/(admin)/inbox-metrics/page.tsx` |
+| Admin Inbox Metrics | `orvixflow-web/app/(admin)/admin/inbox-metrics/page.tsx` |
 
 ## Data
 
@@ -228,11 +231,11 @@
 
 | File | Purpose |
 |------|---------|
-| `OrvixFlow.Api/Program.cs` | API startup, DI registration |
+| `OrvixFlow.Api/Program.cs` | API startup, DI registration, rate limits, security headers |
 | `OrvixFlow.Api/appsettings.json` | API configuration |
 | `OrvixFlow.Infrastructure/DependencyInjection.cs` | Service registration |
 | `docker-compose.yml` | Full stack environment |
-| `orvixflow-web/next.config.ts` | Next.js configuration |
+| `orvixflow-web/next.config.ts` | Next.js configuration and security headers |
 | `orvixflow-web/auth.ts` | NextAuth configuration |
 
 
