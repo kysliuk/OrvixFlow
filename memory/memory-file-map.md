@@ -240,6 +240,8 @@
 | `docker-compose.yml` | Full stack environment |
 | `orvixflow-web/next.config.ts` | Next.js configuration and security headers |
 | `orvixflow-web/auth.ts` | NextAuth configuration |
+| `.github/workflows/ci.yml` | CI build, lint, and test validation workflow |
+| `.github/workflows/deploy.yml` | Production deployment template stub |
 
 
 ## Storage & File Governance

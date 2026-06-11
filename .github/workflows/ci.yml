@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-config:
+    name: Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify .env.example is complete
+        run: |
+          missing=0
+          while IFS= read -r var; do
+            if ! grep -q "^${var}=" .env.example && ! grep -q "^# ${var}" .env.example; then
+              echo "MISSING from .env.example: ${var}"
+              missing=$((missing + 1))
+            fi
+          done < <(grep -oP '\$\{\K[A-Z_]+(?=\}|\:)' docker-compose.yml | sort -u)
+          
+          if [ $missing -gt 0 ]; then
+            echo "Error: $missing env vars referenced in docker-compose.yml are not documented in .env.example"
+            exit 1
+          fi
+          echo "All env vars documented in .env.example"
+
+  backend:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --configuration Release --verbosity normal
+
+  frontend:
+    name: Frontend — Build, Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orvixflow-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: orvixflow-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXTAUTH_SECRET: ci-placeholder-secret
+          NEXTAUTH_URL: http://localhost:3000
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
+
+      - name: Test
+        run: npm run test
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API Docker image
+        run: docker build -t orvixflow-api:ci -f OrvixFlow.Api/Dockerfile .
+
+      - name: Build Web Docker image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:8080 \
+            -t orvixflow-web:ci \
+            -f orvixflow-web/Dockerfile \
+            orvixflow-web/
