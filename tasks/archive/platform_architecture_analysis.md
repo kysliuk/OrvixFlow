@@ -1,5 +1,9 @@
 # OrvixFlow - Platform Architecture & Authorization Analysis
 
+> **Obsolete / Historical Analysis**
+> Superseded by current code, `memory/auth.md`, `memory/memory-security.md`, and `tasks/production/current-state-audit.md` on 2026-06-11.
+> This analysis predates the current RBAC model and should not be used as the source of truth for company and department roles.
+
 ## 1. Executive Summary
 This report details the structural, security, and domain architecture of the OrvixFlow platform based on an in-depth code and memory analysis.
 OrvixFlow employs a robust Clean Architecture in .NET 9 interacting with a Next.js 16 frontend. The platform operates as a multi-tenant B2B application featuring a hybrid role-based access control (RBAC) and entitlement-based gating system. It bridges traditional B2B SaaS features (company roles, subscription tiers, Stripe billing) with dense AI and orchestrator concepts (RAG, vector embeddings, n8n webhook triggers).

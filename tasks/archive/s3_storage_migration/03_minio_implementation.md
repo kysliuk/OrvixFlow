@@ -1,5 +1,9 @@
 # Phase 03 — Storage Abstraction Upgrade (StorageContext + MinIO Implementation)
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage implementation by 2026-06-11.
+> This file reflects an older migration sequence and should not be treated as the current source of truth.
+
 ## Phase Goal
 
 Replace the current raw `(tenantId, documentId, fileName)` signature with a typed `StorageContext` value object.  

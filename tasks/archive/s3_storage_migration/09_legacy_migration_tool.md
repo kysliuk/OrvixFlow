@@ -1,5 +1,9 @@
 # Phase 09 — Legacy File Migration Tool (Local → MinIO)
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage implementation and current production audit state by 2026-06-11.
+> Keep only as historical context unless a fresh migration design is needed.
+
 ## Phase Goal
 
 Build a safe, idempotent, resumable migration tool that copies all files currently in `LocalFileStorage` (`/app/uploads/`) into MinIO, creates `StoredObject` metadata rows, and updates `KnowledgeBaseDocument.StoragePath` and `KnowledgeBaseImage.StoragePath` to use object storage keys.

@@ -1,5 +1,9 @@
 # Phase 1 — Production Email Validation
 
+> **Obsolete / Historical Plan**
+> Superseded by `tasks/production/current-state-audit.md`, `tasks/production/overview.md`, and `tasks/production/progress.md` on 2026-06-11.
+> This file reflects an older execution plan and stale status assumptions. Do not use it as the current source of truth.
+
 > **Status:** Not Started  
 > **Estimated effort:** 1 week  
 > **Dependencies:** Phase 0 complete; Resend account with verified sending domain  

@@ -1,5 +1,9 @@
 # Phase 02 — Fix ClamAV DI Bug and Activate Virus Scanning
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage/security implementation and current production audit state by 2026-06-11.
+> Use current code, `memory/memory-security.md`, and `tasks/production/current-state-audit.md` before relying on this phase plan.
+
 ## Phase Goal
 
 Fix the DI double-registration bug that permanently bypasses ClamAV.  

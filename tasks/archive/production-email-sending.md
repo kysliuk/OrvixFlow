@@ -1,5 +1,9 @@
 # Production Email Sending — Implementation Plan
 
+> **Historical Implementation Plan**
+> This file reflects the original provider-selection and implementation planning stage.
+> Much of the implementation has landed; use current code, `memory/auth.md`, and `tasks/production/current-state-audit.md` for current state and remaining production gaps.
+
 ## Goal
 
 Replace the current console-log mock with a real transactional email provider that actually delivers emails to users' inboxes. This covers:

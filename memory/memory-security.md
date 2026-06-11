@@ -1,6 +1,6 @@
 # OrvixFlow — Security Memory
 
-> **Last updated:** 2026-04-15
+> **Last updated:** 2026-06-11
 > **Based on:** `tasks/claude-security-review-08-04.md` (dual AI review, Phase 1–4 remediation complete)
 > **Remediation status:** All Critical + High issues fixed as of Phase 2. Phase 3 complete (2026-04-14). Phase 4 complete (2026-04-14). One deferred item: F-20 (MinIO) is a separate implementation track.
 
@@ -267,7 +267,7 @@ Present on both API and frontend (F-32 fixed):
 
 - Webhook endpoint (`/api/webhook/inbox`): protected by `HmacSignatureMiddleware` (HMAC-SHA256, constant-time compare).
 - n8n callbacks: protected by `[RequireAutomationKey]` (constant-time compare, F-16 fixed).
-- `AutomationKey` loaded from environment (`Automation:AutomationKey`) — not hardcoded.
+- `AutomationKey` is loaded from the root configuration key `AutomationKey` and sent as `X-Automation-Key` on n8n-bound requests. Production config must use the exact key name the code reads.
 - **n8n network segmentation (F-23 fixed):** n8n runs on the `external` Docker network only. It cannot reach PostgreSQL directly (`orvix-db` is `internal` only). Attack surface from n8n compromise is limited to the API's public webhook endpoints.
 
 ### File / Storage Access
@@ -302,13 +302,15 @@ Present on both API and frontend (F-32 fixed):
 
 ## 7. Current Known Security Gaps
 
-As of 2026-04-15, all Critical and High findings from the security review are fixed. The remaining open items are:
+As of 2026-06-11, the original critical and high findings remain largely remediated in code, but production-readiness still has configuration and operational gaps. The remaining open items are:
 
 | ID | Description | Severity | Status |
 |----|-------------|----------|--------|
 | **F-29** | Backend JWT accessible to client-side JS via `useSession()` | Medium | Open — server-side Route Handlers partially implemented (proxy routes added), but full migration not done |
 | **F-30** | Frontend role checks rely on potentially stale token role | Low | Open — acceptable given 60-min JWT lifetime |
 | **F-20** | Local file storage (volume mount) instead of MinIO/S3 | — | Deferred — separate implementation track |
+| **P-01** | Production compose wires the automation secret incorrectly if `Automation__Key` is used instead of root `AutomationKey` | High | Open — runtime config mismatch |
+| **P-02** | Production file scanning can silently run with `Noop` provider if not explicitly configured | High | Open — unsafe production default |
 
 ### Gap: No JWT Revocation
 
@@ -324,7 +326,7 @@ As of 2026-04-15, all Critical and High findings from the security review are fi
 
 ### Gap: Virus Scanning is Noop by Default
 
-**Current state:** `IVirusScanService` defaults to `NoopVirusScanService`. Production environments will print a startup warning if Noop is active and environment is not Development (F-18 fixed).
+**Current state:** `IVirusScanService` defaults to `NoopVirusScanService`. Production environments will print a startup warning if Noop is active and environment is not Development, but the current production compose still defaults the provider to `Noop` unless overridden.
 
 **Impact:** Uploaded files are not scanned for malware unless ClamAV provider is configured.
 
@@ -402,7 +404,7 @@ As of 2026-04-15, all Critical and High findings from the security review are fi
 2. **For authorization changes:** Check `RequireModuleAttribute.cs`, `AccessResolver.cs`, `Roles.cs` (both files).
 3. **For tenant isolation changes:** Check `AppDbContext.OnModelCreating`, `TenantProvider.cs`, `BackgroundTenantProvider.cs`.
 4. **For admin panel changes:** Check `AdminController.cs` + `Program.cs` (policy registrations) + `middleware.ts` (frontend guard).
-5. **For n8n/webhook changes:** Check `HmacSignatureMiddleware.cs`, `RequireAutomationKeyAttribute.cs`, `docker-compose.yml` networks.
+5. **For n8n/webhook changes:** Check `HmacSignatureMiddleware.cs`, `RequireAutomationKeyAttribute.cs`, `docker-compose.yml` networks, and ensure deploy/runtime config uses root `AutomationKey` rather than `Automation__Key`.
 
 ### High-Impact Files (Touch With Extra Care)
 
@@ -420,7 +422,7 @@ As of 2026-04-15, all Critical and High findings from the security review are fi
 ### Always Regression-Test After Security-Touching Changes
 
 ```bash
-dotnet test                                          # All 314 tests must pass
+dotnet test                                          # Full backend suite must pass
 dotnet test --filter "FullyQualifiedName~TenantIsolation"
 dotnet test --filter "FullyQualifiedName~AuthController"
 dotnet test --filter "FullyQualifiedName~AccessResolver"

@@ -1,5 +1,9 @@
 # Phase 04 — Domain Model: DepartmentId on KnowledgeBaseDocument + EF Migration
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage and RBAC implementation by 2026-06-11.
+> Use current code and `memory/memory-feature-map.md` before relying on this phase plan.
+
 ## Phase Goal
 
 Add `DepartmentId?` to `KnowledgeBaseDocument` entity.  

@@ -1,5 +1,9 @@
 # Phase 07 — FileIngestionJob Adaptation for Object Storage
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later ingestion/storage implementation by 2026-06-11.
+> This file is historical and should not be used as the current implementation guide.
+
 ## Phase Goal
 
 Verify and harden `FileIngestionJob` to work correctly with object-storage keys (MinIO S3 keys or Azure Blob keys) rather than implicitly relying on filesystem paths.  

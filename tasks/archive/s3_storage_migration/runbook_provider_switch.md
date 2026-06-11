@@ -1,5 +1,9 @@
 # Runbook: Storage Provider Switch
 
+> **Historical Runbook Draft**
+> This runbook was written for the older storage-migration track and may not reflect the current runtime path.
+> Validate against current code, deployment config, and `tasks/production/current-state-audit.md` before operational use.
+
 ## Purpose
 This runbook explains how to switch OrvixFlow storage between Local, MinIO, and Azure Blob, with verification and rollback steps for each path.
 

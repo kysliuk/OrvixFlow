@@ -1,5 +1,9 @@
 # Archived Org Auth And Company Switch Regression Plan
 
+> **Historical Regression Plan**
+> Parts of this document are stale and predate the current three-layer RBAC model and production audit sync.
+> Use current code, `memory/auth.md`, and `tasks/production/current-state-audit.md` as the source of truth. Keep this file only as historical context for unresolved UX/QA follow-up ideas.
+
 ## Execution Status
 
 **Done:**

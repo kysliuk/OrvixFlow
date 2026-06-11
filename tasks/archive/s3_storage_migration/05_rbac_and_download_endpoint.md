@@ -1,5 +1,9 @@
 # Phase 05 — RBAC, Download Endpoint, and Department-Scoped File Access
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage, RBAC, and download-path implementation by 2026-06-11.
+> This document is retained for historical context only.
+
 ## Phase Goal
 
 Update `FileIngestionController` to:

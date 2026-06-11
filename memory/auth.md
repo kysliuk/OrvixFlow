@@ -1,6 +1,6 @@
 # Auth Memory
 
-Last updated: 2026-04-24 (Phase 4 RBAC memory sync executed)
+Last updated: 2026-06-11 (production audit memory sync executed)
 
 This file is the auth-focused working memory for future agents. Read it before changing login, registration, JWT/session handling, company switching, invites, verification, or authorization filters.
 
@@ -218,6 +218,6 @@ Files to inspect before changing authz:
 
 ## Known Remaining Follow-Ups
 
-- Refresh tokens are still stored in plaintext at rest.
-- There is logout for a single refresh token, but not a broader session-family revocation model.
+- Refresh tokens are stored as SHA-256 hashes in the `RefreshTokens` table and are presented to clients as opaque `lookupKey.secret` values. Future changes must preserve hash-at-rest storage and lookup-key based lookup.
+- Logout currently revokes the full refresh-token family, but there is still no server-side JWT blacklist. Access revocation still depends on JWT expiry for already-issued access tokens.
 - If the product later introduces a real trial model, tenant denormalization and default subscription provisioning must be updated together.

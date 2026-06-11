@@ -1,5 +1,9 @@
 # Production Email Sending - Multi-Session AI Execution Plan
 
+> **Historical Execution Plan**
+> This document is useful for background context, but it is no longer the current source of truth for production-readiness status.
+> Use current code and `tasks/production/current-state-audit.md` for current status and remaining validation work.
+
 ## 1. Executive Summary
 
 This plan covers the productionization of OrvixFlow's outbound email delivery for transactional auth emails and queued notification emails.

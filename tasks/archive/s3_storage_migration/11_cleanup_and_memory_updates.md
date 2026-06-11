@@ -1,5 +1,9 @@
 # Phase 11 — Cleanup, Runbooks, and Memory Updates
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage/runbook implementation and current memory sync by 2026-06-11.
+> This file is retained as historical context only.
+
 ## Phase Goal
 
 Remove `LocalFileStorage` from production code paths.  

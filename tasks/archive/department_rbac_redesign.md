@@ -1,5 +1,9 @@
 # Department RBAC Redesign — Full Implementation Plan
 
+> **Historical Implementation Record**
+> This redesign has largely been implemented and synchronized into memory/code.
+> Use current code and `memory/auth.md` as the source of truth; keep this file as implementation history, not as an active execution plan.
+
 > [!CAUTION]
 > This is a **breaking change to the authorization model**. Every layer (DB, backend, JWT, frontend) must be updated atomically. Run the full `dotnet test` suite and manual validation checklist before deploying to any environment with real data.
 

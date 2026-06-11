@@ -1,5 +1,9 @@
 # Company Admin Permission Audit And Fix Plan
 
+> **Obsolete / Historical Plan**
+> Superseded by later RBAC implementation and test coverage on 2026-06-11.
+> Keep only as historical context. Use current code, `memory/auth.md`, and `tasks/production/current-state-audit.md` instead.
+
 ## Execution Status
 
 **Done:**

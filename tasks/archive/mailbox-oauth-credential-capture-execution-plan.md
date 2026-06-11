@@ -1,5 +1,9 @@
 # Mailbox OAuth Credential Capture - Multi-Session AI Execution Plan
 
+> **Historical Execution Plan**
+> Core implementation from this plan has landed in code, but the status and dependency framing here are stale.
+> Use current code, `memory/memory-security.md`, and `tasks/production/current-state-audit.md` as the source of truth.
+
 ## Execution Status
 
 **Done:**

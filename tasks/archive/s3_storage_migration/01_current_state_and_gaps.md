@@ -1,5 +1,9 @@
 # Phase 01 — Current State Analysis and Gap Registry
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage, RBAC, and production-ops implementation by 2026-06-11.
+> Use current code, `memory/memory-feature-map.md`, and `tasks/production/current-state-audit.md` before relying on this phase plan.
+
 ## Phase Goal
 
 This is a **read-only analysis phase**. No code changes occur here.  

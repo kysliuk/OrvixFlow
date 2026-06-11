@@ -1,5 +1,9 @@
 # Phase 08 — Azure Blob Storage Production Provider
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage provider implementation by 2026-06-11.
+> Current code and verified production audit findings are the source of truth.
+
 ## Phase Goal
 
 Implement `AzureBlobObjectStorageService` (as `AzureBlobFileStorage`) that satisfies `IFileStorage`.  

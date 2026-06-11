@@ -64,8 +64,10 @@ Environment variables (or appsettings.json):
 - `AI:Ingestion:ChunkSize` - Default: 800
 - `AI:Ingestion:ChunkOverlap` - Default: 150
 
-## RAG Assistant Extension (Status: Phase 5 Completed — Production Ready)
-Fully instrumented, secured, and tested multi-modal ingestion and hybrid retrieval pipeline:
+## RAG Assistant Extension (Status: Feature-complete, production validation still pending)
+The RAG stack is materially implemented and instrumented, but it should not be treated as fully production-ready until the broader release, deploy, and runtime blockers documented in `tasks/production/current-state-audit.md` are resolved.
+
+Current implementation includes:
 - PDF (PdfPig), DOCX (OpenXML), Image (ImageSharp) parsing with background ingestion via Hangfire
 - Hybrid Search (pgvector + FTS) with Reciprocal Rank Fusion (RRF) and LLM reranking
 - Image-aware RAG: extracting, indexing, and retrieving relevant images with citation tags

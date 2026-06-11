@@ -1,5 +1,9 @@
 # Phase 10 — Tests, Health Checks, Observability, and Hardening
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage and observability implementation by 2026-06-11.
+> Use current code, `memory/memory-feature-map.md`, and `tasks/production/current-state-audit.md` before relying on this phase plan.
+
 ## Phase Goal
 
 Complete the quality layer for the storage migration:

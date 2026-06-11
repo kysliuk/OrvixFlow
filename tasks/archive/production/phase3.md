@@ -1,5 +1,9 @@
 # Phase 3 — Mailbox OAuth Credential Capture
 
+> **Obsolete / Historical Plan**
+> Superseded by `tasks/production/current-state-audit.md`, `tasks/production/overview.md`, and `tasks/production/progress.md` on 2026-06-11.
+> Core implementation from this plan has landed, but this document's status and dependency framing are no longer authoritative.
+
 > **Status:** Not Started  
 > **Estimated effort:** 4–6 weeks (6 implementation sessions)  
 > **Dependencies:** Phase 0 (n8n secured), Phase 1 (email working)  

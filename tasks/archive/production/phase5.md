@@ -1,5 +1,9 @@
 # Phase 5 — Observability, Database Backup & Production Operations
 
+> **Obsolete / Historical Plan**
+> Superseded by `tasks/production/current-state-audit.md`, `tasks/production/overview.md`, and `tasks/production/progress.md` on 2026-06-11.
+> This file describes historical intended work. Several items were implemented, but current production-readiness status must be taken from the verified audit and tracker files.
+
 > **Status:** Not Started  
 > **Estimated effort:** 1–2 weeks  
 > **Dependencies:** Phase 0 (n8n secured), Phase 4 (CI/CD pipeline); production infrastructure (server, domain, TLS cert)  

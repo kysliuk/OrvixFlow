@@ -1,5 +1,9 @@
 # Object Storage Migration — Master Overview
 
+> **Obsolete / Historical Migration Overview**
+> Large parts of this overview were superseded by later storage, RBAC, and production-ops implementation by 2026-06-11.
+> Use current code, `memory/memory-feature-map.md`, and `tasks/production/current-state-audit.md` before relying on this plan.
+
 ## What This Migration Is and Is Not
 
 This migration is **not merely "replace LocalFileStorage with MinIO."**

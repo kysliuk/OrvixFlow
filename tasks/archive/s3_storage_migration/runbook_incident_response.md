@@ -1,5 +1,9 @@
 # Runbook: Storage Incident Response
 
+> **Historical Runbook Draft**
+> This runbook was written for the older storage-migration track and may not reflect the current runtime path.
+> Validate against current code, deployment config, and `tasks/production/current-state-audit.md` before operational use.
+
 ## Purpose
 This runbook explains how to respond to common storage and file-safety incidents in OrvixFlow.
 

@@ -1,5 +1,10 @@
 # Stripe Setup Guide
 
+> **Obsolete / Historical Guide**
+> This document is test-mode oriented and uses older configuration naming assumptions.
+> Superseded for production readiness by `tasks/production/current-state-audit.md` on 2026-06-11.
+> Do not use this file as the canonical production Stripe setup guide without rewriting it first.
+
 **Author:** OrvixFlow
 **Date:** 2026-04-16
 **Purpose:** Guide for setting up Stripe integration in test mode

@@ -1,5 +1,9 @@
 # Phase 4 — CI/CD Pipeline
 
+> **Obsolete / Historical Plan**
+> Superseded by `tasks/production/current-state-audit.md`, `tasks/production/overview.md`, and `tasks/production/progress.md` on 2026-06-11.
+> Workflow files now exist, but this document's status assumptions are stale and should not be used for current production readiness tracking.
+
 > **Status:** Not Started  
 > **Estimated effort:** 1 week  
 > **Dependencies:** Phase 0 complete (env documented); production deployment target selected  

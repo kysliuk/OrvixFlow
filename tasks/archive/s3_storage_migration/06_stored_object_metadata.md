@@ -1,5 +1,9 @@
 # Phase 06 — StoredObject Metadata Entity (File Registry)
 
+> **Obsolete / Historical Migration Plan**
+> Superseded by later storage metadata implementation by 2026-06-11.
+> Use current code and `memory/memory-feature-map.md` before relying on this phase plan.
+
 ## Phase Goal
 
 Introduce a `StoredObject` entity as a platform-wide file metadata registry.  
