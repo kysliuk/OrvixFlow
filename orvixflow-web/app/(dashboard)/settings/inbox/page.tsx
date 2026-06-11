@@ -30,6 +30,7 @@ interface MailboxConnection {
   n8nWorkflowId?: string;
   createdAtUtc: string;
   connectedAtUtc?: string;
+  hasCredential?: boolean;
 }
 
 type Tab = "connections" | "policies" | "persona";
@@ -169,7 +170,7 @@ export default function InboxSettingsPage() {
       const errorData = await res.json().catch(() => ({}));
       setProvisioningErrors(prev => {
         const next = new Map(prev);
-        next.set(id, errorData.error || "Failed to activate connection");
+        next.set(id, errorData.message || errorData.error || "Failed to activate connection");
         return next;
       });
     }
@@ -181,6 +182,65 @@ export default function InboxSettingsPage() {
       headers: getHeaders(),
     });
     await loadConnections();
+  };
+
+  const handleConnectOAuth = async (connectionId: string) => {
+    try {
+      sessionStorage.setItem("oauth_connection_id", connectionId);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections/${connectionId}/credential/authorize`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authorizationUrl) {
+          window.location.href = data.authorizationUrl;
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.message || "Failed to start OAuth flow");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred starting OAuth flow");
+    }
+  };
+
+  const handleDisconnectCredential = async (connectionId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections/${connectionId}/credential`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        await loadConnections();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.message || "Failed to disconnect credentials");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred disconnecting credentials");
+    }
+  };
+
+  const handleRefreshCredential = async (connectionId: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/inbox/connections/${connectionId}/credential/refresh`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        alert("Credentials successfully refreshed!");
+        await loadConnections();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.message || "Failed to refresh credentials");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred refreshing credentials");
+    }
   };
 
   const handleCreatePolicy = async () => {
@@ -304,60 +364,86 @@ export default function InboxSettingsPage() {
                 {connections.length === 0 && (
                   <tr><td colSpan={4} className="px-4 py-8 text-center text-muted">No connections yet</td></tr>
                 )}
-                {connections.map(c => (
-                  <tr key={c.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="px-4 py-3">{c.emailAddress}</td>
-                    <td className="px-4 py-3">{c.provider}</td>
-                    <td className="px-4 py-3">
-                      {provisioningErrors.has(c.id) ? (
-                        <div>
-                          <span className="text-xs px-2 py-0.5 rounded bg-danger/10 text-danger">Error</span>
-                          <span className="block text-xs text-danger mt-1">{provisioningErrors.get(c.id)}</span>
-                        </div>
-                      ) : c.isActive ? (
-                        <div>
-                          <span className="text-xs px-2 py-0.5 rounded bg-success/10 text-success">Active</span>
-                          {!c.n8nWorkflowId && (
-                            <span className="block text-xs text-warning mt-1">Pending setup</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 rounded bg-muted/10 text-muted">Inactive</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 flex gap-2">
-                      <button
-                        onClick={() => handleToggleConnection(c.id, !c.isActive)}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        {c.isActive ? "Deactivate" : "Activate"}
-                      </button>
-                      <button onClick={() => handleDeleteConnection(c.id)} className="text-xs text-danger hover:underline">
-                        <Trash2 className="w-3 h-3 inline" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {connections.map(c => {
+                  const isOAuth = ["gmail", "outlook", "microsoft"].includes(c.provider.toLowerCase());
+                  return (
+                    <tr key={c.id} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="px-4 py-3">{c.emailAddress}</td>
+                      <td className="px-4 py-3">{c.provider}</td>
+                      <td className="px-4 py-3">
+                        {isOAuth && !c.hasCredential ? (
+                          <span className="text-xs px-2 py-0.5 rounded bg-warning/10 text-warning">
+                            No Credential
+                          </span>
+                        ) : provisioningErrors.has(c.id) ? (
+                          <div>
+                            <span className="text-xs px-2 py-0.5 rounded bg-danger/10 text-danger">Error</span>
+                            <span className="block text-xs text-danger mt-1">{provisioningErrors.get(c.id)}</span>
+                          </div>
+                        ) : c.isActive ? (
+                          <div>
+                            <span className="text-xs px-2 py-0.5 rounded bg-success/10 text-success">Active</span>
+                            {!c.n8nWorkflowId && (
+                              <span className="block text-xs text-warning mt-1">Pending setup</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded bg-muted/10 text-muted">Inactive</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 flex gap-2 items-center">
+                        {isOAuth && !c.hasCredential ? (
+                          <button
+                            onClick={() => handleConnectOAuth(c.id)}
+                            className="text-xs px-2 py-1 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/20 rounded font-medium transition-colors"
+                          >
+                            {c.provider.toLowerCase() === "gmail" ? "Connect Google Mail" : "Connect Outlook"}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleToggleConnection(c.id, !c.isActive)}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              {c.isActive ? "Deactivate" : "Activate"}
+                            </button>
+                            {isOAuth && (
+                              <>
+                                <button
+                                  onClick={() => handleRefreshCredential(c.id)}
+                                  className="text-xs text-muted hover:underline"
+                                >
+                                  Refresh
+                                </button>
+                                <button
+                                  onClick={() => handleDisconnectCredential(c.id)}
+                                  className="text-xs text-warning hover:underline"
+                                >
+                                  Disconnect
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                        <button onClick={() => handleDeleteConnection(c.id)} className="text-xs text-danger hover:underline ml-auto" title="Delete connection">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {connections.some(c => c.isActive && !c.n8nWorkflowId) && (
             <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <RefreshCw className="w-5 h-5 text-primary flex-shrink-0 mt-0.5 animate-spin" />
               <div>
-                <h3 className="font-medium text-primary">Complete OAuth Setup</h3>
+                <h3 className="font-medium text-primary">Workflow Provisioning in Progress</h3>
                 <p className="text-sm text-white/70 mt-1">
-                  Your mailbox connection is pending OAuth authentication. Complete the setup in n8n to enable email processing.
+                  We are automatically provisioning your mailbox connection with n8n. This process usually takes less than a minute.
                 </p>
-                <a
-                  href={`${process.env.NEXT_PUBLIC_N8N_URL || "http://localhost:5678"}/credentials`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
-                >
-                  Open n8n Credentials →
-                </a>
               </div>
             </div>
           )}

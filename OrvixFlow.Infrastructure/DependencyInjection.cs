@@ -51,6 +51,10 @@ public static class DependencyInjection
         // T3-4: Usage Alert Service
         services.AddScoped<IUsageAlertService, UsageAlertService>();
 
+        // Mailbox OAuth Credential storage and encryption
+        services.AddSingleton<MailboxCredentialEncryptionService>();
+        services.AddScoped<IMailboxCredentialService, MailboxCredentialService>();
+
         return services;
     }
 

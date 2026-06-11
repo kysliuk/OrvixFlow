@@ -55,6 +55,11 @@ public interface IStripeService
     /// Gets subscription details from Stripe.
     /// </summary>
     Task<SubscriptionDetails?> GetSubscriptionDetailsAsync(string subscriptionId);
+
+    /// <summary>
+    /// Preview/calculate proration for plan change.
+    /// </summary>
+    Task<ProrationPreview?> GetProrationPreviewAsync(Guid companyId, string newPriceId);
 }
 
 /// <summary>
@@ -71,3 +76,11 @@ public record SubscriptionDetails(
     DateTime Created,
     DateTime? CanceledAt,
     bool CancelAtPeriodEnd);
+
+/// <summary>
+/// Proration preview details from Stripe API.
+/// </summary>
+public record ProrationPreview(
+    long AmountCents,
+    string Currency,
+    int DaysRemaining);

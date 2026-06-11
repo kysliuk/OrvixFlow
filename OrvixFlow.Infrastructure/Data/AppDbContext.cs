@@ -31,7 +31,9 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowPolicy> WorkflowPolicies => Set<WorkflowPolicy>();
     public DbSet<ActionRequest> ActionRequests => Set<ActionRequest>();
     public DbSet<MailboxConnection> MailboxConnections => Set<MailboxConnection>();
+    public DbSet<MailboxCredential> MailboxCredentials => Set<MailboxCredential>();
     public DbSet<AgentPersona> AgentPersonas => Set<AgentPersona>();
+
     public DbSet<DraftFeedback> DraftFeedbacks => Set<DraftFeedback>();
 
     // From DockerizationAndCompanyInfraFeature
@@ -404,6 +406,18 @@ public class AppDbContext : DbContext
             .HasForeignKey(m => m.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<MailboxCredential>()
+            .HasOne(c => c.MailboxConnection)
+            .WithMany()
+            .HasForeignKey(c => c.MailboxConnectionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<MailboxConnection>()
+            .HasOne<MailboxCredential>()
+            .WithMany()
+            .HasForeignKey(m => m.CredentialId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // AgentPersona relationships
         modelBuilder.Entity<AgentPersona>()
             .HasIndex(a => a.TenantId)
@@ -437,6 +451,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<WorkflowPolicy>().HasQueryFilter(w => w.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<ActionRequest>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<MailboxConnection>().HasQueryFilter(m => m.TenantId == _tenantProvider.GetTenantId());
+        modelBuilder.Entity<MailboxCredential>().HasQueryFilter(m => m.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<AgentPersona>().HasQueryFilter(a => a.TenantId == _tenantProvider.GetTenantId());
         modelBuilder.Entity<DraftFeedback>().HasQueryFilter(d => d.TenantId == _tenantProvider.GetTenantId());
 

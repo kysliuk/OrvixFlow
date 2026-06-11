@@ -430,3 +430,20 @@ When modifying these areas, tests MUST pass:
 **Risk:** The live RBAC model now depends on a strict three-layer split: platform role in `User.Role`, company role in `UserCompanyMembership.CompanyRole`, and department role in `UserDepartmentMembership.DepartmentRole`. Any future shortcut that trusts JWT `Role` for department authority, rewrites department roles from company roles, or reintroduces legacy `Operator`/`Viewer` semantics can silently overgrant or block access.
 
 **Pattern:** Preserve `CompanyMember` as the canonical non-admin company role, resolve department-manager authority from active department memberships, and keep frontend organization guards driven by fetched department-role data rather than `session.user.role` alone. When changing this area, rerun backend auth/team/invite tests plus frontend organization permission tests before merging.
+
+---
+
+## Critical: Mailbox OAuth Credentials Capture & Storage
+
+**Location:** `OrvixFlow.Infrastructure/Services/MailboxCredentialService.cs`, `OrvixFlow.Infrastructure/Services/MailboxCredentialEncryptionService.cs`
+
+**Risk:** Exposing plaintext mailbox refresh/access tokens, cross-tenant credential theft, or n8n workflow injection.
+
+**Pattern:**
+- Tokens must be encrypted using AES-256-GCM before writing to the database.
+- Encryption key loaded via `MAILBOX_CREDENTIAL_ENCRYPTION_KEY` is kept secret and never returned in API responses.
+- The `MailboxCredential` entity has a global query filter on `TenantId`. `IgnoreQueryFilters()` must never be used for mailbox credential lookups outside of background Hangfire workflow provisioning/cleanup jobs.
+- Local developer fallback matches mock client configuration to prevent committing real credentials to dev settings.
+
+**When changing:**
+- Run `MailboxCredentialServiceTests.cs`, `MailboxCredentialEncryptionServiceTests.cs`, and `MailboxConnectionCredentialControllerTests.cs` to ensure isolation and encryption invariants are fully enforced.

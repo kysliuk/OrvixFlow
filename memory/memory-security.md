@@ -278,6 +278,18 @@ Present on both API and frontend (F-32 fixed):
 - No direct HTTP serving of files from the uploads directory.
 - **F-20 (MinIO) is deferred** — the current volume-mounted local storage is a placeholder. When MinIO is implemented, tenant-namespated bucket policies must be enforced.
 
+### Mailbox OAuth Credentials Secure Storage
+
+- **Boundary**: Mailbox OAuth credentials (Gmail and Microsoft access/refresh tokens) are captured directly via front-end redirection and post-back to `/api/v1/inbox/connections/{id}/credential/callback`.
+- **Encryption**: Tokens are encrypted at rest using AES-256-GCM implemented in `MailboxCredentialEncryptionService`.
+  - Cryptographically random 12-byte nonces are generated per encryption.
+  - The resulting ciphertext, IV, and 16-byte authentication tag are joined and stored in the database in a single Base64-encoded field.
+  - Verification of the GCM tag is performed upon decryption, protecting against database-level tampering.
+- **Secrets**: The master encryption key is loaded from the environment variable `MAILBOX_CREDENTIAL_ENCRYPTION_KEY` on the backend. This key is never exposed to the frontend or included in API responses.
+- **Tenant Scoping**: All operations on mailbox credentials enforce strict tenant scoping via global query filters on `MailboxCredential`. The controller routes verify that the connection and credentials belong to the active tenant resolving from the JWT bearer token.
+- **External Integration**: Decrypted tokens are transmitted over TLS to the n8n automation network inside Hangfire background provisioning jobs and are never exposed elsewhere.
+
+
 ### Background Jobs (Hangfire)
 
 - Jobs run without a JWT. Tenant context is provided by `BackgroundTenantProvider` or `ITenantProviderFactory`.

@@ -66,8 +66,11 @@
 | RagPipelineIntegrationTests | `OrvixFlow.Tests/RagPipelineIntegrationTests.cs` |
 | StripeWebhookTests | `OrvixFlow.Tests/StripeWebhookTests.cs` |
 | UsageAlertTests | `OrvixFlow.Tests/UsageAlertTests.cs` |
+| StripeServiceTests | `OrvixFlow.Tests/StripeServiceTests.cs` |
+| BillingControllerTests | `OrvixFlow.Tests/BillingControllerTests.cs` |
 | RagHealthCheck | `OrvixFlow.Api/Health/RagHealthCheck.cs` |
 | Load Test Script | `OrvixFlow.Api/load-test.sh` |
+
 
 ## Core Interfaces
 

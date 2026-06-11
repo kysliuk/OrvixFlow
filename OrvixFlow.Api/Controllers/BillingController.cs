@@ -491,8 +491,33 @@ public class BillingController : ControllerBase
             return NotFound(new { error = "Plan not found" });
         }
 
-        var currentPrice = currentSubscription?.PlanTemplate?.MonthlyPriceCents ?? 0;
-        var newPrice = newPlan.MonthlyPriceCents;
+        var interval = currentSubscription?.BillingInterval ?? newPlan.BillingInterval;
+        var newPriceId = interval == BillingInterval.Yearly ? newPlan.StripeYearlyPriceId : newPlan.StripeMonthlyPriceId;
+
+        if (!string.IsNullOrEmpty(currentSubscription?.ExternalSubscriptionId) && !string.IsNullOrEmpty(newPriceId))
+        {
+            var preview = await _stripeService.GetProrationPreviewAsync(companyId.Value, newPriceId);
+            if (preview != null)
+            {
+                return Ok(new
+                {
+                    currentPrice = currentSubscription?.PlanTemplate?.BillingInterval == BillingInterval.Yearly 
+                        ? currentSubscription.PlanTemplate.YearlyPriceCents 
+                        : currentSubscription?.PlanTemplate?.MonthlyPriceCents ?? 0,
+                    newPrice = interval == BillingInterval.Yearly ? newPlan.YearlyPriceCents : newPlan.MonthlyPriceCents,
+                    prorationAmount = preview.AmountCents,
+                    currency = preview.Currency,
+                    daysRemaining = preview.DaysRemaining,
+                    isEstimate = false
+                });
+            }
+        }
+
+        var isYearly = currentSubscription?.BillingInterval == BillingInterval.Yearly;
+        var currentPrice = isYearly 
+            ? currentSubscription!.PlanTemplate.YearlyPriceCents 
+            : currentSubscription?.PlanTemplate?.MonthlyPriceCents ?? 0;
+        var newPrice = isYearly ? newPlan.YearlyPriceCents : newPlan.MonthlyPriceCents;
         var daysRemaining = 0;
 
         if (currentSubscription?.CurrentPeriodEnd != default)
@@ -508,7 +533,6 @@ public class BillingController : ControllerBase
             newPrice = newPrice,
             prorationAmount = prorationAmount,
             daysRemaining = daysRemaining,
-            // T4-1: Mark as estimate until Stripe integration
             isEstimate = true,
             message = "Proration will be calculated when Stripe is integrated"
         });

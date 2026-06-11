@@ -13,6 +13,7 @@ public class MailboxConnection
     
     public string? N8nWorkflowId { get; set; }
     public string? N8nCredentialId { get; set; }
+    public Guid? CredentialId { get; set; }
     
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

@@ -252,6 +252,26 @@ HMAC-SHA256 signature validation:
 - Middleware: `HmacSignatureMiddleware`
 - Only applies to `/api/webhook/inbox`
 
+## Mailbox Connection & Secure Credentials
+
+**Implementation:** AES-256-GCM encryption + IMailboxCredentialService + local mock fallback
+
+- **Entities**:
+  - `MailboxConnection` holds mailbox metadata (email, provider, active status, n8n workflow references).
+  - `MailboxCredential` stores provider-specific encrypted tokens (access/refresh tokens).
+- **Encryption**:
+  - Encrypted at rest using AES-256-GCM in `MailboxCredentialEncryptionService` with a 256-bit key from `MAILBOX_CREDENTIAL_ENCRYPTION_KEY`.
+  - Nonces (12 bytes) are cryptographically random and combined with IV, tag, and ciphertext.
+- **Tenant Isolation**:
+  - Multi-tenant query filter applied to `MailboxCredential` matching `TenantId`.
+  - All token actions (authorize, callback, refresh, delete) check tenant constraints.
+- **Mock Fallback**:
+  - If backend OAuth credentials are not set in the environment, it returns a mock authorization redirection URL pointing to `/mailbox-callback?code=mock_code&state=...`.
+  - The callback endpoint handles `mock_code` and saves mock tokens, allowing validation of the database, encryption, and UI lifecycle.
+- **n8n Provisioning**:
+  - Automatically provisions decrypted credentials into n8n via `CreateCredentialAsync` upon mailbox activation.
+  - Automatically deletes credentials and workflows from n8n upon mailbox deactivation or deletion.
+
 
 ## Storage Layer
 

@@ -205,14 +205,115 @@ public class StripeService : IStripeService
         return subscription?.ExternalSubscriptionId;
     }
 
-    public Task ReactivateSubscriptionAsync(string subscriptionId)
+    public async Task ReactivateSubscriptionAsync(string subscriptionId)
     {
-        throw new NotImplementedException();
+        if (!_isConfigured || _subscriptionServiceClient == null)
+        {
+            throw new InvalidOperationException("Stripe is not configured.");
+        }
+
+        await _subscriptionServiceClient.UpdateAsync(subscriptionId, new global::Stripe.SubscriptionUpdateOptions
+        {
+            CancelAtPeriodEnd = false
+        });
+
+        _logger.LogInformation("Reactivated subscription {SubscriptionId}", subscriptionId);
     }
 
-    public Task<SubscriptionDetails?> GetSubscriptionDetailsAsync(string subscriptionId)
+    public async Task<SubscriptionDetails?> GetSubscriptionDetailsAsync(string subscriptionId)
     {
-        throw new NotImplementedException();
+        if (!_isConfigured || _subscriptionServiceClient == null)
+        {
+            _logger.LogWarning("GetSubscriptionDetailsAsync called but Stripe is not configured.");
+            return null;
+        }
+
+        try
+        {
+            var subscription = await _subscriptionServiceClient.GetAsync(subscriptionId);
+            if (subscription == null) return null;
+
+            var firstItem = subscription.Items?.Data?.FirstOrDefault();
+            var priceId = firstItem?.Price?.Id;
+            var amount = firstItem?.Price?.UnitAmountDecimal ?? 0m;
+
+            return new SubscriptionDetails(
+                Id: subscription.Id,
+                Status: subscription.Status,
+                CurrentPeriodEnd: subscription.CurrentPeriodEnd,
+                CustomerId: subscription.CustomerId,
+                PriceId: priceId,
+                Amount: amount,
+                Currency: subscription.Currency,
+                Created: subscription.Created,
+                CanceledAt: subscription.CanceledAt,
+                CancelAtPeriodEnd: subscription.CancelAtPeriodEnd
+            );
+        }
+        catch (global::Stripe.StripeException ex)
+        {
+            _logger.LogError(ex, "Error retrieving Stripe subscription {SubscriptionId}", subscriptionId);
+            return null;
+        }
+    }
+
+    public async Task<ProrationPreview?> GetProrationPreviewAsync(Guid companyId, string newPriceId)
+    {
+        if (!_isConfigured || _subscriptionServiceClient == null)
+        {
+            _logger.LogWarning("GetProrationPreviewAsync called but Stripe is not configured.");
+            return null;
+        }
+
+        var subscriptionId = await GetSubscriptionIdAsync(companyId);
+        if (string.IsNullOrEmpty(subscriptionId))
+        {
+            _logger.LogWarning("No active subscription ID found for company {CompanyId}", companyId);
+            return null;
+        }
+
+        try
+        {
+            var subscription = await _subscriptionServiceClient.GetAsync(subscriptionId);
+            if (subscription == null) return null;
+
+            var customerId = subscription.CustomerId;
+            var currentSubItemId = subscription.Items?.Data?.FirstOrDefault()?.Id;
+
+            if (string.IsNullOrEmpty(currentSubItemId))
+            {
+                _logger.LogWarning("Subscription {SubscriptionId} has no subscription items.", subscriptionId);
+                return null;
+            }
+
+            var invoiceService = new global::Stripe.InvoiceService();
+            var upcoming = await invoiceService.UpcomingAsync(new global::Stripe.UpcomingInvoiceOptions
+            {
+                Customer = customerId,
+                Subscription = subscriptionId,
+                SubscriptionItems = new List<global::Stripe.InvoiceSubscriptionItemOptions>
+                {
+                    new() { Id = currentSubItemId, Deleted = true },
+                    new() { Price = newPriceId, Quantity = 1 }
+                },
+                SubscriptionProrationDate = DateTime.UtcNow
+            });
+
+            var daysRemaining = subscription.CurrentPeriodEnd != default
+                ? (int)(subscription.CurrentPeriodEnd - DateTime.UtcNow).TotalDays
+                : 0;
+
+            return new ProrationPreview(
+                AmountCents: upcoming.AmountDue,
+                Currency: upcoming.Currency?.ToUpperInvariant() ?? "USD",
+                DaysRemaining: daysRemaining
+            );
+        }
+        catch (global::Stripe.StripeException ex)
+        {
+            _logger.LogWarning(ex, "Could not retrieve Stripe proration preview for company {CompanyId}", companyId);
+            return null;
+        }
     }
 
     /// <summary>
